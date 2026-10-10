@@ -382,6 +382,7 @@ public:
 	[[nodiscard]] bool localPinnedChats() const { return _localPinnedChats.current(); }
 	[[nodiscard]] bool keepDraftsLocal() const { return _keepDraftsLocal.current(); }
 	[[nodiscard]] bool reduceNetworkTracking() const { return _reduceNetworkTracking.current(); }
+	[[nodiscard]] bool enableDebugLogging() const { return _enableDebugLogging.current(); }
 	[[nodiscard]] bool markOldMessagesDeleted() const { return _markOldMessagesDeleted.current(); }
 	[[nodiscard]] bool showTimeZone() const { return _showTimeZone.current(); }
 	[[nodiscard]] bool showMessageShot() const { return _showMessageShot.current(); }
@@ -496,6 +497,7 @@ public:
 	void setLocalPinnedChats(bool val);
 	void setKeepDraftsLocal(bool val);
 	void setReduceNetworkTracking(bool val);
+	void setEnableDebugLogging(bool val);
 	void setMarkOldMessagesDeleted(bool val);
 	void setShowTimeZone(bool val);
 	void setShowMessageShot(bool val);
@@ -805,6 +807,7 @@ private:
 	rpl::variable<bool> _localPinnedChats = true;
 	rpl::variable<bool> _keepDraftsLocal = false;
 	rpl::variable<bool> _reduceNetworkTracking = false;
+	rpl::variable<bool> _enableDebugLogging = false;
 	rpl::variable<bool> _markOldMessagesDeleted = true;
 	rpl::variable<bool> _showTimeZone = false;
 	rpl::variable<bool> _showMessageShot = true;

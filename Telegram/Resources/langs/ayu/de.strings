@@ -468,6 +468,9 @@
 "ayu_AiAndArticlePopups" = "Pop-ups für KI-Editor und Article";
 "ayu_ReduceNetworkTracking" = "Netzwerk-Tracking verringern (Verbindungsschlüssel stündlich wechseln)";
 "ayu_NetworkPrivacyDescription" = "Nicht gesendete Entwürfe bleiben auf diesem Gerät und werden nicht zu Telegram hochgeladen, daher sehen andere Geräte sie nicht.\n\nBei verringertem Netzwerk-Tracking wird der Verbindungsschlüssel jede Stunde statt alle 24 Stunden erneuert, sodass jemand, der das Netzwerk beobachtet, dein Gerät damit nicht lange verfolgen kann. Das bedeutet mehr Handshakes und eine kurze Wiederverbindung pro Stunde und gilt für neue Schlüssel. Lehnt der Server ab, werden längere Zeiträume verwendet.";
+"ayu_EnableDebugLogging" = "Debug-Protokollierung aktivieren";
+"ayu_DebugLoggingDescription" = "Schreibt log.txt und crash_trace.txt in den Datenordner. Sie helfen bei der Fehlersuche, können aber Chatnamen, Dateipfade und andere private Angaben enthalten, daher nur bei Bedarf einschalten. Beim Ausschalten werden diese Dateien gelöscht.";
+
 "ayu_MarkOldMessagesDeleted" = "Alte Nachrichten beim Löschen eines Chats als gelöscht markieren";
 "ayu_DeletedChatsDescription" = "Ein gelöschtes Thema bleibt mit seinen geladenen Nachrichten als gelöscht markiert in der Liste. Das Ausschalten einer Option löscht keine gespeicherten Daten; sie werden beim erneuten Einschalten wieder angewendet. Änderungen bei den behaltenen Chats gelten nach einem Neustart. Werden gelöschte Nachrichten nicht in Chats angezeigt, sind sie trotzdem gespeichert und unter „Gelöschte ansehen“ verfügbar.";
 "ayu_StorageHeader" = "Speicher";

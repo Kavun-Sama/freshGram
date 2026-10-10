@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "logs.h"
 
+#include "ayu/utils/debug_logging.h"
 #include "platform/platform_specific.h"
 #include "core/crash_reports.h"
 #include "core/launcher.h"
@@ -53,7 +54,7 @@ QMutex *_logsMutex(LogDataType type, bool clear = false) {
 QString _logsFilePath(LogDataType type, const QString &postfix = QString()) {
 	QString path(cWorkingDir());
 	switch (type) {
-	case LogDataMain: path += u"log"_q + postfix + u".txt"_q; break;
+	case LogDataMain: path += u"tdata/log"_q + postfix + u".txt"_q; break;
 	case LogDataDebug: path += u"DebugLogs/log"_q + postfix + u".txt"_q; break;
 	case LogDataMtp: path += u"DebugLogs/mtp"_q + postfix + u".txt"_q; break;
 	}
@@ -110,6 +111,27 @@ public:
 		return QString();
 	}
 
+	void removeFiles() {
+		for (auto i = 0; i != LogDataCount; ++i) {
+			const auto type = LogDataType(i);
+			QMutexLocker lock(_logsMutex(type));
+			WritingEntryScope scope;
+
+			const auto file = files[type].get();
+			if (!file) {
+				continue;
+			}
+			if (file->isOpen()) {
+				file->close();
+			}
+			if (!file->fileName().isEmpty()) {
+				QFile::remove(file->fileName());
+			}
+		}
+		part = -1;
+		_removed = true;
+	}
+
 	void write(LogDataType type, const QString &msg) {
 		QMutexLocker lock(_logsMutex(type));
 		WritingEntryScope scope;
@@ -118,6 +140,12 @@ public:
 			reopenDebug();
 		}
 		const auto file = files[type].get();
+		if (_removed && type == LogDataMain && file && !file->isOpen()) {
+			_removed = false;
+			file->setFileName(_logsFilePath(LogDataMain));
+			QDir().mkpath(cWorkingDir() + u"tdata"_q);
+			file->open(QIODevice::WriteOnly | QIODevice::Text);
+		}
 		if (!file || !file->isOpen()) {
 			return;
 		}
@@ -129,6 +157,7 @@ private:
 	std::unique_ptr<QFile> files[LogDataCount];
 
 	int32 part = -1;
+	bool _removed = false;
 
 	bool reopen(LogDataType type, int32 dayIndex, const QString &postfix) {
 		if (files[type] && files[type]->isOpen()) {
@@ -142,6 +171,9 @@ private:
 		}
 
 		auto mode = QIODevice::WriteOnly | QIODevice::Text;
+		if (type == LogDataMain) {
+			QDir().mkpath(cWorkingDir() + u"tdata"_q);
+		}
 		if (type == LogDataMain) { // we can call LOG() in LogDataMain reopen - mutex not locked
 			if (postfix.isEmpty()) { // instance checked, need to move to log.txt
 				Assert(!files[type]->fileName().isEmpty()); // one of log_startXX.txt should've been opened already
@@ -177,10 +209,12 @@ private:
 
 				LogsStartIndexChosen = -1;
 
-				QDir working(cWorkingDir()); // delete all other log_startXX.txt that we can
+				QFile::remove(cWorkingDir() + u"log.txt"_q); // moved to tdata
+
+				QDir working(cWorkingDir() + u"tdata"_q); // delete all other log_startXX.txt that we can
 				QStringList oldlogs = working.entryList(QStringList("log_start*.txt"), QDir::Files);
 				for (QStringList::const_iterator i = oldlogs.cbegin(), e = oldlogs.cend(); i != e; ++i) {
-					QString oldlog = cWorkingDir() + *i, oldlogend = i->mid(u"log_start"_q.size());
+					QString oldlog = cWorkingDir() + u"tdata/"_q + *i, oldlogend = i->mid(u"log_start"_q.size());
 					if (oldlogend.size() == 1 + u".txt"_q.size() && oldlogend.at(0).isDigit() && base::StringViewMid(oldlogend, 1) == u".txt"_q) {
 						bool removed = QFile(oldlog).remove();
 						LOG(("Old start log '%1' found, deleted: %2").arg(*i, Logs::b(removed)));
@@ -271,6 +305,9 @@ LogsInMemoryList *DeletedLogsInMemory = SharedMemoryLocation<LogsInMemoryList, 0
 QString LogsBeforeSingleInstanceChecked; // LogsInMemory already dumped in LogsData, but LogsData is about to be deleted
 
 void _logsWrite(LogDataType type, const QString &msg) {
+	if (!AyuDebugLogging::Enabled()) {
+		return;
+	}
 	if (LogsData && (type == LogDataMain || LogsStartIndexChosen < 0)) {
 		if (type == LogDataMain || Logs::DebugEnabled()) {
 			LogsData->write(type, msg);
@@ -384,6 +421,7 @@ void start() {
 #endif // !Q_OS_WINRT
 
 	QDir().mkpath(cWorkingDir() + u"tdata"_q);
+	AyuDebugLogging::Init(cWorkingDir());
 
 	launcher.workingFolderReady();
 	CrashReports::StartCatching();
@@ -494,6 +532,13 @@ void multipleInstances() {
 		LOG(("WARNING: debug logs are not written in multiple instances mode!"));
 	}
 	LogsBeforeSingleInstanceChecked.clear();
+}
+
+void removeFiles() {
+	if (LogsData) {
+		LogsData->removeFiles();
+	}
+	QDir(cWorkingDir() + u"DebugLogs"_q).removeRecursively();
 }
 
 void closeMain() {

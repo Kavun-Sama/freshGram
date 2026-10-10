@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/cached_webview_availability.h"
 #include "test/test_agent.h"
 
+#include <QtCore/QFile>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QMimeDatabase>
 #include <QtGui/QGuiApplication>
@@ -112,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ayu_settings.h"
 #include "ayu/secret/secret_policy.h"
 #include "ayu/utils/crash_trace.h"
+#include "ayu/utils/debug_logging.h"
 #include "ayu/features/streamer_mode/streamer_mode.h"
 
 
@@ -317,7 +319,13 @@ void Application::run() {
 
 	startLocalStorage();
 
-	AyuCrashTrace::Install(cWorkingDir() + u"tdata"_q);
+	const auto traceDirectory = cWorkingDir() + u"tdata"_q;
+	if (AyuDebugLogging::Enabled()) {
+		AyuCrashTrace::Install(traceDirectory);
+	} else {
+		Logs::removeFiles();
+		AyuCrashTrace::Remove(traceDirectory);
+	}
 
 	style::SetCustomFont(settings().customFontFamily());
 	style::internal::StartFonts();

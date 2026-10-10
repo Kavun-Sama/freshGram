@@ -476,6 +476,9 @@
 "ayu_AiAndArticlePopups" = "Popup di Editor AI e Article";
 "ayu_ReduceNetworkTracking" = "Riduci il tracciamento di rete (ruota la chiave di connessione ogni ora)";
 "ayu_NetworkPrivacyDescription" = "Le bozze non inviate restano su questo dispositivo e non vengono caricate su Telegram, quindi gli altri dispositivi non le vedono.\n\nCon il tracciamento di rete ridotto la chiave di connessione viene rinnovata ogni ora invece che ogni 24 ore, così chi osserva la rete non può seguire a lungo il tuo dispositivo con essa. Significa più handshake e una breve riconnessione ogni ora, e vale per le nuove chiavi. Se il server rifiuta, vengono usati periodi più lunghi.";
+"ayu_EnableDebugLogging" = "Abilita il log di debug";
+"ayu_DebugLoggingDescription" = "Scrive log.txt e crash_trace.txt nella cartella dei dati. Aiutano a trovare i bug ma possono contenere nomi di chat, percorsi di file e altri dati privati, quindi lasciali disattivati se non servono. Disattivando, questi file vengono eliminati.";
+
 "ayu_MarkOldMessagesDeleted" = "Segna i vecchi messaggi come eliminati quando una chat viene eliminata";
 "ayu_DeletedChatsDescription" = "Un argomento eliminato resta nell'elenco segnato come eliminato, insieme ai messaggi caricati. Disattivare un'opzione non elimina i dati salvati: vengono applicati di nuovo quando la riattivi. Le modifiche alle chat mantenute si applicano dopo un riavvio. Se i messaggi eliminati non vengono mostrati nelle chat, sono comunque salvati e disponibili in «Vedi eliminati».";
 "ayu_StorageHeader" = "Archiviazione";

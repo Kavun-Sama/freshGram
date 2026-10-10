@@ -334,6 +334,16 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 
 	builder.addSkip();
 	builder.addDividerText(tr::ayu_NetworkPrivacyDescription());
+
+	ayu.addSettingToggle({
+		.id = u"ayu/enableDebugLogging"_q,
+		.title = tr::ayu_EnableDebugLogging(),
+		.getter = &AyuSettings::enableDebugLogging,
+		.setter = &AyuSettings::setEnableDebugLogging,
+	});
+
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_DebugLoggingDescription());
 }
 
 const auto kMeta = BuildHelper({

@@ -87,7 +87,7 @@ auto GenerateCodes() {
 		} }));
 	});
 	codes.emplace(u"viewlogs"_q, [](SessionController *window) {
-		File::ShowInFolder(cWorkingDir() + "log.txt");
+		File::ShowInFolder(cWorkingDir() + "tdata/log.txt");
 	});
 	if (!Core::UpdaterDisabled()) {
 		codes.emplace(u"testupdate"_q, [](SessionController *window) {

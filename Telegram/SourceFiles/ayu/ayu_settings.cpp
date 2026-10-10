@@ -4,6 +4,8 @@
 // but be respectful and credit the original author.
 //
 // Copyright @Radolyn, 2026
+#include "ayu/utils/crash_trace.h"
+#include "ayu/utils/debug_logging.h"
 #include "ayu/utils/network_privacy.h"
 #include "ayu/ayu_settings.h"
 
@@ -399,6 +401,7 @@ void AyuSettings::load() {
 			settings.backupIntervalHours());
 		AyuDatabase::purgeOlderThan(settings.keepDeletedDays());
 		AyuNetworkPrivacy::SetEnabled(settings.reduceNetworkTracking());
+		AyuDebugLogging::SetEnabled(settings.enableDebugLogging());
 	});
 	std::ifstream file(getSettingsPath());
 	if (!file.good()) {
@@ -1167,6 +1170,20 @@ void AyuSettings::setReduceNetworkTracking(bool val) {
 	save();
 }
 
+void AyuSettings::setEnableDebugLogging(bool val) {
+	if (_enableDebugLogging.current() == val) return;
+	_enableDebugLogging = val;
+	AyuDebugLogging::SetEnabled(val);
+	const auto directory = cWorkingDir() + u"tdata"_q;
+	if (val) {
+		AyuCrashTrace::Install(directory);
+	} else {
+		Logs::removeFiles();
+		AyuCrashTrace::Remove(directory);
+	}
+	save();
+}
+
 void AyuSettings::setMarkOldMessagesDeleted(bool val) {
 	if (_markOldMessagesDeleted.current() == val) return;
 	_markOldMessagesDeleted = val;
@@ -1396,6 +1413,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"localPinnedChats", s._localPinnedChats.current()},
 		{"keepDraftsLocal", s._keepDraftsLocal.current()},
 		{"reduceNetworkTracking", s._reduceNetworkTracking.current()},
+		{"enableDebugLogging", s._enableDebugLogging.current()},
 		{"markOldMessagesDeleted", s._markOldMessagesDeleted.current()},
 		{"showTimeZone", s._showTimeZone.current()},
 		{"showMessageShot", s._showMessageShot.current()},
@@ -1527,6 +1545,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._localPinnedChats = j.value("localPinnedChats", defaults._localPinnedChats.current());
 	s._keepDraftsLocal = j.value("keepDraftsLocal", defaults._keepDraftsLocal.current());
 	s._reduceNetworkTracking = j.value("reduceNetworkTracking", defaults._reduceNetworkTracking.current());
+	s._enableDebugLogging = j.value("enableDebugLogging", defaults._enableDebugLogging.current());
 	s._markOldMessagesDeleted = j.value("markOldMessagesDeleted", defaults._markOldMessagesDeleted.current());
 	s._showTimeZone = j.value("showTimeZone", defaults._showTimeZone.current());
 	s._showMessageShot = j.value("showMessageShot", defaults._showMessageShot.current());

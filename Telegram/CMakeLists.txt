@@ -125,6 +125,8 @@ set(ayugram_files
         ayu/utils/builtin_lang.cpp
         ayu/utils/builtin_lang.h
         ayu/utils/crash_trace.cpp
+        ayu/utils/debug_logging.cpp
+        ayu/utils/debug_logging.h
         ayu/utils/mtp_retry_log.cpp
         ayu/utils/network_privacy.cpp
         ayu/utils/network_privacy.h
