@@ -68,6 +68,9 @@ void removeKeptTopic(ID userId, ID dialogId, ID rootId);
 std::vector<KeptDialog> getKeptDialogs(ID userId);
 void removeKeptDialog(ID userId, ID dialogId);
 
+std::vector<ID> getLocalPins(ID userId);
+void saveLocalPins(ID userId, const std::vector<ID> &peers);
+
 void saveKnownUsers(const std::vector<KnownUser> &users);
 std::optional<KnownUser> getKnownUser(ID userId, ID peerId);
 

@@ -163,6 +163,12 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	builder.addSubsectionTitle(tr::ayu_CategoryGeneral());
 
 	const auto controller = builder.controller();
+	ayu.addSettingToggle({
+		.id = u"ayu/localPinnedChats"_q,
+		.title = tr::ayu_LocalPinnedChats(),
+		.getter = &AyuSettings::localPinnedChats,
+		.setter = &AyuSettings::setLocalPinnedChats,
+	});
 	ayu.addToggle({
 		.id = u"ayu/disableStories"_q,
 		.altIds = { u"ayu/hideStories"_q },

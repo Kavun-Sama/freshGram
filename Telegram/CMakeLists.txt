@@ -264,6 +264,8 @@ set(ayugram_files
         ayu/data/kept_dialogs.h
         ayu/data/known_users.cpp
         ayu/data/known_users.h
+        ayu/data/local_pins.cpp
+        ayu/data/local_pins.h
         ayu/secret/secret_bridge.cpp
         ayu/secret/secret_bridge.h
         ayu/secret/secret_crypto.cpp

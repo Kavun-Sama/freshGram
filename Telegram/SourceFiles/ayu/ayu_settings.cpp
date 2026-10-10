@@ -1146,6 +1146,12 @@ void AyuSettings::setShowDeletedChatIcon(bool val) {
 	save();
 }
 
+void AyuSettings::setLocalPinnedChats(bool val) {
+	if (_localPinnedChats.current() == val) return;
+	_localPinnedChats = val;
+	save();
+}
+
 void AyuSettings::setMarkOldMessagesDeleted(bool val) {
 	if (_markOldMessagesDeleted.current() == val) return;
 	_markOldMessagesDeleted = val;
@@ -1372,6 +1378,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"keepDeletedTopics", s._keepDeletedTopics.current()},
 		{"restoreDeletedInChats", s._restoreDeletedInChats.current()},
 		{"showDeletedChatIcon", s._showDeletedChatIcon.current()},
+		{"localPinnedChats", s._localPinnedChats.current()},
 		{"markOldMessagesDeleted", s._markOldMessagesDeleted.current()},
 		{"showTimeZone", s._showTimeZone.current()},
 		{"showMessageShot", s._showMessageShot.current()},
@@ -1500,6 +1507,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._keepDeletedTopics = j.value("keepDeletedTopics", defaults._keepDeletedTopics.current());
 	s._restoreDeletedInChats = j.value("restoreDeletedInChats", defaults._restoreDeletedInChats.current());
 	s._showDeletedChatIcon = j.value("showDeletedChatIcon", defaults._showDeletedChatIcon.current());
+	s._localPinnedChats = j.value("localPinnedChats", defaults._localPinnedChats.current());
 	s._markOldMessagesDeleted = j.value("markOldMessagesDeleted", defaults._markOldMessagesDeleted.current());
 	s._showTimeZone = j.value("showTimeZone", defaults._showTimeZone.current());
 	s._showMessageShot = j.value("showMessageShot", defaults._showMessageShot.current());

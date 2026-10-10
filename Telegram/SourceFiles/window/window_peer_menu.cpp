@@ -139,6 +139,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QAction>
 #include <QtWidgets/QApplication>
 
+#include "ayu/ayu_settings.h"
+#include "ayu/data/local_pins.h"
 #include "ayu/data/kept_dialogs.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "ayu/features/peek/peek_online.h"
@@ -422,6 +424,8 @@ bool PinnedLimitReached(
 		owner->setChatPinned(wasted, FilterId(), false);
 		owner->setChatPinned(history, FilterId(), true);
 		history->session().api().savePinnedOrder(folder);
+	} else if (AyuSettings::getInstance().localPinnedChats()) {
+		AyuLocalPins::pin(history);
 	} else if (folder) {
 		controller->show(Box(FolderPinsLimitBox, &history->session()));
 	} else {
@@ -452,6 +456,15 @@ void TogglePinnedThread(
 	}
 	const auto owner = &entry->owner();
 	const auto isPinned = !entry->isPinnedDialog(FilterId());
+	if (!isPinned) {
+		if (const auto history = entry->asHistory();
+			history && AyuLocalPins::unpin(history)) {
+			if (onToggled) {
+				onToggled();
+			}
+			return;
+		}
+	}
 	if (isPinned && PinnedLimitReached(controller, entry)) {
 		return;
 	}

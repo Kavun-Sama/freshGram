@@ -184,6 +184,13 @@ auto storage = make_storage(
 			   column<SecretMessageRow>(&SecretMessageRow::userId),
 			   column<SecretMessageRow>(&SecretMessageRow::chatId),
 			   column<SecretMessageRow>(&SecretMessageRow::randomId)),
+	make_table<LocalPin>(
+		"LocalPin",
+		make_column("fakeId", &LocalPin::fakeId, primary_key().autoincrement()),
+		make_column("userId", &LocalPin::userId),
+		make_column("peerId", &LocalPin::peerId),
+		make_column("position", &LocalPin::position)
+	),
 	make_table<KnownUser>(
 		"KnownUser",
 		make_column("fakeId", &KnownUser::fakeId, primary_key().autoincrement()),
@@ -959,6 +966,33 @@ void removeKeptDialog(ID userId, ID dialogId) {
 				column<KeptDialog>(&KeptDialog::dialogId) == dialogId
 			)
 		);
+	});
+}
+
+std::vector<ID> getLocalPins(ID userId) {
+	return run<std::vector<ID>>("load local pins", {}, [&] {
+		auto result = std::vector<ID>();
+		const auto rows = storage.get_all<LocalPin>(
+			where(column<LocalPin>(&LocalPin::userId) == userId),
+			order_by(column<LocalPin>(&LocalPin::position)));
+		result.reserve(rows.size());
+		for (const auto &row : rows) {
+			result.push_back(row.peerId);
+		}
+		return result;
+	});
+}
+
+void saveLocalPins(ID userId, const std::vector<ID> &peers) {
+	runVoid("save local pins", [&] {
+		inTransaction([&] {
+			storage.remove_all<LocalPin>(
+				where(column<LocalPin>(&LocalPin::userId) == userId));
+			auto position = 0;
+			for (const auto peerId : peers) {
+				storage.insert(LocalPin{ 0, userId, peerId, position++ });
+			}
+		});
 	});
 }
 

@@ -471,6 +471,7 @@
 "ayu_KeepDeletedTopics" = "Mantieni gli argomenti eliminati dei gruppi";
 "ayu_RestoreDeletedInChats" = "Mostra i messaggi eliminati nelle chat";
 "ayu_ShowDeletedChatIcon" = "Icona del cestino sulle chat eliminate";
+"ayu_LocalPinnedChats" = "Chat fissate illimitate (locale)";
 "ayu_MarkOldMessagesDeleted" = "Segna i vecchi messaggi come eliminati quando una chat viene eliminata";
 "ayu_DeletedChatsDescription" = "Un argomento eliminato resta nell'elenco segnato come eliminato, insieme ai messaggi caricati. Disattivare un'opzione non elimina i dati salvati: vengono applicati di nuovo quando la riattivi. Le modifiche alle chat mantenute si applicano dopo un riavvio. Se i messaggi eliminati non vengono mostrati nelle chat, sono comunque salvati e disponibili in «Vedi eliminati».";
 "ayu_StorageHeader" = "Archiviazione";

@@ -133,6 +133,15 @@ public:
 	int flags;
 };
 
+class LocalPin
+{
+public:
+	ID fakeId;
+	ID userId;
+	ID peerId;
+	int position;
+};
+
 class KnownUser
 {
 public:

@@ -93,6 +93,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/random.h"
 #include "spellcheck/spellcheck_highlight_syntax.h"
 
+#include "ayu/data/local_pins.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/data/kept_dialogs.h"
 #include "ayu/data/known_users.h"
@@ -2830,6 +2831,12 @@ void Session::setChatPinned(
 void Session::setPinnedFromEntryList(Dialogs::Key key, bool pinned) {
 	Expects(key.entry()->folderKnown());
 
+	if (!pinned && AyuLocalPins::isLocal(key)) {
+		return;
+	}
+	if (const auto history = key.history(); history && pinned) {
+		AyuLocalPins::forget(this, history->peer->id);
+	}
 	const auto list = chatsListFor(key.entry())->pinned();
 	if (pinned) {
 		list->addPinned(key);
@@ -2860,7 +2867,14 @@ void Session::applyPinnedChats(
 			}
 		});
 	}
+	for (const auto &peer : list) {
+		peer.match([&](const MTPDdialogPeer &data) {
+			AyuLocalPins::forget(this, peerFromMTP(data.vpeer()));
+		}, [](const auto &) {
+		});
+	}
 	chatsList(folder)->pinned()->applyList(this, list);
+	AyuLocalPins::reapply(this);
 	notifyPinnedDialogsOrderUpdated();
 }
 
@@ -2885,6 +2899,7 @@ void Session::applyDialogs(
 	if (requestFolder && count) {
 		requestFolder->chatsList()->setCloudListSize(*count);
 	}
+	AyuLocalPins::reapply(this);
 }
 
 void Session::applyDialog(
@@ -2960,7 +2975,8 @@ bool Session::pinnedCanPin(not_null<Dialogs::Entry*> entry) const {
 		return pinnedChatsOrder(forum).size() < pinnedChatsLimit(forum);
 	} else {
 		const auto folder = entry->folder();
-		return pinnedChatsOrder(folder).size() < pinnedChatsLimit(folder);
+		return (int(pinnedChatsOrder(folder).size())
+			- AyuLocalPins::count(this, folder)) < pinnedChatsLimit(folder);
 	}
 }
 
@@ -3002,17 +3018,8 @@ int Session::pinnedChatsLimit(not_null<Data::SavedMessages*> saved) const {
 }
 
 rpl::producer<int> Session::maxPinnedChatsLimitValue(
-		Data::Folder *folder) const {
-	// Premium limit from appconfig.
-	// We always use premium limit in the MainList limit producer,
-	// because it slices the list to that limit. We don't want to slice
-	// premium-ly added chats from the pinned list because of sync issues.
-	return _session->appConfig().value(
-	) | rpl::map([folder, limits = Data::PremiumLimits(_session)] {
-		return folder
-			? limits.dialogsFolderPinnedPremium()
-			: limits.dialogsPinnedPremium();
-	});
+		Data::Folder*) const {
+	return rpl::single(AyuLocalPins::kListLimit);
 }
 
 rpl::producer<int> Session::maxPinnedChatsLimitValue(
@@ -3096,6 +3103,9 @@ void Session::reorderTwoPinnedChats(
 		: chatsListFor(key1.entry());
 	list->pinned()->reorder(key1, key2);
 	notifyPinnedDialogsOrderUpdated();
+	if (AyuLocalPins::isLocal(key1) || AyuLocalPins::isLocal(key2)) {
+		AyuLocalPins::saveOrder(this);
+	}
 }
 
 bool Session::updateExistingMessage(const MTPDmessage &data) {

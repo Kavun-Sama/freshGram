@@ -471,6 +471,7 @@
 "ayu_KeepDeletedTopics" = "Garder les sujets supprimés des groupes";
 "ayu_RestoreDeletedInChats" = "Afficher les messages supprimés dans les discussions";
 "ayu_ShowDeletedChatIcon" = "Icône de corbeille sur les discussions supprimées";
+"ayu_LocalPinnedChats" = "Discussions épinglées illimitées (local)";
 "ayu_MarkOldMessagesDeleted" = "Marquer les anciens messages comme supprimés quand une discussion est supprimée";
 "ayu_DeletedChatsDescription" = "Un sujet supprimé reste dans la liste, marqué comme supprimé, avec ses messages chargés. Désactiver une option ne supprime pas les données enregistrées ; elles sont appliquées de nouveau à la réactivation. Les changements des discussions conservées s'appliquent après un redémarrage. Si les messages supprimés ne s'affichent pas dans les discussions, ils sont tout de même enregistrés et disponibles dans « Voir les supprimés ».";
 "ayu_StorageHeader" = "Stockage";
