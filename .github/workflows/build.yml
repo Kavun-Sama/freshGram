@@ -332,6 +332,27 @@ jobs:
           Telegram/build/flatpak/build.sh out/install/usr dist/freshGram.flatpak
           (cd dist && sha256sum freshGram-linux-x86_64.tar.gz freshGram.pacman freshGram.flatpak > SHA256SUMS)
 
+      - name: AppImage
+        continue-on-error: true
+        run: |
+          set -e
+          Telegram/build/appimage/build.sh out/install/usr dist/freshGram.AppImage
+
+      - name: Debian package
+        continue-on-error: true
+        run: |
+          set -e
+          version=$(awk '/^AppVersionStr /{print $2}' Telegram/build/version)
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          Telegram/build/deb/build.sh out/install/usr dist/freshGram.deb "$version"
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -367,4 +388,6 @@ jobs:
             dist/freshGram-linux-x86_64.tar.gz
             dist/freshGram.pacman
             dist/freshGram.flatpak
+            dist/freshGram.AppImage
+            dist/freshGram.deb
             dist/SHA256SUMS
