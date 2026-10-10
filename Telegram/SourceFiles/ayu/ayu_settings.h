@@ -334,7 +334,6 @@ public:
 	[[nodiscard]] bool showAutoDeleteButtonInMessageField() const { return _showAutoDeleteButtonInMessageField.current(); }
 	[[nodiscard]] bool showGiftButtonInMessageField() const { return _showGiftButtonInMessageField.current(); }
 	[[nodiscard]] bool showAiEditorButtonInMessageField() const { return _showAiEditorButtonInMessageField.current(); }
-	[[nodiscard]] bool hideAiAndArticleButtons() const { return _hideAiAndArticleButtons.current(); }
 	[[nodiscard]] bool showAttachPopup() const { return _showAttachPopup.current(); }
 	[[nodiscard]] bool showEmojiPopup() const { return _showEmojiPopup.current(); }
 	[[nodiscard]] bool showMyProfileInDrawer() const { return _showMyProfileInDrawer.current(); }
@@ -461,7 +460,6 @@ public:
 	void setShowAutoDeleteButtonInMessageField(bool val);
 	void setShowGiftButtonInMessageField(bool val);
 	void setShowAiEditorButtonInMessageField(bool val);
-	void setHideAiAndArticleButtons(bool val);
 	void setShowAttachPopup(bool val);
 	void setShowEmojiPopup(bool val);
 	void setShowMyProfileInDrawer(bool val);
@@ -620,7 +618,6 @@ public:
 	[[nodiscard]] rpl::producer<bool> showGiftButtonInMessageFieldChanges() const { return _showGiftButtonInMessageField.changes(); }
 	[[nodiscard]] rpl::producer<bool> showAiEditorButtonInMessageFieldValue() const { return _showAiEditorButtonInMessageField.value(); }
 	[[nodiscard]] rpl::producer<bool> showAiEditorButtonInMessageFieldChanges() const { return _showAiEditorButtonInMessageField.changes(); }
-	[[nodiscard]] rpl::producer<bool> hideAiAndArticleButtonsChanges() const { return _hideAiAndArticleButtons.changes(); }
 	[[nodiscard]] rpl::producer<bool> showAttachPopupValue() const { return _showAttachPopup.value(); }
 	[[nodiscard]] rpl::producer<bool> showAttachPopupChanges() const { return _showAttachPopup.changes(); }
 	[[nodiscard]] rpl::producer<bool> showEmojiPopupValue() const { return _showEmojiPopup.value(); }
@@ -771,7 +768,6 @@ private:
 	rpl::variable<bool> _showAutoDeleteButtonInMessageField = true;
 	rpl::variable<bool> _showGiftButtonInMessageField = true;
 	rpl::variable<bool> _showAiEditorButtonInMessageField = true;
-	rpl::variable<bool> _hideAiAndArticleButtons = false;
 	rpl::variable<bool> _showAttachPopup = true;
 	rpl::variable<bool> _showEmojiPopup = true;
 	rpl::variable<bool> _showMyProfileInDrawer = true;

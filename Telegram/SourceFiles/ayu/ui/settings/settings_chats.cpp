@@ -462,17 +462,11 @@ void BuildMessageFieldElements(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 	});
 	ayu.addSettingToggle({
 		.id = u"ayu/showAiEditorButtonInMessageField"_q,
-		.title = tr::lng_ai_compose_title(),
+		.altIds = { u"ayu/showArticleButtonInMessageField"_q },
+		.title = tr::ayu_AiAndArticlePopups(),
 		.getter = &AyuSettings::showAiEditorButtonInMessageField,
 		.setter = &AyuSettings::setShowAiEditorButtonInMessageField,
-		.icon = { &st::messageFieldCocoonAiIcon },
-	});
-	ayu.addSettingToggle({
-		.id = u"ayu/hideAiAndArticleButtons"_q,
-		.altIds = { u"ayu/hideArticleButton"_q, u"ayu/hideAiButton"_q },
-		.title = tr::ayu_HideAiAndArticleButtons(),
-		.getter = &AyuSettings::hideAiAndArticleButtons,
-		.setter = &AyuSettings::setHideAiAndArticleButtons,
+		.icon = { &st::messageFieldAiArticleIcon },
 	});
 
 	ayu.addSectionDivider();

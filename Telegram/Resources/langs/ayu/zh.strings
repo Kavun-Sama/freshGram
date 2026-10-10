@@ -457,7 +457,7 @@
 "ayu_ShowDeletedChatIcon" = "已删除的聊天上显示垃圾桶图标";
 "ayu_LocalPinnedChats" = "不限数量的置顶聊天（仅本地）";
 "ayu_KeepDraftsLocal" = "草稿仅保存在此设备上";
-"ayu_HideAiAndArticleButtons" = "在输入框中隐藏 AI 编辑器和文章按钮";
+"ayu_AiAndArticlePopups" = "AI 编辑器和 Article 弹出按钮";
 "ayu_ReduceNetworkTracking" = "减少网络追踪（每小时轮换连接密钥）";
 "ayu_MarkOldMessagesDeleted" = "删除聊天时将旧消息标记为已删除";
 "ayu_DeletedChatsDescription" = "已删除的话题会连同已加载的消息一起留在列表中，并标记为已删除。关闭某个选项不会删除已保存的数据；再次开启时会重新生效。对保留的聊天所做的更改在重启后生效。如果聊天中不显示已删除的消息，它们仍会被保存，并可在“查看已删除”中查看。";

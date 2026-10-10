@@ -2953,7 +2953,6 @@ void ComposeControls::init() {
 		AyuSettings::getInstance().showAutoDeleteButtonInMessageFieldChanges() | rpl::to_empty,
 		session().data().aiComposeTones().updated() | rpl::to_empty,
 		AyuSettings::getInstance().showAiEditorButtonInMessageFieldChanges() | rpl::to_empty,
-		AyuSettings::getInstance().hideAiAndArticleButtonsChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAttachPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showEmojiPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().channelBottomButtonChanges() | rpl::to_empty,
@@ -5197,8 +5196,7 @@ void ComposeControls::updateControlsVisibility() {
 }
 
 void ComposeControls::updateAiButtonVisibility() {
-	const auto hidden = AyuSettings::getInstance().hideAiAndArticleButtons()
-		|| !hasEnoughLinesForAi()
+	const auto hidden = !hasEnoughLinesForAi()
 		|| !_wrap->isVisible()
 		|| _recording.current()
 		|| !_field->isVisible();
@@ -5239,7 +5237,7 @@ bool ComposeControls::canShowRichEditor() const {
 }
 
 void ComposeControls::updateExpandButtonVisibility() {
-	const auto hidden = AyuSettings::getInstance().hideAiAndArticleButtons()
+	const auto hidden = !AyuSettings::getInstance().showAiEditorButtonInMessageField()
 		|| !canShowRichEditor()
 		|| !hasEnoughLinesForExpand();
 	if (_expand->isHidden() != hidden) {

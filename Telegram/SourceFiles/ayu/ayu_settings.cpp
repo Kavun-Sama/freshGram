@@ -947,12 +947,6 @@ void AyuSettings::setShowAiEditorButtonInMessageField(bool val) {
 	save();
 }
 
-void AyuSettings::setHideAiAndArticleButtons(bool val) {
-	if (_hideAiAndArticleButtons.current() == val) return;
-	_hideAiAndArticleButtons = val;
-	save();
-}
-
 void AyuSettings::setShowAttachPopup(bool val) {
 	if (_showAttachPopup.current() == val) return;
 	_showAttachPopup = val;
@@ -1366,7 +1360,6 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showAutoDeleteButtonInMessageField", s._showAutoDeleteButtonInMessageField.current()},
 		{"showGiftButtonInMessageField", s._showGiftButtonInMessageField.current()},
 		{"showAiEditorButtonInMessageField", s._showAiEditorButtonInMessageField.current()},
-		{"hideAiAndArticleButtons", s._hideAiAndArticleButtons.current()},
 		{"showAttachPopup", s._showAttachPopup.current()},
 		{"showEmojiPopup", s._showEmojiPopup.current()},
 		{"showMyProfileInDrawer", s._showMyProfileInDrawer.current()},
@@ -1498,7 +1491,6 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showAutoDeleteButtonInMessageField = j.value("showAutoDeleteButtonInMessageField", defaults._showAutoDeleteButtonInMessageField.current());
 	s._showGiftButtonInMessageField = j.value("showGiftButtonInMessageField", defaults._showGiftButtonInMessageField.current());
 	s._showAiEditorButtonInMessageField = j.value("showAiEditorButtonInMessageField", defaults._showAiEditorButtonInMessageField.current());
-	s._hideAiAndArticleButtons = j.value("hideAiAndArticleButtons", defaults._hideAiAndArticleButtons.current());
 	s._showAttachPopup = j.value("showAttachPopup", defaults._showAttachPopup.current());
 	s._showEmojiPopup = j.value("showEmojiPopup", defaults._showEmojiPopup.current());
 	s._showMyProfileInDrawer = j.value("showMyProfileInDrawer", defaults._showMyProfileInDrawer.current());
