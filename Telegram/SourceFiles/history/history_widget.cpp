@@ -955,6 +955,7 @@ HistoryWidget::HistoryWidget(
 		AyuSettings::getInstance().showAutoDeleteButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showGiftButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAiEditorButtonInMessageFieldChanges() | rpl::to_empty,
+		AyuSettings::getInstance().hideAiAndArticleButtonsChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAttachPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showEmojiPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().channelBottomButtonChanges() | rpl::to_empty,
@@ -7489,7 +7490,10 @@ bool HistoryWidget::textExceedsMaxSize() const {
 }
 
 void HistoryWidget::updateAiButtonVisibility() {
-	const auto hidden = true;
+	const auto hidden = AyuSettings::getInstance().hideAiAndArticleButtons()
+		|| !hasEnoughLinesForAi()
+		|| !_send->isVisible()
+		|| !_field->isVisible();
 	if (_aiButton->isHidden() == hidden) {
 		return;
 	}
@@ -7518,7 +7522,9 @@ bool HistoryWidget::canShowRichEditor() const {
 }
 
 void HistoryWidget::updateExpandButtonVisibility() {
-	const auto hidden = !canShowRichEditor() || !hasEnoughLinesForExpand();
+	const auto hidden = AyuSettings::getInstance().hideAiAndArticleButtons()
+		|| !canShowRichEditor()
+		|| !hasEnoughLinesForExpand();
 	if (_expand->isHidden() != hidden) {
 		_expand->setVisible(!hidden);
 	}

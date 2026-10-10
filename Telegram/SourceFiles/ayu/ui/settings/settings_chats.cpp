@@ -467,6 +467,13 @@ void BuildMessageFieldElements(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.setter = &AyuSettings::setShowAiEditorButtonInMessageField,
 		.icon = { &st::messageFieldCocoonAiIcon },
 	});
+	ayu.addSettingToggle({
+		.id = u"ayu/hideAiAndArticleButtons"_q,
+		.altIds = { u"ayu/hideArticleButton"_q, u"ayu/hideAiButton"_q },
+		.title = tr::ayu_HideAiAndArticleButtons(),
+		.getter = &AyuSettings::hideAiAndArticleButtons,
+		.setter = &AyuSettings::setHideAiAndArticleButtons,
+	});
 
 	ayu.addSectionDivider();
 }
