@@ -470,7 +470,7 @@ void saveTtlMedia(not_null<HistoryItem*> item) {
 }
 
 static MTPMessageMedia WithTtl(const MTPMessageMedia &media) {
-	const auto seconds = MTP_int(int(kTimeToLiveSingleView));
+	const auto seconds = MTP_int(int(Data::kTimeToLiveSingleView));
 	return media.match([&](const MTPDmessageMediaPhoto &data) {
 		const auto photo = data.vphoto();
 		if (!photo) {

@@ -62,7 +62,9 @@ bool isLocal(Dialogs::Key key) {
 	return std::find(list.begin(), list.end(), history->peer->id) != list.end();
 }
 
-int count(not_null<Data::Session*> owner, Data::Folder *folder) {
+int count(
+		not_null<const Data::Session*> owner,
+		Data::Folder *folder) {
 	auto result = 0;
 	for (const auto &key : owner->pinnedChatsOrder(folder)) {
 		if (isLocal(key)) {

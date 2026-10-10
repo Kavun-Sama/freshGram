@@ -25,7 +25,9 @@ namespace AyuLocalPins {
 constexpr auto kListLimit = 100000;
 
 [[nodiscard]] bool isLocal(Dialogs::Key key);
-[[nodiscard]] int count(not_null<Data::Session*> owner, Data::Folder *folder);
+[[nodiscard]] int count(
+	not_null<const Data::Session*> owner,
+	Data::Folder *folder);
 
 void pin(not_null<History*> history);
 [[nodiscard]] bool unpin(not_null<History*> history);
