@@ -47,6 +47,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QLocale>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_url_handlers.h"
 #include "ayu/utils/telegram_helpers.h"
 
 
@@ -457,8 +458,10 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
 			|| (confirmAfterIvFallback && !canTryIv)
 			|| (HiddenUrlRequiresConfirmation(parsedUrl)
 				&& !skipConfirmation);
-		if (!AyuSettings::getInstance().disableOpenLinkWarning()
-			&& requiresConfirmation) {
+		const auto skipWarning
+			= AyuSettings::getInstance().disableOpenLinkWarning()
+			&& AyuUrlHandlers::IsWebUrl(parsedUrl);
+		if (!skipWarning && requiresConfirmation) {
 			if (!my.show) {
 				Core::App().hideMediaView();
 			}
