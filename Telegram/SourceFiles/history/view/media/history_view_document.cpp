@@ -412,7 +412,8 @@ Document::Document(
 					if (lifetime) {
 						base::take(lifetime)->destroy();
 					}
-					if (const auto item = data->message(fullId)) {
+					if (const auto item = data->message(fullId);
+						item && !item->keepsUnburnt()) {
 						// Destroys this.
 						item->clearMediaAsExpired();
 					}

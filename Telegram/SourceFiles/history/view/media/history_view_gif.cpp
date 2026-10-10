@@ -223,7 +223,8 @@ Gif::Gif(
 					base::take(lifetime)->destroy();
 				}
 				if (!isOut) {
-					if (const auto item = data->message(fullId)) {
+					if (const auto item = data->message(fullId);
+						item && !item->keepsUnburnt()) {
 						// Destroys this.
 						item->clearMediaAsExpired();
 					}

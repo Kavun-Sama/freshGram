@@ -1395,7 +1395,7 @@ void OverlayWidget::markTimedMediaRead() {
 
 void OverlayWidget::checkSingleViewMediaBurn() {
 	const auto item = _message;
-	if (!item || item->out()) {
+	if (!item || item->out() || item->keepsUnburnt()) {
 		return;
 	}
 	const auto media = item->media();

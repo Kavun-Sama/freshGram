@@ -283,6 +283,7 @@ public:
 	bool markEmojiInteractionWatched();
 	[[nodiscard]] bool isUnreadMedia() const;
 	[[nodiscard]] bool isIncomingUnreadMedia() const;
+	[[nodiscard]] bool keepsUnburnt() const;
 	[[nodiscard]] bool hasUnreadMediaFlag() const;
 	[[nodiscard]] bool isTtlCoveredMedia() const;
 	[[nodiscard]] TimeId mediaDestroyAt() const;
