@@ -1472,6 +1472,18 @@ void ApiWrap::migrateFail(not_null<PeerData*> peer, const QString &error) {
 	}
 }
 
+namespace {
+
+[[nodiscard]] bool KeepDisappearingUnread(not_null<HistoryItem*> item) {
+	const auto media = item->media();
+	return AyuSettings::getInstance().saveDeletedMessages()
+		&& !item->out()
+		&& media
+		&& media->ttlSeconds() > 0;
+}
+
+} // namespace
+
 void ApiWrap::markContentsRead(
 		const base::flat_set<not_null<HistoryItem*>> &items) {
 	const auto &ghost = AyuSettings::ghost(&session());
@@ -1485,6 +1497,10 @@ void ApiWrap::markContentsRead(
 		const auto passthrough = (item->isUnreadMention() || item->hasUnreadReaction()) && !item->isUnreadMedia();
 
 		if (!item->markContentsRead(true) || !item->isRegular()) {
+			continue;
+		}
+
+		if (KeepDisappearingUnread(item)) {
 			continue;
 		}
 
@@ -1517,6 +1533,10 @@ void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
 	const auto passthrough = (item->isUnreadMention() || item->hasUnreadReaction()) && !item->isUnreadMedia();
 
 	if (!item->markContentsRead(true) || !item->isRegular()) {
+		return;
+	}
+
+	if (KeepDisappearingUnread(item)) {
 		return;
 	}
 

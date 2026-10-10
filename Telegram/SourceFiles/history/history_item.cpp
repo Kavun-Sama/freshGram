@@ -2954,6 +2954,11 @@ void HistoryItem::clearMediaAsExpired() {
 
 	const auto &settings = AyuSettings::getInstance();
 	if (settings.saveDeletedMessages()) {
+		if (!_deleted) {
+			RemoveComponents(HistoryServiceSelfDestruct::Bit());
+			_ayuExpired = true;
+			setDeleted();
+		}
 		return;
 	}
 
