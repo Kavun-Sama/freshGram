@@ -316,6 +316,7 @@ public:
 	void setQuery(const QString &query);
 
 	[[nodiscard]] rpl::producer<SearchRequest> searchRequests() const;
+	[[nodiscard]] SearchRequest currentRequest() const;
 	[[nodiscard]] rpl::producer<PeerData*> fromValue() const;
 	[[nodiscard]] rpl::producer<> queryChanges() const;
 	[[nodiscard]] rpl::producer<> closeRequests() const;
@@ -580,12 +581,18 @@ void TopBar::refreshTags() {
 	}, parent->lifetime());
 }
 
-void TopBar::requestSearch(bool cache) {
-	const auto search = SearchRequest{
+SearchRequest TopBar::currentRequest() const {
+	auto result = SearchRequest{
 		_select->getQuery(),
 		_from.current(),
 		_searchTagsSelected
 	};
+	result.all = result.query.isEmpty() && _select->hasRawQuery();
+	return result;
+}
+
+void TopBar::requestSearch(bool cache) {
+	const auto search = currentRequest();
 	if (cache) {
 		_typedRequests.insert(search);
 	}
@@ -594,11 +601,7 @@ void TopBar::requestSearch(bool cache) {
 
 void TopBar::requestSearchDelayed() {
 	// Check cached queries.
-	const auto search = SearchRequest{
-		_select->getQuery(),
-		_from.current(),
-		_searchTagsSelected
-	};
+	const auto search = currentRequest();
 	if (_typedRequests.contains(search)) {
 		requestSearch(false);
 		return;
@@ -957,7 +960,7 @@ ComposeSearch::Inner::Inner(
 
 	_topBar->searchRequests(
 	) | rpl::on_next([=](SearchRequest search) {
-		if (search.query.isEmpty() && search.tags.empty()) {
+		if (search.query.isEmpty() && search.tags.empty() && !search.all) {
 			if (!search.from || _history->peer->isSelf()) {
 				return;
 			}

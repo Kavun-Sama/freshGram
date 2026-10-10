@@ -39,6 +39,7 @@ public:
 		std::vector<Data::ReactionId> tags;
 		MsgId topMsgId;
 		SearchFilter filter = SearchFilter::NoFilter;
+		bool all = false;
 
 		friend inline bool operator==(
 			const Request &,

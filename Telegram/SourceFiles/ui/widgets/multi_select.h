@@ -27,6 +27,7 @@ public:
 		const QString &query = QString());
 
 	[[nodiscard]] QString getQuery() const;
+	[[nodiscard]] bool hasRawQuery() const;
 	void setQuery(const QString &query);
 	void setInnerFocus();
 	void clearQuery();
