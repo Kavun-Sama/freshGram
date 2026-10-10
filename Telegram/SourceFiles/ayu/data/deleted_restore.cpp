@@ -285,6 +285,35 @@ HistoryItem *State::itemFor(const AyuMessageBase &message) {
 	}
 }
 
+HistoryItem *State::byOriginalId(MsgId id) {
+	if (_disabled || !id) {
+		return nullptr;
+	}
+	const auto i = _index.find(id.bare);
+	if (i == _index.end() || _rows[i->second].dead) {
+		return nullptr;
+	}
+	auto &row = _rows[i->second];
+	if (row.localId) {
+		return _history->owner().message(_history->peer, row.localId);
+	}
+	try {
+		return create(row);
+	} catch (...) {
+		row.dead = true;
+		return nullptr;
+	}
+}
+
+MsgId State::originalIdOf(MsgId localId) const {
+	for (const auto &row : _rows) {
+		if (row.localId == localId) {
+			return MsgId(row.message.messageId);
+		}
+	}
+	return MsgId();
+}
+
 void State::materializeThread(MsgId rootId) {
 	for (auto &row : _rows) {
 		if (row.dead || row.message.replyTopId != rootId.bare) {

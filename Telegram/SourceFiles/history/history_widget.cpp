@@ -11147,11 +11147,19 @@ void HistoryWidget::clearSelected() {
 
 HistoryItem *HistoryWidget::getItemFromHistoryOrMigrated(
 		MsgId genericMsgId) const {
-	return (genericMsgId < 0 && -genericMsgId < ServerMaxMsgId && _migrated)
+	const auto result = (genericMsgId < 0 && -genericMsgId < ServerMaxMsgId && _migrated)
 		? session().data().message(_migrated->peer, -genericMsgId)
 		: _peer
 		? session().data().message(_peer, genericMsgId)
 		: nullptr;
+	if (result || !_history || !IsServerMsgId(genericMsgId)) {
+		return result;
+	}
+	const auto restored = _history->ayuRestoredByOriginalId(genericMsgId);
+	if (restored && !restored->mainView()) {
+		_history->checkLocalMessages();
+	}
+	return restored;
 }
 
 MessageIdsList HistoryWidget::getSelectedItems() const {

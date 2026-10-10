@@ -38,6 +38,8 @@ public:
 	[[nodiscard]] HistoryItem *find(MsgId id, not_null<HistoryItem*> holder);
 	void restoreThread(MsgId rootId);
 	[[nodiscard]] HistoryItem *itemFor(const AyuMessageBase &message);
+	[[nodiscard]] HistoryItem *byOriginalId(MsgId id);
+	[[nodiscard]] MsgId originalIdOf(MsgId localId) const;
 	[[nodiscard]] std::vector<not_null<HistoryItem*>> orphans(
 		TimeId from,
 		TimeId till) const;

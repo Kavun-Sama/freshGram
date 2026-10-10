@@ -459,6 +459,7 @@
 "ayu_KeepDraftsLocal" = "草稿仅保存在此设备上";
 "ayu_AiAndArticlePopups" = "AI 编辑器和 Article 弹出按钮";
 "ayu_ReduceNetworkTracking" = "减少网络追踪（每小时轮换连接密钥）";
+"ayu_NetworkPrivacyDescription" = "未发送的草稿只保存在此设备上，不会上传到 Telegram，因此其他设备看不到。\n\n启用减少网络追踪后，连接密钥每小时更新一次，而不是每 24 小时一次，网络观察者无法长期据此跟踪你的设备。这意味着更多的密钥握手和每小时一次短暂重连，且只对新密钥生效。如果服务器拒绝，则使用更长的周期。";
 "ayu_MarkOldMessagesDeleted" = "删除聊天时将旧消息标记为已删除";
 "ayu_DeletedChatsDescription" = "已删除的话题会连同已加载的消息一起留在列表中，并标记为已删除。关闭某个选项不会删除已保存的数据；再次开启时会重新生效。对保留的聊天所做的更改在重启后生效。如果聊天中不显示已删除的消息，它们仍会被保存，并可在“查看已删除”中查看。";
 "ayu_StorageHeader" = "存储";

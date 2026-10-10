@@ -4323,6 +4323,14 @@ HistoryItem *History::ayuDeletedItem(const AyuMessageBase &message) {
 	return _ayuRestore->itemFor(message);
 }
 
+HistoryItem *History::ayuRestoredByOriginalId(MsgId id) {
+	return _ayuRestore ? _ayuRestore->byOriginalId(id) : nullptr;
+}
+
+MsgId History::ayuOriginalId(not_null<const HistoryItem*> item) const {
+	return _ayuRestore ? _ayuRestore->originalIdOf(item->id) : MsgId();
+}
+
 void History::ayuRestoreMarkStale() {
 	if (_ayuRestore) {
 		_ayuRestore->markStale();

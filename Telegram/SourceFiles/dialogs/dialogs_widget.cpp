@@ -1061,7 +1061,15 @@ void Widget::setupSwipeBack() {
 
 }
 
-void Widget::chosenRow(const ChosenRow &row) {
+void Widget::chosenRow(const ChosenRow &chosen) {
+	auto row = chosen;
+	if (const auto restored = row.key.history()
+		? session().data().message(row.message.fullId)
+		: nullptr; restored && restored->isAyuRestored()) {
+		if (const auto original = restored->history()->ayuOriginalId(restored)) {
+			row.message.fullId = FullMsgId(row.message.fullId.peer, original);
+		}
+	}
 	storiesToggleExplicitExpand(false);
 
 	if (!row.sponsoredRandomId.isEmpty()) {

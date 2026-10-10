@@ -9261,6 +9261,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_KeepDraftsLocal" = "Keep drafts on this device only";
 "ayu_AiAndArticlePopups" = "AI editor and Article popups";
 "ayu_ReduceNetworkTracking" = "Reduce network tracking (rotate the connection key hourly)";
+"ayu_NetworkPrivacyDescription" = "Unsent drafts stay on this device and are not uploaded to Telegram, so other devices do not see them.\n\nWith reduced network tracking the connection key is renewed every hour instead of every 24 hours, so someone watching the network cannot follow your device by it for long. It means more handshakes and a short reconnect each hour, and it applies to new keys. If the server refuses, longer periods are used.";
 "ayu_MarkOldMessagesDeleted" = "Mark old messages deleted when a chat is deleted";
 "ayu_DeletedChatsDescription" = "A deleted topic stays in the list marked as deleted, with its loaded messages. Turning an option off does not delete saved data; it is applied again when you turn it on. Changes in the kept chats apply after a restart. If deleted messages are not shown in chats, they are still saved and available in \"View deleted messages\".";
 "ayu_StorageHeader" = "Storage";

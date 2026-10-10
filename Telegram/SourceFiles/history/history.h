@@ -115,6 +115,8 @@ public:
 	void ayuRestoreMarkStale();
 	void ayuRestoreThread(MsgId rootId);
 	[[nodiscard]] HistoryItem *ayuDeletedItem(const AyuMessageBase &message);
+	[[nodiscard]] HistoryItem *ayuRestoredByOriginalId(MsgId id);
+	[[nodiscard]] MsgId ayuOriginalId(not_null<const HistoryItem*> item) const;
 	[[nodiscard]] HistoryItem *ayuRestored(
 		MsgId id,
 		not_null<HistoryItem*> holder);
