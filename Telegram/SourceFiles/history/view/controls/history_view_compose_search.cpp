@@ -587,7 +587,9 @@ SearchRequest TopBar::currentRequest() const {
 		_from.current(),
 		_searchTagsSelected
 	};
-	result.all = result.query.isEmpty() && _select->hasRawQuery();
+	if (result.query.isEmpty() && _select->hasRawQuery()) {
+		result.query = u" "_q;
+	}
 	return result;
 }
 
@@ -960,7 +962,7 @@ ComposeSearch::Inner::Inner(
 
 	_topBar->searchRequests(
 	) | rpl::on_next([=](SearchRequest search) {
-		if (search.query.isEmpty() && search.tags.empty() && !search.all) {
+		if (search.query.isEmpty() && search.tags.empty()) {
 			if (!search.from || _history->peer->isSelf()) {
 				return;
 			}
@@ -970,7 +972,7 @@ ComposeSearch::Inner::Inner(
 		_apiSearch.clear();
 
 		_list.controller->addItems({}, true);
-		_list.controller->setQuery(search.query);
+		_list.controller->setQuery(search.query.trimmed());
 		_apiSearch.search(search);
 	}, _topBar->lifetime());
 

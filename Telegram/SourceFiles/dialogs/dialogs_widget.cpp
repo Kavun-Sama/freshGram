@@ -3221,13 +3221,19 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 	});
 
 	auto result = false;
-	const auto query = _searchState.query.trimmed();
-	const auto trimmed = (query.isEmpty() || query[0] != '#')
-		? query
-		: query.mid(1).trimmed();
 	const auto inPeer = searchInPeer();
 	const auto fromPeer = searchFromPeer();
 	const auto &inTags = searchInTags();
+	const auto spaces = inPeer
+		&& !fromPeer
+		&& inTags.empty()
+		&& _searchState.activeMedia() == SearchMediaFilter::All
+		&& !_searchState.query.isEmpty()
+		&& _searchState.query.trimmed().isEmpty();
+	const auto query = spaces ? u" "_q : _searchState.query.trimmed();
+	const auto trimmed = (query.isEmpty() || query[0] != '#')
+		? query
+		: query.mid(1).trimmed();
 	const auto tab = _searchState.tab;
 	const auto community = _searchState.community
 		? _searchState.community
@@ -3242,6 +3248,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 		.peer = (inPeer != nullptr),
 	};
 	if (trimmed.isEmpty()
+		&& !spaces
 		&& !fromPeer
 		&& inTags.empty()
 		&& media == SearchMediaFilter::All) {

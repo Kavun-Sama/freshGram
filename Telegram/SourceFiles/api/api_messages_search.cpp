@@ -50,9 +50,6 @@ constexpr auto kSearchPerPage = 50;
 	if (request.from) {
 		result += '\n' + QString::number(request.from->id.value);
 	}
-	if (request.all) {
-		result += u"\nall"_q;
-	}
 	for (const auto &tag : request.tags) {
 		result += '\n';
 		if (const auto customId = tag.custom()) {
@@ -92,6 +89,7 @@ MessagesSearch::~MessagesSearch() {
 void MessagesSearch::searchMessages(Request request) {
 	_request = std::move(request);
 	_offsetId = {};
+	_listAllFallback = false;
 	searchRequest();
 }
 
@@ -128,14 +126,22 @@ void MessagesSearch::searchRequest() {
 			if (_requestId == id) {
 				_requestId = 0;
 			}
-			if (error.type() == u"SEARCH_QUERY_EMPTY"_q) {
+			const auto retry = (error.type() == u"SEARCH_QUERY_EMPTY"_q)
+				&& _request.query.trimmed().isEmpty()
+				&& !_listAllFallback;
+			if (retry) {
+				_listAllFallback = true;
+			} else if (error.type() == u"SEARCH_QUERY_EMPTY"_q) {
 				_messagesFounds.fire({ 0, MessageIdsList(), nextToken });
 			}
 
 			finish();
+			if (retry) {
+				searchRequest();
+			}
 		};
-		const auto listAll = _request.all
-			&& _request.query.isEmpty()
+		const auto listAll = _listAllFallback
+			&& _request.query.trimmed().isEmpty()
 			&& !from
 			&& _request.tags.empty()
 			&& (_request.filter == SearchFilter::NoFilter);
