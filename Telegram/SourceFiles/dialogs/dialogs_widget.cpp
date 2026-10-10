@@ -122,6 +122,7 @@ namespace {
 
 constexpr auto kSearchPerPage = 50;
 constexpr auto kSearchClientEmptyPages = 200;
+constexpr auto kSearchDeletedTypedLimit = 500;
 constexpr auto kStoriesExpandDuration = crl::time(200);
 constexpr auto kSearchRequestDelay = crl::time(900);
 
@@ -451,6 +452,23 @@ void Widget::BottomButton::paintEvent(QPaintEvent *e) {
 	if (!CheckTypeOnClient(media, from, rejected)) {
 		return std::nullopt;
 	}
+	switch (media) {
+	case SearchMediaFilter::Photos: return Type::Photo;
+	case SearchMediaFilter::Videos: return Type::Video;
+	case SearchMediaFilter::Files: return Type::File;
+	case SearchMediaFilter::Music: return Type::MusicFile;
+	case SearchMediaFilter::Voice: return Type::VoiceFile;
+	case SearchMediaFilter::RoundVideo: return Type::RoundFile;
+	case SearchMediaFilter::Links: return Type::Link;
+	case SearchMediaFilter::Gifs: return Type::GIF;
+	case SearchMediaFilter::All: break;
+	}
+	return std::nullopt;
+}
+
+[[nodiscard]] static std::optional<Storage::SharedMediaType> DeletedMediaType(
+		SearchMediaFilter media) {
+	using Type = Storage::SharedMediaType;
 	switch (media) {
 	case SearchMediaFilter::Photos: return Type::Photo;
 	case SearchMediaFilter::Videos: return Type::Video;
@@ -3957,14 +3975,16 @@ void Widget::searchDeleted() {
 	if (!AyuSettings::getInstance().saveDeletedMessages()
 		|| (!inChat && tab != ChatSearchTab::MyMessages)
 		|| _searchState.inChat.sublist()
-		|| _searchQueryMedia != SearchMediaFilter::All
 		|| !_searchQueryTags.empty()) {
 		return;
 	}
 	const auto query = _searchQuery.trimmed();
-	if (query.isEmpty() && !_searchQueryFrom) {
+	const auto typed = DeletedMediaType(_searchQueryMedia);
+	if (query.isEmpty() && !_searchQueryFrom && !typed) {
 		return;
 	}
+	const auto withMedia = typed && (*typed != Storage::SharedMediaType::Link);
+	const auto limit = typed ? kSearchDeletedTypedLimit : kSearchPerPage;
 	const auto peer = inChat ? searchInPeer() : nullptr;
 	if (inChat && !peer) {
 		return;
@@ -3984,7 +4004,8 @@ void Widget::searchDeleted() {
 			topicId,
 			fromId,
 			text,
-			kSearchPerPage);
+			limit,
+			withMedia);
 		crl::on_main(this, [=, rows = std::move(rows)] {
 			if (token != _deletedSearchToken || _searchQuery.trimmed() != query) {
 				return;
@@ -3992,6 +4013,9 @@ void Widget::searchDeleted() {
 			auto items = std::vector<not_null<HistoryItem*>>();
 			items.reserve(rows.size());
 			for (const auto &row : rows) {
+				if (int(items.size()) >= kSearchPerPage) {
+					break;
+				}
 				const auto target = peer
 					? peer
 					: (row.dialogId > 0)
@@ -4010,7 +4034,8 @@ void Widget::searchDeleted() {
 					continue;
 				}
 				const auto history = session().data().history(target);
-				if (const auto item = history->ayuDeletedItem(row)) {
+				if (const auto item = history->ayuDeletedItem(row);
+					item && (!typed || item->sharedMediaTypes().test(*typed))) {
 					items.push_back(item);
 				}
 			}

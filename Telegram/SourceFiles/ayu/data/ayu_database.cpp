@@ -737,7 +737,7 @@ std::vector<DeletedMessage> getDeletedMessages(ID userId, ID dialogId, ID topicI
 	});
 }
 
-std::vector<DeletedMessage> searchDeletedMessages(ID userId, ID dialogId, ID topicId, ID fromId, const std::string &searchQuery, int totalLimit) {
+std::vector<DeletedMessage> searchDeletedMessages(ID userId, ID dialogId, ID topicId, ID fromId, const std::string &searchQuery, int totalLimit, bool withMedia) {
 	return run<std::vector<DeletedMessage>>("search deleted messages", {}, [&] {
 		std::string escaped;
 		escaped.reserve(searchQuery.size());
@@ -754,6 +754,7 @@ std::vector<DeletedMessage> searchDeletedMessages(ID userId, ID dialogId, ID top
 				(column<DeletedMessage>(&DeletedMessage::dialogId) == dialogId or dialogId == 0) and
 				(column<DeletedMessage>(&DeletedMessage::topicId) == topicId or topicId == 0) and
 				(column<DeletedMessage>(&DeletedMessage::fromId) == fromId or fromId == 0) and
+				(column<DeletedMessage>(&DeletedMessage::documentType) == 1 or !withMedia) and
 				like(column<DeletedMessage>(&DeletedMessage::text), pattern, "\\")
 			),
 			order_by(column<DeletedMessage>(&DeletedMessage::date)).desc(),

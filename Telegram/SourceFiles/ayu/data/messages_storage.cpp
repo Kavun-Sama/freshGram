@@ -652,14 +652,16 @@ std::vector<AyuMessageBase> searchDeletedMessages(
 		ID topicId,
 		ID fromId,
 		const std::string &query,
-		int limit) {
+		int limit,
+		bool withMedia) {
 	return convertToBase(AyuDatabase::searchDeletedMessages(
 		userId,
 		dialogId,
 		topicId,
 		fromId,
 		query,
-		limit));
+		limit,
+		withMedia));
 }
 
 std::vector<DeletedExtra> loadDeletedExtras(ID userId, ID dialogId) {
