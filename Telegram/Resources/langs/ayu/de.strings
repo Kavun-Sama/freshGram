@@ -464,6 +464,8 @@
 "ayu_RestoreDeletedInChats" = "Gelöschte Nachrichten in Chats anzeigen";
 "ayu_ShowDeletedChatIcon" = "Papierkorb-Symbol bei gelöschten Chats";
 "ayu_LocalPinnedChats" = "Unbegrenzt angeheftete Chats (lokal)";
+"ayu_KeepDraftsLocal" = "Entwürfe nur auf diesem Gerät behalten";
+"ayu_ReduceNetworkTracking" = "Netzwerk-Tracking verringern (Verbindungsschlüssel stündlich wechseln)";
 "ayu_MarkOldMessagesDeleted" = "Alte Nachrichten beim Löschen eines Chats als gelöscht markieren";
 "ayu_DeletedChatsDescription" = "Ein gelöschtes Thema bleibt mit seinen geladenen Nachrichten als gelöscht markiert in der Liste. Das Ausschalten einer Option löscht keine gespeicherten Daten; sie werden beim erneuten Einschalten wieder angewendet. Änderungen bei den behaltenen Chats gelten nach einem Neustart. Werden gelöschte Nachrichten nicht in Chats angezeigt, sind sie trotzdem gespeichert und unter „Gelöschte ansehen“ verfügbar.";
 "ayu_StorageHeader" = "Speicher";

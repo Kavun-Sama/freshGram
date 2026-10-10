@@ -164,6 +164,20 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 
 	const auto controller = builder.controller();
 	ayu.addSettingToggle({
+		.id = u"ayu/keepDraftsLocal"_q,
+		.altIds = { u"ayu/draftsSync"_q },
+		.title = tr::ayu_KeepDraftsLocal(),
+		.getter = &AyuSettings::keepDraftsLocal,
+		.setter = &AyuSettings::setKeepDraftsLocal,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/reduceNetworkTracking"_q,
+		.altIds = { u"ayu/temporaryKeyLifetime"_q },
+		.title = tr::ayu_ReduceNetworkTracking(),
+		.getter = &AyuSettings::reduceNetworkTracking,
+		.setter = &AyuSettings::setReduceNetworkTracking,
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/localPinnedChats"_q,
 		.title = tr::ayu_LocalPinnedChats(),
 		.getter = &AyuSettings::localPinnedChats,

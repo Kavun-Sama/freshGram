@@ -9258,6 +9258,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_RestoreDeletedInChats" = "Show deleted messages in chats";
 "ayu_ShowDeletedChatIcon" = "Trash icon on deleted chats";
 "ayu_LocalPinnedChats" = "Unlimited pinned chats (local)";
+"ayu_KeepDraftsLocal" = "Keep drafts on this device only";
+"ayu_ReduceNetworkTracking" = "Reduce network tracking (rotate the connection key hourly)";
 "ayu_MarkOldMessagesDeleted" = "Mark old messages deleted when a chat is deleted";
 "ayu_DeletedChatsDescription" = "A deleted topic stays in the list marked as deleted, with its loaded messages. Turning an option off does not delete saved data; it is applied again when you turn it on. Changes in the kept chats apply after a restart. If deleted messages are not shown in chats, they are still saved and available in \"View deleted messages\".";
 "ayu_StorageHeader" = "Storage";

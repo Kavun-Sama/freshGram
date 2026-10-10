@@ -2454,6 +2454,10 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
 	if (AyuSecret::IsSecretPeer(thread->peer())) {
 		return 0;
 	}
+	if (AyuSettings::getInstance().keepDraftsLocal()
+		&& !Data::DraftIsNull(&draft)) {
+		return 0;
+	}
 	const auto weak = base::make_weak(thread);
 	const auto history = thread->owningHistory();
 	const auto topicRootId = thread->topicRootId();

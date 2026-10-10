@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/qthelp_url.h"
 #include "base/openssl_help.h"
 #include "base/unixtime.h"
+#include "ayu/utils/network_privacy.h"
 #include "base/platform/base_platform_info.h"
 
 #include <ksandbox.h>
@@ -40,7 +41,6 @@ constexpr auto kMarkConnectionOldTimeout = crl::time(192000);
 constexpr auto kPingDelayDisconnect = 60;
 constexpr auto kPingSendAfter = 30 * crl::time(1000);
 constexpr auto kPingSendAfterForce = 45 * crl::time(1000);
-constexpr auto kTemporaryExpiresIn = TimeId(86400);
 constexpr auto kBindKeyAdditionalExpiresTimeout = TimeId(30);
 constexpr auto kKeyOldEnoughForDestroy = 60 * crl::time(1000);
 constexpr auto kSentContainerLives = 600 * crl::time(1000);
@@ -2049,6 +2049,9 @@ SessionPrivate::HandleResult SessionPrivate::handleBindResponse(
 		_sessionData->queueNeedToResumeAndSend();
 		return HandleResult::Success;
 	case DcKeyBindState::DefinitelyDestroyed:
+		if (AyuNetworkPrivacy::StepUpTemporaryKeyExpiresIn()) {
+			return HandleResult::DestroyTemporaryKey;
+		}
 		if (destroyOldEnoughPersistentKey()) {
 			return HandleResult::DestroyTemporaryKey;
 		}
@@ -2609,7 +2612,7 @@ DcType SessionPrivate::tryAcquireKeyCreation() {
 
 		_sessionSalt = result->temporaryServerSalt;
 		result->temporaryKey->setExpiresAt(base::unixtime::now()
-			+ kTemporaryExpiresIn
+			+ AyuNetworkPrivacy::TemporaryKeyExpiresIn()
 			+ kBindKeyAdditionalExpiresTimeout);
 		if (_realDcType != DcType::Cdn) {
 			auto key = result->persistentKey
@@ -2641,7 +2644,7 @@ DcType SessionPrivate::tryAcquireKeyCreation() {
 
 	auto request = DcKeyRequest();
 	request.persistentNeeded = (acquired == CreatingKeyType::Persistent);
-	request.temporaryExpiresIn = kTemporaryExpiresIn;
+	request.temporaryExpiresIn = AyuNetworkPrivacy::TemporaryKeyExpiresIn();
 	_keyCreator = std::make_unique<BoundKeyCreator>(
 		request,
 		std::move(delegate));

@@ -4,6 +4,7 @@
 // but be respectful and credit the original author.
 //
 // Copyright @Radolyn, 2026
+#include "ayu/utils/network_privacy.h"
 #include "ayu/ayu_settings.h"
 
 #include "lang_auto.h"
@@ -397,6 +398,7 @@ void AyuSettings::load() {
 			settings.backupKeepCount(),
 			settings.backupIntervalHours());
 		AyuDatabase::purgeOlderThan(settings.keepDeletedDays());
+		AyuNetworkPrivacy::SetEnabled(settings.reduceNetworkTracking());
 	});
 	std::ifstream file(getSettingsPath());
 	if (!file.good()) {
@@ -1152,6 +1154,19 @@ void AyuSettings::setLocalPinnedChats(bool val) {
 	save();
 }
 
+void AyuSettings::setKeepDraftsLocal(bool val) {
+	if (_keepDraftsLocal.current() == val) return;
+	_keepDraftsLocal = val;
+	save();
+}
+
+void AyuSettings::setReduceNetworkTracking(bool val) {
+	if (_reduceNetworkTracking.current() == val) return;
+	_reduceNetworkTracking = val;
+	AyuNetworkPrivacy::SetEnabled(val);
+	save();
+}
+
 void AyuSettings::setMarkOldMessagesDeleted(bool val) {
 	if (_markOldMessagesDeleted.current() == val) return;
 	_markOldMessagesDeleted = val;
@@ -1379,6 +1394,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"restoreDeletedInChats", s._restoreDeletedInChats.current()},
 		{"showDeletedChatIcon", s._showDeletedChatIcon.current()},
 		{"localPinnedChats", s._localPinnedChats.current()},
+		{"keepDraftsLocal", s._keepDraftsLocal.current()},
+		{"reduceNetworkTracking", s._reduceNetworkTracking.current()},
 		{"markOldMessagesDeleted", s._markOldMessagesDeleted.current()},
 		{"showTimeZone", s._showTimeZone.current()},
 		{"showMessageShot", s._showMessageShot.current()},
@@ -1508,6 +1525,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._restoreDeletedInChats = j.value("restoreDeletedInChats", defaults._restoreDeletedInChats.current());
 	s._showDeletedChatIcon = j.value("showDeletedChatIcon", defaults._showDeletedChatIcon.current());
 	s._localPinnedChats = j.value("localPinnedChats", defaults._localPinnedChats.current());
+	s._keepDraftsLocal = j.value("keepDraftsLocal", defaults._keepDraftsLocal.current());
+	s._reduceNetworkTracking = j.value("reduceNetworkTracking", defaults._reduceNetworkTracking.current());
 	s._markOldMessagesDeleted = j.value("markOldMessagesDeleted", defaults._markOldMessagesDeleted.current());
 	s._showTimeZone = j.value("showTimeZone", defaults._showTimeZone.current());
 	s._showMessageShot = j.value("showMessageShot", defaults._showMessageShot.current());
