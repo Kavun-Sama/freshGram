@@ -348,6 +348,18 @@ jobs:
           fi
           Telegram/build/deb/build.sh out/install/usr dist/freshGram.deb "$version"
 
+      - name: RPM package
+        continue-on-error: true
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          version=$(awk '/^AppVersionStr /{print $2}' Telegram/build/version)
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          Telegram/build/rpm/build.sh out/install/usr dist/freshGram.rpm "$version"
+
       - name: Checksums
         run: |
           cd dist
@@ -390,4 +402,5 @@ jobs:
             dist/freshGram.flatpak
             dist/freshGram.AppImage
             dist/freshGram.deb
+            dist/freshGram.rpm
             dist/SHA256SUMS
