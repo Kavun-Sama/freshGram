@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "api/api_peer_search.h"
+#include "base/flat_set.h"
 #include "base/timer.h"
 #include "dialogs/dialogs_key.h"
 #include "window/section_widget.h"
@@ -436,6 +437,7 @@ private:
 	SearchMediaFilter _searchQueryMedia = SearchMediaFilter::All;
 	int _deletedSearchToken = 0;
 	int _searchClientCount = 0;
+	base::flat_set<SearchMediaFilter> _typeRejectedWithAuthor;
 	int _searchClientEmptyPages = 0;
 	bool _searchQueryFromArchive = true;
 

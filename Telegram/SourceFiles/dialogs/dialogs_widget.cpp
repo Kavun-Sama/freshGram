@@ -121,7 +121,7 @@ namespace Dialogs {
 namespace {
 
 constexpr auto kSearchPerPage = 50;
-constexpr auto kSearchClientEmptyPages = 30;
+constexpr auto kSearchClientEmptyPages = 200;
 constexpr auto kStoriesExpandDuration = crl::time(200);
 constexpr auto kSearchRequestDelay = crl::time(900);
 
@@ -425,19 +425,30 @@ void Widget::BottomButton::paintEvent(QPaintEvent *e) {
 	return MTP_inputMessagesFilterEmpty();
 }
 
-// The server rejects a type filter together with an author in some cases,
-// so with an author the type is checked on the client.
+// The server rejects some type filters together with an author, such a type
+// is remembered and checked on the client instead.
+[[nodiscard]] static bool CheckTypeOnClient(
+		SearchMediaFilter media,
+		PeerData *from,
+		const base::flat_set<SearchMediaFilter> &rejected) {
+	return from && rejected.contains(media);
+}
+
 [[nodiscard]] static MTPMessagesFilter ServerMediaFilter(
 		SearchMediaFilter media,
-		PeerData *from) {
-	return from ? MTPMessagesFilter(MTP_inputMessagesFilterEmpty()) : MediaFilter(media);
+		PeerData *from,
+		const base::flat_set<SearchMediaFilter> &rejected) {
+	return CheckTypeOnClient(media, from, rejected)
+		? MTPMessagesFilter(MTP_inputMessagesFilterEmpty())
+		: MediaFilter(media);
 }
 
 [[nodiscard]] static std::optional<Storage::SharedMediaType> ClientMediaType(
 		SearchMediaFilter media,
-		PeerData *from) {
+		PeerData *from,
+		const base::flat_set<SearchMediaFilter> &rejected) {
 	using Type = Storage::SharedMediaType;
-	if (!from) {
+	if (!CheckTypeOnClient(media, from, rejected)) {
 		return std::nullopt;
 	}
 	switch (media) {
@@ -3313,7 +3324,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 								Data::ReactionToMTP
 							)),
 						MTP_int(topic ? topic->rootId() : 0),
-						ServerMediaFilter(media, fromPeer),
+						ServerMediaFilter(media, fromPeer, _typeRejectedWithAuthor),
 						MTP_int(0), // min_date
 						MTP_int(0), // max_date
 						MTP_int(0), // offset_id
@@ -3577,7 +3588,10 @@ void Widget::searchMore() {
 								Data::ReactionToMTP
 							)),
 						MTP_int(topic ? topic->rootId() : 0),
-						ServerMediaFilter(_searchQueryMedia, fromPeer),
+						ServerMediaFilter(
+							_searchQueryMedia,
+							fromPeer,
+							_typeRejectedWithAuthor),
 						MTP_int(0), // min_date
 						MTP_int(0), // max_date
 						MTP_int(process->lastId),
@@ -3631,7 +3645,10 @@ void Widget::searchMore() {
 					MTPInputPeer(), // saved_peer_id
 					MTPVector<MTPReaction>(), // saved_reaction
 					MTPint(), // top_msg_id
-					ServerMediaFilter(_searchQueryMedia, _searchQueryFrom),
+					ServerMediaFilter(
+					_searchQueryMedia,
+					_searchQueryFrom,
+					_typeRejectedWithAuthor),
 					MTP_int(0), // min_date
 					MTP_int(0), // max_date
 					MTP_int(_migratedProcess.lastId),
@@ -3785,10 +3802,15 @@ void Widget::searchReceived(
 		}
 	}
 	const auto clientMedia = (type.peer || type.migrated)
-		? ClientMediaType(_searchQueryMedia, _searchQueryFrom)
+		? ClientMediaType(
+			_searchQueryMedia,
+			_searchQueryFrom,
+			_typeRejectedWithAuthor)
 		: std::nullopt;
+	auto received = 0;
 	const auto processList = [&](const MTPVector<MTPMessage> &messages) {
 		auto result = std::vector<not_null<HistoryItem*>>();
+		received = int(messages.v.size());
 		for (const auto &message : messages.v) {
 			const auto msgId = IdFromMessage(message);
 			const auto peerId = PeerFromMessage(message);
@@ -3841,7 +3863,7 @@ void Widget::searchReceived(
 		const auto rateUpdated = nextRate
 			&& (nextRate->v != process->nextRate);
 		const auto finished = (type.peer || type.migrated || type.posts)
-			? list.empty()
+			? !received
 			: !rateUpdated;
 		if (rateUpdated) {
 			process->nextRate = nextRate->v;
@@ -3872,7 +3894,7 @@ void Widget::searchReceived(
 			}
 		}
 		auto list = processList(data.vmessages());
-		if (list.empty()) {
+		if (!received) {
 			process->full = true;
 		}
 		fullCount = data.vcount().v;
@@ -3883,6 +3905,15 @@ void Widget::searchReceived(
 		process->full = true;
 		return std::vector<not_null<HistoryItem*>>();
 	});
+	if (_searchQueryMedia != SearchMediaFilter::All
+		&& (type.peer || type.migrated)) {
+		LOG(("Search: type %1, author %2, received %3, shown %4, full %5"
+			).arg(int(_searchQueryMedia)
+			).arg(_searchQueryFrom ? 1 : 0
+			).arg(received
+			).arg(int(messages.size())
+			).arg(process->full ? 1 : 0));
+	}
 	if (clientMedia) {
 		if (type.migrated) {
 			fullCount = int(messages.size());
@@ -4004,8 +4035,24 @@ void Widget::searchFailed(
 		SearchRequestType type,
 		const MTP::Error &error,
 		not_null<SearchProcessState*> process) {
+	if (_searchQueryMedia != SearchMediaFilter::All) {
+		LOG(("Search: type %1, author %2 failed with %3"
+			).arg(int(_searchQueryMedia)
+			).arg(_searchQueryFrom ? 1 : 0
+			).arg(error.type()));
+	}
 	if (error.type() == u"SEARCH_QUERY_EMPTY"_q) {
 		searchApplyEmpty(type, process);
+	} else if (error.type() == u"INPUT_FILTER_INVALID"_q
+		&& _searchQueryFrom
+		&& _searchQueryMedia != SearchMediaFilter::All
+		&& !_typeRejectedWithAuthor.contains(_searchQueryMedia)) {
+		_typeRejectedWithAuthor.emplace(_searchQueryMedia);
+		process->requestId = 0;
+		_searchQueryMedia = SearchMediaFilter::All;
+		crl::on_main(this, [=] {
+			searchRequested(SearchRequestDelay::Instant);
+		});
 	} else {
 		process->requestId = 0;
 		process->full = true;
