@@ -125,6 +125,10 @@ set(ayugram_files
         ayu/utils/builtin_lang.cpp
         ayu/utils/builtin_lang.h
         ayu/utils/crash_trace.cpp
+        ayu/features/recognition/recognition_models.cpp
+        ayu/features/recognition/recognition_models.h
+        ayu/ui/boxes/recognition_models_box.cpp
+        ayu/ui/boxes/recognition_models_box.h
         ayu/ui/fagram/fagram_nav_drawer.cpp
         ayu/ui/fagram/fagram_nav_drawer.h
         ayu/ui/fagram/fagram_switch.cpp

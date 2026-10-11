@@ -1,0 +1,72 @@
+// This is the source code of freshGram.
+//
+// Models for the local speech and text recognition are downloaded from
+// a Telegram channel, like the spellchecker dictionaries.
+#pragma once
+
+#include "storage/storage_cloud_blob.h"
+
+namespace Main {
+class Session;
+} // namespace Main
+
+namespace AyuRecognition {
+
+enum class ModelKind {
+	Whisper,
+	Tesseract,
+};
+
+struct Model : Storage::CloudBlob::Blob {
+	ModelKind kind = ModelKind::Whisper;
+	QString file; // The file name, both in the channel and on disk.
+	QString code; // Language code of a Tesseract model.
+	QString sha256;
+	QString channel;
+};
+
+[[nodiscard]] QString ModelsPath();
+[[nodiscard]] QString TessdataPath();
+[[nodiscard]] QString ModelPath(const Model &model);
+[[nodiscard]] bool ModelExists(const Model &model);
+bool RemoveModel(const Model &model);
+
+[[nodiscard]] std::vector<Model> Models(ModelKind kind);
+[[nodiscard]] rpl::producer<> ModelsChanged();
+void RefreshManifest(not_null<Main::Session*> session);
+
+[[nodiscard]] MTP::DedicatedLoader::Location ModelLocation(
+	const Model &model);
+
+// The path of the selected Whisper model if it is downloaded.
+[[nodiscard]] QString SelectedWhisperModelPath();
+
+// Enabled and downloaded Tesseract languages joined with '+'.
+[[nodiscard]] QString EnabledOcrLanguages();
+
+class ModelLoader : public Storage::CloudBlob::BlobLoader {
+public:
+	ModelLoader(
+		QObject *parent,
+		not_null<Main::Session*> session,
+		const Model &model,
+		Fn<void()> destroyCallback);
+
+	void destroy() override;
+
+	rpl::lifetime &lifetime() {
+		return _lifetime;
+	}
+
+private:
+	void unpack(const QString &path) override;
+	void fail() override;
+
+	const Model _model;
+	// Be sure to always call it in the main thread.
+	Fn<void()> _destroyCallback;
+	rpl::lifetime _lifetime;
+
+};
+
+} // namespace AyuRecognition

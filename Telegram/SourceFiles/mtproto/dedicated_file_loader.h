@@ -49,7 +49,7 @@ public:
 	AbstractDedicatedLoader(const QString &filepath, int chunkSize);
 
 	static constexpr auto kChunkSize = 128 * 1024 * 8;
-	static constexpr auto kMaxFileSize = 256 * 1024 * 1024;
+	static constexpr auto kMaxFileSize = 1024 * 1024 * 1024;
 
 	struct Progress {
 		int64 already = 0;

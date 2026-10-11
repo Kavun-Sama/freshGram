@@ -548,6 +548,7 @@ void AyuSettings::validate() {
 	validateEnum(_showAddFilterInContextMenu, defaults._showAddFilterInContextMenu);
 
 	validateEnum(_translationProvider, defaults._translationProvider, 3);
+	validateEnum(_transcriptionProvider, defaults._transcriptionProvider, 1);
 	if ((_translationProvider.current() == TranslationProvider::Native)
 		&& !Platform::IsTranslateProviderAvailable()) {
 		_translationProvider = defaults._translationProvider.current();
@@ -735,6 +736,18 @@ void AyuSettings::setMaterialBubbles(bool val) {
 void AyuSettings::setIconSet(int val) {
 	if (_iconSet.current() == val) return;
 	_iconSet = val;
+	save();
+}
+
+void AyuSettings::setWhisperModel(const QString &val) {
+	if (_whisperModel.current() == val) return;
+	_whisperModel = val;
+	save();
+}
+
+void AyuSettings::setOcrLanguages(const QString &val) {
+	if (_ocrLanguages.current() == val) return;
+	_ocrLanguages = val;
 	save();
 }
 
@@ -1246,6 +1259,12 @@ void AyuSettings::setRoundConfirmation(bool val) {
 	save();
 }
 
+void AyuSettings::setTranscriptionProvider(TranscriptionProvider val) {
+	if (_transcriptionProvider.current() == val) return;
+	_transcriptionProvider = val;
+	save();
+}
+
 void AyuSettings::setTranslationProvider(TranslationProvider val) {
 	if ((val == TranslationProvider::Native)
 		&& !Platform::IsTranslateProviderAvailable()) {
@@ -1351,6 +1370,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"materialBubbles", s._materialBubbles.current()},
 		{"iconSet", s._iconSet.current()},
 		{"designStyle", s._designStyle.current()},
+		{"whisperModel", s._whisperModel.current()},
+		{"ocrLanguages", s._ocrLanguages.current()},
 		{"maxEditRevisions", s._maxEditRevisions.current()},
 		{"deletedRestoreLimit", s._deletedRestoreLimit.current()},
 		{"keptSnapshotLimit", s._keptSnapshotLimit.current()},
@@ -1432,6 +1453,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"voiceConfirmation", s._voiceConfirmation.current()},
 		{"roundConfirmation", s._roundConfirmation.current()},
 		{"translationProvider", s._translationProvider.current()},
+		{"transcriptionProvider", s._transcriptionProvider.current()},
 		{"adaptiveCoverColor", s._adaptiveCoverColor.current()},
 		{"improveLinkPreviews", s._improveLinkPreviews.current()},
 		{"crashReporting", s._crashReporting.current()},
@@ -1483,6 +1505,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._materialSwitches = j.value("materialSwitches", defaults._materialSwitches.current());
 	s._materialBubbles = j.value("materialBubbles", defaults._materialBubbles.current());
 	s._designStyle = j.value("designStyle", defaults._designStyle.current());
+	s._whisperModel = j.value("whisperModel", defaults._whisperModel.current());
+	s._ocrLanguages = j.value("ocrLanguages", defaults._ocrLanguages.current());
 	s._iconSet = j.contains("iconSet")
 		? j.value("iconSet", defaults._iconSet.current())
 		: j.value("materialIcons", true)
@@ -1569,6 +1593,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._voiceConfirmation = j.value("voiceConfirmation", defaults._voiceConfirmation.current());
 	s._roundConfirmation = j.value("roundConfirmation", defaults._roundConfirmation.current());
 	s._translationProvider = j.value("translationProvider", defaults._translationProvider.current());
+	s._transcriptionProvider = j.value("transcriptionProvider", defaults._transcriptionProvider.current());
 	s._adaptiveCoverColor = j.value("adaptiveCoverColor", defaults._adaptiveCoverColor.current());
 	s._improveLinkPreviews = j.value("improveLinkPreviews", defaults._improveLinkPreviews.current());
 	s._crashReporting = j.value("crashReporting", defaults._crashReporting.current());
