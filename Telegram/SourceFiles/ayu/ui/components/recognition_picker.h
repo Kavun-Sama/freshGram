@@ -31,6 +31,8 @@ public:
 		Fn<void()> closeRequested);
 	~RecognitionPicker();
 
+	void cancelOrClose();
+
 protected:
 	void paintEvent(QPaintEvent *e) override;
 	void mousePressEvent(QMouseEvent *e) override;
@@ -67,7 +69,6 @@ private:
 	void updateControls();
 	void recognize();
 	void showText(const QString &text, bool copyable);
-	void cancelOrClose();
 
 	const QImage _image;
 	const Fn<QRect()> _contentRect;
@@ -84,6 +85,7 @@ private:
 	QString _resultText;
 
 	std::shared_ptr<std::atomic<bool>> _cancel;
+	int _generation = 0;
 
 	Ui::RoundButton *_recognize = nullptr;
 	Ui::RoundButton *_cancelButton = nullptr;

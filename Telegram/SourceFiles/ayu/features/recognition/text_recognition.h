@@ -14,6 +14,7 @@ struct TextRequest {
 	QImage image;
 	// "auto" or the languages joined with '+', for example "rus+eng".
 	QString languages;
+	QStringList installed;
 };
 
 struct TextResult {

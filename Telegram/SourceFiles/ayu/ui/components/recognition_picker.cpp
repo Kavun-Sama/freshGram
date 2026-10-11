@@ -330,10 +330,14 @@ void RecognitionPicker::recognize() {
 	updateControls();
 	update();
 
+	const auto generation = ++_generation;
 	_cancel = AyuRecognition::RecognizeTextAsync({
 		.image = _image.copy(crop),
 		.languages = _languages,
 	}, crl::guard(this, [=](AyuRecognition::TextResult result) {
+		if (generation != _generation) {
+			return;
+		}
 		_cancel = nullptr;
 		if (result.cancelled) {
 			return;
@@ -361,6 +365,7 @@ void RecognitionPicker::showText(const QString &text, bool copyable) {
 
 void RecognitionPicker::cancelOrClose() {
 	if (_state == State::Working) {
+		++_generation;
 		if (_cancel) {
 			_cancel->store(true);
 			_cancel = nullptr;

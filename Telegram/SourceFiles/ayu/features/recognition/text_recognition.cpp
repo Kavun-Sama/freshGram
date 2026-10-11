@@ -13,6 +13,7 @@
 #include <QtGui/QPainter>
 
 #include <algorithm>
+#include <initializer_list>
 
 namespace AyuRecognition {
 namespace {
@@ -22,6 +23,7 @@ namespace {
 constexpr auto kMaxLanguages = 3;
 constexpr auto kPadding = 24;
 constexpr auto kMaxSide = 6000;
+constexpr auto kMaxInputSide = 4500;
 
 #ifdef Q_OS_WIN
 constexpr auto kNullDevice = "NUL";
@@ -51,11 +53,17 @@ bool Cancelled(void *flag, int) {
 	flat.fill(Qt::white);
 	{
 		auto p = QPainter(&flat);
-		p.drawImage(0, 0, source);
+		p.drawImage(QRect(QPoint(), source.size()), source);
 	}
 	auto gray = flat.convertToFormat(QImage::Format_Grayscale8);
 
 	const auto longest = std::max(gray.width(), gray.height());
+	if (longest > kMaxInputSide) {
+		gray = gray.scaled(
+			gray.size() * kMaxInputSide / longest,
+			Qt::IgnoreAspectRatio,
+			Qt::SmoothTransformation);
+	}
 	const auto factor = (longest <= 1000)
 		? 3
 		: (longest <= 2000)
@@ -108,7 +116,7 @@ bool Cancelled(void *flag, int) {
 	} else if (script == u"Japanese"_q || script == u"Hiragana"_q
 		|| script == u"Katakana"_q) {
 		return { u"jpn"_q, u"chi_sim"_q, u"chi_tra"_q };
-	} else if (script == u"Hangul"_q) {
+	} else if (script == u"Hangul"_q || script == u"Korean"_q) {
 		return { u"kor"_q };
 	} else if (script == u"Devanagari"_q) {
 		return { u"hin"_q };
@@ -121,20 +129,29 @@ bool Cancelled(void *flag, int) {
 [[nodiscard]] QString ChooseLanguages(
 		const QString &script,
 		const QStringList &installed) {
+	const auto english = u"eng"_q;
+	const auto hasEnglish = installed.contains(english);
+	const auto limit = kMaxLanguages - (hasEnglish ? 1 : 0);
 	auto chosen = QStringList();
 	for (const auto &code : LanguagesOfScript(script)) {
-		if (installed.contains(code) && !chosen.contains(code)) {
+		if (code != english
+			&& installed.contains(code)
+			&& !chosen.contains(code)) {
 			chosen.push_back(code);
 		}
 	}
 	if (chosen.isEmpty()) {
-		chosen = installed;
+		for (const auto &code : installed) {
+			if (code != english) {
+				chosen.push_back(code);
+			}
+		}
 	}
-	if (installed.contains(u"eng"_q) && !chosen.contains(u"eng"_q)) {
-		chosen.push_back(u"eng"_q);
-	}
-	while (chosen.size() > kMaxLanguages) {
+	while (chosen.size() > limit) {
 		chosen.removeLast();
+	}
+	if (hasEnglish) {
+		chosen.push_back(english);
 	}
 	return chosen.join('+');
 }
@@ -143,7 +160,7 @@ bool Cancelled(void *flag, int) {
 		const TextRequest &request,
 		const std::atomic<bool> &cancelled) {
 	auto result = TextResult();
-	const auto installed = InstalledOcrLanguages();
+	const auto &installed = request.installed;
 	if (installed.isEmpty()) {
 		result.error = u"No languages are downloaded."_q;
 		return result;
@@ -223,31 +240,43 @@ bool Cancelled(void *flag, int) {
 		result.error = u"Could not load the language data."_q;
 		return result;
 	}
-	api.SetPageSegMode(tesseract::PSM_AUTO);
-	api.SetSourceResolution(300);
-	api.SetImage(
-		prepared.constBits(),
-		prepared.width(),
-		prepared.height(),
-		1,
-		int(prepared.bytesPerLine()));
+	auto text = QString();
+	for (const auto mode : {
+		tesseract::PSM_AUTO,
+		tesseract::PSM_SINGLE_BLOCK,
+		tesseract::PSM_SPARSE_TEXT,
+	}) {
+		api.SetPageSegMode(mode);
+		api.SetSourceResolution(300);
+		api.SetImage(
+			prepared.constBits(),
+			prepared.width(),
+			prepared.height(),
+			1,
+			int(prepared.bytesPerLine()));
 
-	auto monitor = tesseract::ETEXT_DESC();
-	monitor.cancel = &Cancelled;
-	monitor.cancel_this = const_cast<std::atomic<bool>*>(&cancelled);
-	const auto code = api.Recognize(&monitor);
-	if (cancelled.load()) {
-		result.cancelled = true;
-	} else if (code != 0) {
-		result.error = u"The recognition failed."_q;
-	} else {
-		const auto text = std::unique_ptr<char[]>(api.GetUTF8Text());
-		result.text = text
-			? QString::fromUtf8(text.get()).trimmed()
-			: QString();
-		result.languages = languages;
-		result.ok = true;
+		auto monitor = tesseract::ETEXT_DESC();
+		monitor.cancel = &Cancelled;
+		monitor.cancel_this = const_cast<std::atomic<bool>*>(&cancelled);
+		const auto code = api.Recognize(&monitor);
+		if (cancelled.load()) {
+			result.cancelled = true;
+			api.End();
+			return result;
+		} else if (code != 0) {
+			result.error = u"The recognition failed."_q;
+			api.End();
+			return result;
+		}
+		const auto raw = std::unique_ptr<char[]>(api.GetUTF8Text());
+		text = raw ? QString::fromUtf8(raw.get()).trimmed() : QString();
+		if (!text.isEmpty()) {
+			break;
+		}
 	}
+	result.text = text;
+	result.languages = languages;
+	result.ok = true;
 	api.End();
 	return result;
 }
@@ -269,6 +298,7 @@ std::shared_ptr<std::atomic<bool>> RecognizeTextAsync(
 		Fn<void(TextResult)> done) {
 	auto cancelled = std::make_shared<std::atomic<bool>>(false);
 #ifdef FRESHGRAM_LOCAL_OCR
+	request.installed = InstalledOcrLanguages();
 	crl::async([=] {
 		const auto result = Recognize(request, *cancelled);
 		crl::on_main([=] {

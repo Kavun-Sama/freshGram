@@ -2344,6 +2344,7 @@ void OverlayWidget::fillContextMenuActions(
 	}
 	if (!hasRecognitionSelection
 		&& !_stories
+		&& !streamerHidden()
 		&& AyuRecognition::TextRecognitionAvailable()
 		&& ((_photo && _photoMedia && _photoMedia->loaded())
 			|| (_document
@@ -4686,7 +4687,6 @@ void OverlayWidget::displayPhoto(
 
 	clearStreaming();
 	destroyThemePreview();
-	_recognitionPicker = nullptr;
 
 	_fullScreenVideo = false;
 	const auto photoChanged = (_photo != photo);
@@ -4694,6 +4694,7 @@ void OverlayWidget::displayPhoto(
 	_rotation = _photo->owner().mediaRotation().get(_photo);
 	_radial.stop();
 	if (photoChanged) {
+		_recognitionPicker = nullptr;
 		_showRecognitionResults = false;
 		_recognitionResult = {};
 		_recognitionPendingSessionUniqueId = 0;
@@ -4779,7 +4780,6 @@ void OverlayWidget::displayDocument(
 		const StartStreaming &startStreaming) {
 	_fullScreenVideo = false;
 	_staticContent = QImage();
-	_recognitionPicker = nullptr;
 	const auto documentChanged = (_document != doc);
 	clearStreaming(_document != doc);
 	destroyThemePreview();
@@ -4791,6 +4791,7 @@ void OverlayWidget::displayDocument(
 	_themeCloudData = cloud;
 	_radial.stop();
 	if (documentChanged) {
+		_recognitionPicker = nullptr;
 		_showRecognitionResults = false;
 		_recognitionResult = {};
 		_recognitionPendingSessionUniqueId = 0;
@@ -6322,7 +6323,7 @@ void OverlayWidget::validatePhotoCurrentImage() {
 }
 
 void OverlayWidget::startTextRecognition() {
-	if (_stories || !_session || _recognitionPicker) {
+	if (_stories || !_session || _recognitionPicker || streamerHidden()) {
 		return;
 	}
 	auto image = QImage();
@@ -6334,6 +6335,11 @@ void OverlayWidget::startTextRecognition() {
 				Data::PhotoSize::Small)) {
 			image = small->original();
 		}
+		if (!image.isNull() && _flip) {
+			image = image.mirrored(
+				_flip & Qt::Horizontal,
+				_flip & Qt::Vertical);
+		}
 	} else if (_document && _document->isImage()) {
 		image = _staticContent;
 	}
@@ -6341,14 +6347,13 @@ void OverlayWidget::startTextRecognition() {
 		Ui::Toast::Show(_body, tr::ayu_RecognizeNotLoaded(tr::now));
 		return;
 	}
+	image.setDevicePixelRatio(1.);
 	const auto languages = AyuRecognition::EnabledOcrLanguages();
 	if (languages.isEmpty()) {
 		Ui::Toast::Show(_body, tr::ayu_RecognizeNoLanguages(tr::now));
-		if (const auto window = findWindow()) {
-			window->show(Box<AyuUi::RecognitionModelsBox>(
-				&window->session(),
-				AyuRecognition::ModelKind::Tesseract));
-		}
+		uiShow()->showBox(Box<AyuUi::RecognitionModelsBox>(
+			_session,
+			AyuRecognition::ModelKind::Tesseract));
 		return;
 	}
 	if (_rotation) {
@@ -7415,6 +7420,12 @@ void OverlayWidget::handleKeyPress(not_null<QKeyEvent*> e) {
 	const auto key = LayoutIndependentKey(e);
 	const auto modifiers = e->modifiers();
 	const auto ctrl = modifiers.testFlag(Qt::ControlModifier);
+	if (_recognitionPicker) {
+		if (key == Qt::Key_Escape) {
+			_recognitionPicker->cancelOrClose();
+		}
+		return;
+	}
 	if (_stories) {
 		if (key == Qt::Key_Space && _down != Over::Video) {
 			_stories->togglePaused(!_stories->paused());
@@ -9003,6 +9014,7 @@ void OverlayWidget::clearBeforeHide() {
 }
 
 void OverlayWidget::clearAfterHide() {
+	_recognitionPicker = nullptr;
 	_recognitionResult = {};
 	_recognitionPendingSessionUniqueId = 0;
 	_recognitionPendingPhotoId = 0;
