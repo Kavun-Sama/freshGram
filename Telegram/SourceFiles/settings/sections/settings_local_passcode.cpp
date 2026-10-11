@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/platform/base_platform_last_input.h"
 #include "base/platform/base_platform_info.h"
 #include "base/system_unlock.h"
+#include "ayu/ui/boxes/fake_passcode_box.h"
 #include "boxes/auto_lock_box.h"
 #include "core/application.h"
 #include "core/core_settings.h"
@@ -427,6 +428,16 @@ void BuildManageContent(SectionBuilder &builder) {
 			) | rpl::start_to_stream(state->autoLockBoxClosing, box->lifetime());
 		});
 	}
+
+	builder.addButton({
+		.id = u"passcode/fake"_q,
+		.title = tr::ayu_FakePasscodes(),
+		.icon = { &st::menuIconLock },
+		.onClick = [=] {
+			controller->show(Box(AyuUi::FakePasscodesBox));
+		},
+		.keywords = { u"fake"_q, u"duress"_q, u"hidden"_q },
+	});
 
 	builder.addSkip();
 

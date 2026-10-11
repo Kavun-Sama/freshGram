@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "storage/storage_domain.h"
 
+#include "ayu/features/fake_passcode/fake_passcode.h"
 #include "core/version.h"
 #include "storage/details/storage_file_utilities.h"
 #include "storage/serialize_common.h"
@@ -263,6 +264,7 @@ void Domain::setPasscode(const QByteArray &passcode) {
 
 	encryptLocalKey(passcode);
 	writeAccounts();
+	AyuFakePasscode::RealPasscodeChanged(passcode);
 
 	_passcodeKeyChanged.fire({});
 }

@@ -129,6 +129,8 @@ set(ayugram_files
         ayu/utils/builtin_lang.cpp
         ayu/utils/builtin_lang.h
         ayu/utils/crash_trace.cpp
+        ayu/features/fake_passcode/fake_passcode.cpp
+        ayu/features/fake_passcode/fake_passcode.h
         ayu/features/recognition/local_transcribe.cpp
         ayu/features/recognition/local_transcribe.h
         ayu/features/recognition/recognition_audio.cpp
@@ -139,6 +141,8 @@ set(ayugram_files
         ayu/features/recognition/text_recognition.cpp
         ayu/features/recognition/text_recognition.h
         ayu/features/recognition/speech_recognition.h
+        ayu/ui/boxes/fake_passcode_box.cpp
+        ayu/ui/boxes/fake_passcode_box.h
         ayu/ui/boxes/recognition_models_box.cpp
         ayu/ui/components/recognition_picker.cpp
         ayu/ui/components/recognition_picker.h

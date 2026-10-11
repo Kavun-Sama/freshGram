@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_lock_widgets.h"
 
+#include "ayu/features/fake_passcode/fake_passcode.h"
 #include "base/platform/base_platform_info.h"
 #include "base/call_delayed.h"
 #include "base/system_unlock.h"
@@ -46,9 +47,23 @@ PasscodeAttempt TryPasscode(const QString &passcode) {
 	}
 	const auto utf8 = passcode.toUtf8();
 	auto &domain = Core::App().domain();
-	const auto correct = domain.started()
+	auto correct = domain.started()
 		? domain.local().checkPasscode(utf8)
 		: (domain.start(utf8) == Storage::StartResult::Success);
+	if (!correct) {
+		if (const auto fake = AyuFakePasscode::TryMatch(utf8)) {
+			if (!fake->unlocks()) {
+				AyuFakePasscode::RunSilent(fake->actions);
+			} else {
+				correct = domain.started()
+					|| (domain.start(fake->realPasscode)
+						== Storage::StartResult::Success);
+				if (correct) {
+					AyuFakePasscode::SetPending(fake->id);
+				}
+			}
+		}
+	}
 	if (!correct) {
 		cSetPasscodeBadTries(cPasscodeBadTries() + 1);
 		cSetPasscodeLastTry(crl::now());
