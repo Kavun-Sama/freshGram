@@ -9,6 +9,8 @@
 #include "base/crc32hash.h"
 
 #include <algorithm>
+#include <map>
+#include <vector>
 #include <set>
 #include <memory>
 #include <functional>
@@ -49,6 +51,86 @@ const auto kWideMultiplicable = std::map<QString, QString>{
 	{"maxWallPaperWidth", "1.0"},
 	{"maxWallPaperHeight", "1.0"},
 };
+
+// Sizes that differ between the Materialgram design (the values in the
+// .style files) and the Telegram design. The key is a variable name or
+// a "variable.field[.field]" path, the value holds the Telegram numbers
+// in pixels: one for pixels, two for point and size, four for margins.
+const auto kDesignVariants = std::map<QString, std::vector<int>>{
+	{ "backgroundScroll.width", { 10 } },
+	{ "calendarScroll.width", { 8 } },
+	{ "calendarScroll.round", { 1 } },
+	{ "shortInfoScroll.width", { 8 } },
+	{ "shortInfoScroll.round", { 1 } },
+	{ "historyScroll.width", { 12 } },
+	{ "historyScroll.round", { 3 } },
+	{ "membersInnerDropdown.scroll.width", { 8 } },
+	{ "membersInnerDropdown.scroll.round", { 1 } },
+	{ "groupCallNiceTooltip.radius", { 4 } },
+	{ "groupCallStickedTooltip.radius", { 4 } },
+	{ "introNextButton.radius", { 6 } },
+	{ "introFragmentButton.radius", { 6 } },
+	{ "passcodeSubmit.radius", { 6 } },
+	{ "introQrLabelsWidth", { 292 } },
+	{ "dialogsOnlineBadgeStroke", { 2 } },
+	{ "dialogsOnlineBadgeSize", { 10 } },
+	{ "dialogsOnlineBadgeSkip", { 0, 2 } },
+	{ "mediaPlayerPlayback.fullWidth", { 6 } },
+	{ "mediaPlayerPlayback.lineWidth", { 2 } },
+	{ "msgPadding", { 11, 8, 11, 8 } },
+	{ "historyReplyPreview", { 32 } },
+	{ "historyUnreadBarMargin", { 8 } },
+	{ "chatSimilarLockedIconPosition", { 0, 1 } },
+	{ "stickersTrendingAdd.textTop", { 4 } },
+	{ "stickersTrendingInstalled.textTop", { 4 } },
+	{ "historyReplyCancel.rippleAreaPosition", { 4, 4 } },
+	{ "historyPinnedShowAll.rippleAreaPosition", { 4, 4 } },
+	{ "historyToDown.rippleAreaPosition", { 5, 15 } },
+	{ "historyToDown.rippleAreaSize", { 42 } },
+	{ "dialogsToUp.rippleAreaPosition", { 5, 15 } },
+	{ "dialogsToUp.rippleAreaSize", { 42 } },
+	{ "historyUnreadMentions.rippleAreaPosition", { 5, 15 } },
+	{ "historyUnreadMentions.rippleAreaSize", { 42 } },
+	{ "historyUnreadReactions.rippleAreaPosition", { 5, 15 } },
+	{ "historyUnreadReactions.rippleAreaSize", { 42 } },
+	{ "historyUnreadPollVotes.rippleAreaPosition", { 5, 15 } },
+	{ "historyUnreadPollVotes.rippleAreaSize", { 42 } },
+	{ "infoMembersButton.rippleAreaPosition", { 0, 0 } },
+	{ "infoMembersButton.rippleAreaSize", { 38 } },
+	{ "infoMembersAddMember.rippleAreaPosition", { 0, 0 } },
+	{ "infoMembersAddMember.rippleAreaSize", { 38 } },
+	{ "infoMembersSearch.rippleAreaPosition", { 0, 0 } },
+	{ "infoMembersSearch.rippleAreaSize", { 38 } },
+	{ "infoMembersAdmins.rippleAreaPosition", { 0, 0 } },
+	{ "infoMembersAdmins.rippleAreaSize", { 38 } },
+	{ "infoMembersLog.rippleAreaPosition", { 0, 0 } },
+	{ "infoMembersLog.rippleAreaSize", { 38 } },
+	{ "settingsButton.padding", { 60, 10, 22, 10 } },
+	{ "settingsButtonLight.padding", { 60, 10, 22, 10 } },
+	{ "settingsButtonRightLabelSpoiler.padding", { 60, 10, 22, 10 } },
+	{ "settingsChatbotsAdd.padding", { 60, 10, 22, 10 } },
+	{ "settingsAttentionButtonWithIcon.padding", { 60, 10, 22, 10 } },
+	{ "settingsButtonDisabledWithIcon.padding", { 60, 10, 22, 10 } },
+	{ "creditsTopupButton.padding", { 60, 10, 22, 10 } },
+	{ "windowMinWidth", { 380 } },
+	{ "windowMinHeight", { 480 } },
+	{ "windowDefaultWidth", { 800 } },
+	{ "windowDefaultHeight", { 600 } },
+};
+
+[[nodiscard]] bool UsesDesignVariants(const QString &name) {
+	const auto prefix = name + '.';
+	for (const auto &entry : kDesignVariants) {
+		if (entry.first == name || entry.first.startsWith(prefix)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+[[nodiscard]] QString DesignValueCode(const QString &material, int telegram) {
+	return QString("AyuUiSettings::getDesignValue(%1, ConvertScale(%2, scale))").arg(material).arg(telegram);
+}
 
 char hexChar(uchar ch) {
 	if (ch < 10) {
@@ -314,6 +396,9 @@ QString Generator::valueAssignmentCode(
 	case Tag::Bool: return QString(value.Bool() ? "true" : "false");
 	case Tag::Double: return QString("%1").arg(value.Double());
 	case Tag::Pixels: {
+		if (const auto i = kDesignVariants.find(name); i != kDesignVariants.end() && i->second.size() == 1) {
+			return DesignValueCode(pxValueName(value.Int()), i->second[0]);
+		}
 		if (kWideMultiplicable.contains(name)) {
 			return QString("AyuUiSettings::getWideMultiplied(%1, %2)").arg(pxValueName(value.Int())).arg(kWideMultiplicable.at(name));
 		}
@@ -333,6 +418,9 @@ QString Generator::valueAssignmentCode(
 	} break;
 	case Tag::Point: {
 		auto v(value.Point());
+		if (const auto i = kDesignVariants.find(name); i != kDesignVariants.end() && i->second.size() == 2) {
+			return QString("{ %1, %2 }").arg(DesignValueCode(pxValueName(v.x), i->second[0]), DesignValueCode(pxValueName(v.y), i->second[1]));
+		}
 		return QString("{ %1, %2 }").arg(pxValueName(v.x), pxValueName(v.y));
 	} break;
 	case Tag::Size: {
@@ -345,6 +433,13 @@ QString Generator::valueAssignmentCode(
 	case Tag::Align: return QString("style::al_%1").arg(value.String().c_str());
 	case Tag::Margins: {
 		auto v(value.Margins());
+		if (const auto i = kDesignVariants.find(name); i != kDesignVariants.end() && i->second.size() == 4) {
+			return QString("{ %1, %2, %3, %4 }").arg(
+				DesignValueCode(pxValueName(v.left), i->second[0]),
+				DesignValueCode(pxValueName(v.top), i->second[1]),
+				DesignValueCode(pxValueName(v.right), i->second[2]),
+				DesignValueCode(pxValueName(v.bottom), i->second[3]));
+		}
 		return QString("{ %1, %2, %3, %4 }").arg(pxValueName(v.left), pxValueName(v.top), pxValueName(v.right), pxValueName(v.bottom));
 	} break;
 	case Tag::Font: {
@@ -381,7 +476,11 @@ QString Generator::valueAssignmentCode(
 
 		QStringList fields;
 		for (const auto &field : *value.Fields()) {
-			fields.push_back(valueAssignmentCode(field.variable.value));
+			const auto fieldName = field.variable.name.isEmpty() ? QString() : field.variable.name.back();
+			fields.push_back(valueAssignmentCode(
+				field.variable.value,
+				false,
+				(name.isEmpty() || fieldName.isEmpty()) ? QString() : (name + '.' + fieldName)));
 		}
 		return "{ " + fields.join(", ") + " }";
 	} break;
@@ -667,7 +766,7 @@ bool Generator::writeIncludesInSource() {
 	const auto ayuIncluded = !module_.enumVariables([=](const Variable &value) -> bool
 	{
 		for (const auto &name : value.name) {
-			if (kWideMultiplicable.contains(name)) {
+			if (kWideMultiplicable.contains(name) || UsesDesignVariants(name)) {
 				return false;
 			}
 		}
@@ -1100,7 +1199,9 @@ QByteArray iconMaskValueSize(int width, int height) {
 	return result;
 }
 
-[[nodiscard]] QString iconClassicPath(const QString &filepath) {
+[[nodiscard]] QString iconVariantPath(
+		const QString &filepath,
+		const QString &directory) {
 	if (filepath.startsWith("size://")) {
 		return QString();
 	}
@@ -1110,11 +1211,19 @@ QByteArray iconMaskValueSize(int width, int height) {
 		return QString();
 	}
 	return filepath.left(index)
-		+ "/icons_classic/"
+		+ directory
 		+ filepath.mid(index + marker.size());
 }
 
-[[nodiscard]] bool iconClassicExists(const QString &classicPath) {
+[[nodiscard]] QString iconClassicPath(const QString &filepath) {
+	return iconVariantPath(filepath, "/icons_classic/");
+}
+
+[[nodiscard]] QString iconFagramPath(const QString &filepath) {
+	return iconVariantPath(filepath, "/fa/micons/");
+}
+
+[[nodiscard]] bool iconVariantExists(const QString &classicPath) {
 	if (classicPath.isEmpty()) {
 		return false;
 	}
@@ -1251,6 +1360,7 @@ bool Generator::writeIconValues() {
 	// Size variants of one svg share a single embedded copy.
 	auto svgDataOwners = QMap<QString, int>();
 	auto classicOwners = QSet<int>();
+	auto fagramOwners = QSet<int>();
 	for (auto i = iconMasks_.cbegin(), e = iconMasks_.cend(); i != e; ++i) {
 		const auto filePath = i.key();
 		auto maskData = QByteArray();
@@ -1276,7 +1386,7 @@ bool Generator::writeIconValues() {
 		source_->stream() << "const uchar iconMask" << i.value() << "Data[] = " << stringToBinaryArray(std::string(maskData.constData(), maskData.size())) << ";\n\n";
 
 		const auto classicPath = iconClassicPath(filePath);
-		if (iconClassicExists(classicPath)) {
+		if (iconVariantExists(classicPath)) {
 			auto classicData = iconMaskSvgPath(classicPath).isEmpty()
 				? iconMaskValuePng(classicPath)
 				: iconMaskValueSvg(classicPath);
@@ -1285,6 +1395,18 @@ bool Generator::writeIconValues() {
 			}
 			classicOwners.insert(i.value());
 			source_->stream() << "const uchar iconMask" << i.value() << "ClassicData[] = " << stringToBinaryArray(std::string(classicData.constData(), classicData.size())) << ";\n\n";
+		}
+
+		const auto fagramPath = iconFagramPath(filePath);
+		if (iconVariantExists(fagramPath)) {
+			auto fagramData = iconMaskSvgPath(fagramPath).isEmpty()
+				? iconMaskValuePng(fagramPath)
+				: iconMaskValueSvg(fagramPath);
+			if (fagramData.isEmpty()) {
+				return false;
+			}
+			fagramOwners.insert(i.value());
+			source_->stream() << "const uchar iconMask" << i.value() << "FagramData[] = " << stringToBinaryArray(std::string(fagramData.constData(), fagramData.size())) << ";\n\n";
 		}
 	}
 	for (auto i = iconMasks_.cbegin(), e = iconMasks_.cend(); i != e; ++i) {
@@ -1297,8 +1419,16 @@ bool Generator::writeIconValues() {
 				sizeArgument = QString(", { %1, %2 }").arg(size.width()).arg(size.height());
 			}
 		}
-		const auto classicArgument = classicOwners.contains(dataIndex)
-			? QString(", iconMask%1ClassicData").arg(dataIndex)
+		const auto hasClassic = classicOwners.contains(dataIndex);
+		const auto hasFagram = fagramOwners.contains(dataIndex);
+		const auto classicName = QString("iconMask%1ClassicData").arg(dataIndex);
+		const auto fagramName = QString("iconMask%1FagramData").arg(dataIndex);
+		const auto classicArgument = hasFagram
+			? QString(", IconMask::Variants{ %1, %2 }").arg(
+				hasClassic ? classicName : QString("IconMask::ClassicData()"),
+				fagramName)
+			: hasClassic
+			? (QString(", ") + classicName)
 			: QString();
 		source_->stream() << "IconMask iconMask" << i.value() << "(iconMask" << dataIndex << "Data" << classicArgument << sizeArgument << ");\n";
 	}

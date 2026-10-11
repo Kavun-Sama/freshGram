@@ -13,7 +13,8 @@ namespace AyuUiSettings {
 QString monoFont;
 double wideMultiplier = 1.0;
 bool materialSwitches;
-bool classicIcons;
+IconSet currentIconSet = IconSet::Materialgram;
+DesignStyle currentDesignStyle = DesignStyle::Materialgram;
 int avatarCorners = kMaxAvatarCorners;
 
 void setMonoFont(QString newFont) {
@@ -48,12 +49,30 @@ bool isMaterialSwitches() {
 	return materialSwitches;
 }
 
-void setClassicIcons(bool val) {
-	classicIcons = val;
+void setIconSet(int val) {
+	currentIconSet = (val >= 0 && val < kIconSetCount)
+		? IconSet(val)
+		: IconSet::Materialgram;
 }
 
-bool isClassicIcons() {
-	return classicIcons;
+IconSet iconSet() {
+	return currentIconSet;
+}
+
+void setDesignStyle(int val) {
+	currentDesignStyle = (val >= 0 && val < kDesignStyleCount)
+		? DesignStyle(val)
+		: DesignStyle::Materialgram;
+}
+
+DesignStyle designStyle() {
+	return currentDesignStyle;
+}
+
+int getDesignValue(int material, int telegram) {
+	return (currentDesignStyle == DesignStyle::Materialgram)
+		? material
+		: telegram;
 }
 
 void setAvatarCorners(int val) {

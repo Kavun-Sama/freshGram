@@ -191,26 +191,63 @@ void BuildAppearance(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 
 	builder.addSubsectionTitle(tr::ayu_CategoryAppearance());
 
-	ayu.addToggle({
-		.id = u"ayu/materialIcons"_q,
-		.altIds = { u"ayu/materialDesign"_q, u"ayu/icons"_q },
-		.title = tr::ayu_MaterialIcons(),
-		.getter = [] {
-			return AyuSettings::getInstance().materialIcons();
+	ayu.addChooseButton({
+		.id = u"ayu/designStyle"_q,
+		.altIds = { u"ayu/paddings"_q, u"ayu/style"_q },
+		.title = tr::ayu_DesignStyle(),
+		.boxTitle = tr::ayu_DesignStyle(),
+		.initialSelection = settings->designStyle(),
+		.options = {
+			tr::ayu_DesignStyleTelegram(tr::now),
+			tr::ayu_DesignStyleMaterialgram(tr::now),
+			tr::ayu_DesignStyleFagram(tr::now),
 		},
-		.setter = [=](bool enabled) {
-			AyuSettings::getInstance().setMaterialIcons(enabled);
-			ShowRestartPrompt(iconsController);
+		.setter = [=](int i) {
+			auto &current = AyuSettings::getInstance();
+			if (current.designStyle() != i) {
+				current.setDesignStyle(i);
+				ShowRestartPrompt(iconsController);
+			}
 		},
 	});
+	ayu.addChooseButton({
+		.id = u"ayu/iconSet"_q,
+		.altIds = {
+			u"ayu/materialIcons"_q,
+			u"ayu/materialDesign"_q,
+			u"ayu/icons"_q,
+		},
+		.title = tr::ayu_IconSet(),
+		.boxTitle = tr::ayu_IconSet(),
+		.initialSelection = settings->iconSet(),
+		.options = {
+			tr::ayu_StyleTelegram(tr::now),
+			tr::ayu_StyleMaterialgram(tr::now),
+			tr::ayu_StyleFagram(tr::now),
+		},
+		.setter = [=](int i) {
+			auto &current = AyuSettings::getInstance();
+			if (current.iconSet() != i) {
+				current.setIconSet(i);
+				ShowRestartPrompt(iconsController);
+			}
+		},
+	});
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_DesignStyleDescription());
+	builder.addSkip();
 
-	ayu.addSettingToggle({
-		.id = u"ayu/materialSwitches"_q,
-		.altIds = { u"ayu/newSwitchStyle"_q },
-		.title = tr::ayu_MaterialSwitches(),
-		.getter = &AyuSettings::materialSwitches,
-		.setter = &AyuSettings::setMaterialSwitches,
-	});
+
+	if (settings->designStyle()
+		!= int(AyuUiSettings::DesignStyle::Telegram)) {
+		ayu.addSettingToggle({
+			.id = u"ayu/materialSwitches"_q,
+			.altIds = { u"ayu/newSwitchStyle"_q },
+			.title = tr::ayu_MaterialSwitches(),
+			.getter = &AyuSettings::materialSwitches,
+			.setter = &AyuSettings::setMaterialSwitches,
+		});
+	}
 	ayu.addSettingToggle({
 		.id = u"ayu/disableCustomBackgrounds"_q,
 		.altIds = { u"ayu/customThemes"_q },

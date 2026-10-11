@@ -33,6 +33,8 @@ public:
 	}
 
 	struct ClassicData {
+		constexpr ClassicData() = default;
+
 		template <int M>
 		constexpr ClassicData(const uchar (&data)[M])
 		: data(data)
@@ -42,6 +44,11 @@ public:
 
 		const uchar *data = nullptr;
 		int size = 0;
+	};
+
+	struct Variants {
+		ClassicData classic;
+		ClassicData fagram;
 	};
 
 	template <int N>
@@ -66,11 +73,45 @@ public:
 		static_assert(N > 0, "invalid image data");
 	}
 
+	template <int N>
+	constexpr IconMask(const uchar (&data)[N], Variants variants)
+	: _data(data)
+	, _size(N)
+	, _classicData(variants.classic.data)
+	, _classicSize(variants.classic.size)
+	, _fagramData(variants.fagram.data)
+	, _fagramSize(variants.fagram.size) {
+		static_assert(N > 0, "invalid image data");
+	}
+
+	template <int N>
+	constexpr IconMask(
+		const uchar (&data)[N],
+		Variants variants,
+		QSize rendered)
+	: _data(data)
+	, _size(N)
+	, _classicData(variants.classic.data)
+	, _classicSize(variants.classic.size)
+	, _fagramData(variants.fagram.data)
+	, _fagramSize(variants.fagram.size)
+	, _rendered(rendered) {
+		static_assert(N > 0, "invalid image data");
+	}
+
 	const uchar *data() const {
-		return useClassic() ? _classicData : _data;
+		return useClassic()
+			? _classicData
+			: useFagram()
+			? _fagramData
+			: _data;
 	}
 	int size() const {
-		return useClassic() ? _classicSize : _size;
+		return useClassic()
+			? _classicSize
+			: useFagram()
+			? _fagramSize
+			: _size;
 	}
 	QSize rendered() const {
 		return _rendered;
@@ -78,13 +119,20 @@ public:
 
 private:
 	bool useClassic() const {
-		return _classicData && AyuUiSettings::isClassicIcons();
+		return _classicData
+			&& (AyuUiSettings::iconSet() == AyuUiSettings::IconSet::Telegram);
+	}
+	bool useFagram() const {
+		return _fagramData
+			&& (AyuUiSettings::iconSet() == AyuUiSettings::IconSet::Fagram);
 	}
 
 	const uchar *_data;
 	const int _size;
 	const uchar *_classicData = nullptr;
 	const int _classicSize = 0;
+	const uchar *_fagramData = nullptr;
+	const int _fagramSize = 0;
 	const QSize _rendered;
 
 };

@@ -566,6 +566,8 @@ void AyuSettings::validate() {
 	validateRange(_reactionBackgroundOpacity, 0, 50, defaults._reactionBackgroundOpacity);
 	validateRange(_wideMultiplier, 0.5, 4.0, defaults._wideMultiplier);
 	validateRange(_avatarCorners, 0, AyuUiSettings::kMaxAvatarCorners, defaults._avatarCorners);
+	validateRange(_iconSet, 0, AyuUiSettings::kIconSetCount - 1, defaults._iconSet);
+	validateRange(_designStyle, 0, AyuUiSettings::kDesignStyleCount - 1, defaults._designStyle);
 
 	const auto embeddedType = _messageShotSettings._embeddedThemeType.current();
 	auto embeddedTypeValid = (embeddedType == -1) || (embeddedType >= 0 && embeddedType <= 3); // from Window::Theme::EmbeddedType::DayBlue to Window::Theme::EmbeddedType::NightGreen
@@ -730,9 +732,15 @@ void AyuSettings::setMaterialBubbles(bool val) {
 	save();
 }
 
-void AyuSettings::setMaterialIcons(bool val) {
-	if (_materialIcons.current() == val) return;
-	_materialIcons = val;
+void AyuSettings::setIconSet(int val) {
+	if (_iconSet.current() == val) return;
+	_iconSet = val;
+	save();
+}
+
+void AyuSettings::setDesignStyle(int val) {
+	if (_designStyle.current() == val) return;
+	_designStyle = val;
 	save();
 }
 
@@ -1341,7 +1349,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"increaseWebviewWidth", s._increaseWebviewWidth.current()},
 		{"materialSwitches", s._materialSwitches.current()},
 		{"materialBubbles", s._materialBubbles.current()},
-		{"materialIcons", s._materialIcons.current()},
+		{"iconSet", s._iconSet.current()},
+		{"designStyle", s._designStyle.current()},
 		{"maxEditRevisions", s._maxEditRevisions.current()},
 		{"deletedRestoreLimit", s._deletedRestoreLimit.current()},
 		{"keptSnapshotLimit", s._keptSnapshotLimit.current()},
@@ -1473,7 +1482,12 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._increaseWebviewWidth = j.value("increaseWebviewWidth", defaults._increaseWebviewWidth.current());
 	s._materialSwitches = j.value("materialSwitches", defaults._materialSwitches.current());
 	s._materialBubbles = j.value("materialBubbles", defaults._materialBubbles.current());
-	s._materialIcons = j.value("materialIcons", defaults._materialIcons.current());
+	s._designStyle = j.value("designStyle", defaults._designStyle.current());
+	s._iconSet = j.contains("iconSet")
+		? j.value("iconSet", defaults._iconSet.current())
+		: j.value("materialIcons", true)
+		? int(AyuUiSettings::IconSet::Materialgram)
+		: int(AyuUiSettings::IconSet::Telegram);
 	s._maxEditRevisions = j.value("maxEditRevisions", defaults._maxEditRevisions.current());
 	s._deletedRestoreLimit = j.value("deletedRestoreLimit", defaults._deletedRestoreLimit.current());
 	s._keptSnapshotLimit = j.value("keptSnapshotLimit", defaults._keptSnapshotLimit.current());

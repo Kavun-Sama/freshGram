@@ -120,6 +120,15 @@
 "ayu_SettingsCustomizationHint" = "Nach Änderungen im Bereich „Anpassung“ musst du die App neu starten.";
 "ayu_MaterialSwitches" = "MD3-Schalterstil";
 "ayu_MaterialBubbles" = "Rundung und Sprechblasenspitze";
+"ayu_StyleTelegram" = "Standard-Telegram";
+"ayu_StyleMaterialgram" = "Materialgram";
+"ayu_StyleFagram" = "FagramDesktop";
+"ayu_IconSet" = "Symbole";
+"ayu_DesignStyle" = "Designstil";
+"ayu_DesignStyleTelegram" = "Standard-Telegram-Design";
+"ayu_DesignStyleMaterialgram" = "Materialgram-Design";
+"ayu_DesignStyleFagram" = "FagramDesktop-Design";
+"ayu_DesignStyleDescription" = "Der Designstil legt Abstände, Größen und das Aussehen der Oberflächenelemente fest. Stil und Symbole werden nach einem Neustart wirksam. Das Fagram-Design fügt vorerst die Pillen-Kopfleiste und das Navigationsmenü hinzu, der Rest nutzt Telegram-Größen und ist noch nicht übernommen.";
 "ayu_MaterialIcons" = "Material-Symbole";
 "ayu_ReplyBackgroundOpacity" = "Farbiger Antwort-Hintergrund";
 "ayu_ReactionBackgroundOpacity" = "Farbiger Reaktions-Hintergrund";

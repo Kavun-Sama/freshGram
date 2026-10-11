@@ -1,0 +1,4 @@
+The icons in the micons directory come from FAgram Desktop
+(https://github.com/fagramdesktop/fadesktop), licensed under GPLv3,
+the same license as freshGram. They are embedded as the optional "Fagram"
+icon set and are used instead of the default icons when it is selected.

@@ -21,8 +21,26 @@ int getWideMultiplied(int width, double mult);
 void setMaterialSwitches(bool val);
 bool isMaterialSwitches();
 
-void setClassicIcons(bool val);
-bool isClassicIcons();
+enum class IconSet {
+	Telegram = 0,
+	Materialgram = 1,
+	Fagram = 2,
+};
+inline constexpr int kIconSetCount = 3;
+
+void setIconSet(int val);
+IconSet iconSet();
+
+enum class DesignStyle {
+	Telegram = 0,
+	Materialgram = 1,
+	Fagram = 2,
+};
+inline constexpr int kDesignStyleCount = 3;
+
+void setDesignStyle(int val);
+DesignStyle designStyle();
+int getDesignValue(int material, int telegram);
 
 void setAvatarCorners(int val);
 int getAvatarCorners();

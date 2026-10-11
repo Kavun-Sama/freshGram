@@ -120,6 +120,15 @@
 "ayu_SettingsCustomizationHint" = "Devi riavviare l'applicazione dopo aver modificato la sezione «Personalizzazione».";
 "ayu_MaterialSwitches" = "Stile degli interruttori MD3";
 "ayu_MaterialBubbles" = "Arrotondamento e coda dei messaggi";
+"ayu_StyleTelegram" = "Telegram standard";
+"ayu_StyleMaterialgram" = "Materialgram";
+"ayu_StyleFagram" = "FagramDesktop";
+"ayu_IconSet" = "Icone";
+"ayu_DesignStyle" = "Stile del design";
+"ayu_DesignStyleTelegram" = "Design Telegram standard";
+"ayu_DesignStyleMaterialgram" = "Design Materialgram";
+"ayu_DesignStyleFagram" = "Design FagramDesktop";
+"ayu_DesignStyleDescription" = "Lo stile del design imposta spaziature, dimensioni e aspetto degli elementi dell'interfaccia. Stile e icone si applicano dopo il riavvio. Il design Fagram per ora aggiunge la barra superiore a pillola e il menu di navigazione, il resto usa le dimensioni di Telegram e non è ancora portato.";
 "ayu_MaterialIcons" = "Icone Material";
 "ayu_ReplyBackgroundOpacity" = "Sfondo colorato delle risposte";
 "ayu_ReactionBackgroundOpacity" = "Sfondo colorato delle reazioni";

@@ -26,8 +26,10 @@ void initUiSettings() {
 
 	AyuUiSettings::setMonoFont(settings.monoFont());
 	AyuUiSettings::setWideMultiplier(settings.wideMultiplier());
-	AyuUiSettings::setMaterialSwitches(settings.materialSwitches());
-	AyuUiSettings::setClassicIcons(!settings.materialIcons());
+	AyuUiSettings::setMaterialSwitches(settings.materialSwitches()
+		&& settings.designStyle() != int(AyuUiSettings::DesignStyle::Telegram));
+	AyuUiSettings::setIconSet(settings.iconSet());
+	AyuUiSettings::setDesignStyle(settings.designStyle());
 	AyuUiSettings::setAvatarCorners(settings.avatarCorners());
 	Ui::SetAppliedBubbleRadius(settings.messageBubbleRadius());
 }

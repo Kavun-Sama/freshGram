@@ -120,6 +120,15 @@
 "ayu_SettingsCustomizationHint" = "更改“自定义”部分的设置后，必须重启应用。";
 "ayu_MaterialSwitches" = "MD3 开关样式";
 "ayu_MaterialBubbles" = "消息圆角和气泡尾巴";
+"ayu_StyleTelegram" = "Telegram 默认";
+"ayu_StyleMaterialgram" = "Materialgram";
+"ayu_StyleFagram" = "FagramDesktop";
+"ayu_IconSet" = "图标";
+"ayu_DesignStyle" = "设计风格";
+"ayu_DesignStyleTelegram" = "Telegram 默认设计";
+"ayu_DesignStyleMaterialgram" = "Materialgram 设计";
+"ayu_DesignStyleFagram" = "FagramDesktop 设计";
+"ayu_DesignStyleDescription" = "设计风格设置间距、尺寸和界面元素的外观。设计风格和图标在重启后生效。Fagram 设计目前添加了胶囊式顶栏和导航抽屉菜单，其余使用 Telegram 的尺寸，尚未移植。";
 "ayu_MaterialIcons" = "Material 图标";
 "ayu_ReplyBackgroundOpacity" = "彩色回复背景";
 "ayu_ReactionBackgroundOpacity" = "彩色回应背景";

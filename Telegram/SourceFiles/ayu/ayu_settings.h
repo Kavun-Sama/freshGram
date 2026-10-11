@@ -298,7 +298,8 @@ public:
 	[[nodiscard]] bool increaseWebviewWidth() const { return _increaseWebviewWidth.current(); }
 	[[nodiscard]] bool materialSwitches() const { return _materialSwitches.current(); }
 	[[nodiscard]] bool materialBubbles() const { return _materialBubbles.current(); }
-	[[nodiscard]] bool materialIcons() const { return _materialIcons.current(); }
+	[[nodiscard]] int iconSet() const { return _iconSet.current(); }
+	[[nodiscard]] int designStyle() const { return _designStyle.current(); }
 	[[nodiscard]] int maxEditRevisions() const { return _maxEditRevisions.current(); }
 	[[nodiscard]] int deletedRestoreLimit() const { return _deletedRestoreLimit.current(); }
 	[[nodiscard]] int keptSnapshotLimit() const { return _keptSnapshotLimit.current(); }
@@ -425,7 +426,8 @@ public:
 	void setIncreaseWebviewWidth(bool val);
 	void setMaterialSwitches(bool val);
 	void setMaterialBubbles(bool val);
-	void setMaterialIcons(bool val);
+	void setIconSet(int val);
+	void setDesignStyle(int val);
 	void setMaxEditRevisions(int val);
 	void setDeletedRestoreLimit(int val);
 	void setKeptSnapshotLimit(int val);
@@ -562,8 +564,6 @@ public:
 	[[nodiscard]] rpl::producer<bool> materialSwitchesChanges() const { return _materialSwitches.changes(); }
 	[[nodiscard]] rpl::producer<bool> materialBubblesValue() const { return _materialBubbles.value(); }
 	[[nodiscard]] rpl::producer<bool> materialBubblesChanges() const { return _materialBubbles.changes(); }
-	[[nodiscard]] rpl::producer<bool> materialIconsValue() const { return _materialIcons.value(); }
-	[[nodiscard]] rpl::producer<bool> materialIconsChanges() const { return _materialIcons.changes(); }
 	[[nodiscard]] rpl::producer<int> replyBackgroundOpacityValue() const { return _replyBackgroundOpacity.value(); }
 	[[nodiscard]] rpl::producer<int> replyBackgroundOpacityChanges() const { return _replyBackgroundOpacity.changes(); }
 	[[nodiscard]] rpl::producer<int> reactionBackgroundOpacityValue() const { return _reactionBackgroundOpacity.value(); }
@@ -734,7 +734,8 @@ private:
 	rpl::variable<bool> _increaseWebviewWidth = false;
 	rpl::variable<bool> _materialSwitches = true;
 	rpl::variable<bool> _materialBubbles = true;
-	rpl::variable<bool> _materialIcons = true;
+	rpl::variable<int> _iconSet = 1;
+	rpl::variable<int> _designStyle = 1;
 	rpl::variable<int> _maxEditRevisions = 100;
 	rpl::variable<int> _deletedRestoreLimit = 3000;
 	rpl::variable<int> _keptSnapshotLimit = 100;
