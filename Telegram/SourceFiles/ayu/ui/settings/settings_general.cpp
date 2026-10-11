@@ -28,6 +28,8 @@
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
 
+#include <QtCore/QRegularExpression>
+
 namespace Settings {
 
 using namespace Builder;
@@ -169,8 +171,8 @@ void BuildTranscription(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 				if (file.isEmpty()) {
 					return tr::ayu_RecognitionOff(tr::now);
 				}
-				file.remove(u"ggml-"_q);
-				return file.left(file.indexOf('-'));
+				file.remove(QRegularExpression(u"^ggml-|-q\\d+_\\d+\\.bin$"_q));
+				return file;
 			}),
 		.onClick = [=] {
 			controller->show(Box<AyuUi::RecognitionModelsBox>(
