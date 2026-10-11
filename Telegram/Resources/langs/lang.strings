@@ -9389,7 +9389,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_FakePasscodeWrong" = "The current passcode is wrong.";
 "ayu_FakePasscodeSameAsReal" = "A fake passcode must differ from the real one.";
 "ayu_FakePasscodeDuplicate" = "Another fake passcode already uses it.";
-"ayu_FakePasscodeLimit" = "No more than {count} fake passcodes.";
+"ayu_FakePasscodeLimit" = "No more than {limit} fake passcodes.";
 "ayu_FakePasscodeFailed" = "Could not save the fake passcode.";
 "ayu_FakePasscodeUnlocks" = "Unlock the app";
 "ayu_FakePasscodeUnlocksAbout" = "If off, this passcode never unlocks the app: it shows \"wrong passcode\" and only runs the actions. Such a passcode keeps no trace of the real one, so guessing it offline reveals nothing about the real passcode.";

@@ -582,7 +582,7 @@
 "ayu_FakePasscodeWrong" = "当前密码不正确。";
 "ayu_FakePasscodeSameAsReal" = "伪装密码必须与真实密码不同。";
 "ayu_FakePasscodeDuplicate" = "已有其他伪装密码使用了它。";
-"ayu_FakePasscodeLimit" = "最多 {count} 个伪装密码。";
+"ayu_FakePasscodeLimit" = "最多 {limit} 个伪装密码。";
 "ayu_FakePasscodeFailed" = "无法保存伪装密码。";
 "ayu_FakePasscodeUnlocks" = "解锁应用";
 "ayu_FakePasscodeUnlocksAbout" = "关闭后，此密码永远不会解锁应用：只显示“密码错误”并悄悄执行操作。这种密码不保存任何真实密码的信息，因此离线猜出它也无法得知真实密码。";

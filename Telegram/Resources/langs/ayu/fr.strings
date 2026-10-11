@@ -603,7 +603,7 @@
 "ayu_FakePasscodeWrong" = "Le code de verrouillage actuel est incorrect.";
 "ayu_FakePasscodeSameAsReal" = "Un faux code doit être différent du vrai.";
 "ayu_FakePasscodeDuplicate" = "Un autre faux code l'utilise déjà.";
-"ayu_FakePasscodeLimit" = "Pas plus de {count} faux codes de verrouillage.";
+"ayu_FakePasscodeLimit" = "Pas plus de {limit} faux codes de verrouillage.";
 "ayu_FakePasscodeFailed" = "Impossible d'enregistrer le faux code de verrouillage.";
 "ayu_FakePasscodeUnlocks" = "Déverrouiller l'application";
 "ayu_FakePasscodeUnlocksAbout" = "Si désactivé, ce code ne déverrouille jamais l'application : il affiche « code incorrect » et n'exécute que les actions. Un tel code ne garde rien du vrai, donc le deviner hors ligne ne révèle rien.";

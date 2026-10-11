@@ -255,7 +255,7 @@ void EditBox(
 		case AddResult::TooMany:
 			fail(tr::ayu_FakePasscodeLimit(
 				tr::now,
-				lt_count,
+				lt_limit,
 				QString::number(kMaxEntries)), passcode);
 			return;
 		case AddResult::WrongPasscode:

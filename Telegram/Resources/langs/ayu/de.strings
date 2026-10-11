@@ -595,7 +595,7 @@
 "ayu_FakePasscodeWrong" = "Der aktuelle Sperrcode ist falsch.";
 "ayu_FakePasscodeSameAsReal" = "Ein falscher Sperrcode muss sich vom echten unterscheiden.";
 "ayu_FakePasscodeDuplicate" = "Ein anderer falscher Sperrcode nutzt ihn bereits.";
-"ayu_FakePasscodeLimit" = "Höchstens {count} falsche Sperrcodes.";
+"ayu_FakePasscodeLimit" = "Höchstens {limit} falsche Sperrcodes.";
 "ayu_FakePasscodeFailed" = "Der falsche Sperrcode konnte nicht gespeichert werden.";
 "ayu_FakePasscodeUnlocks" = "App entsperren";
 "ayu_FakePasscodeUnlocksAbout" = "Wenn aus, entsperrt dieser Sperrcode die App nie: Es erscheint „falscher Sperrcode“ und nur die Aktionen laufen. Ein solcher Code enthält nichts vom echten, daher verrät ein Offline-Erraten nichts über den echten Sperrcode.";
