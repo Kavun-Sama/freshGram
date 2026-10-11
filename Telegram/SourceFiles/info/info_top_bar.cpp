@@ -30,9 +30,17 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h"
 
 #include "ayu/ayu_settings.h"
-
+#include "ayu/ayu_ui_settings.h"
+#include "ayu/ui/fagram/fagram_top_bar.h"
 
 namespace Info {
+namespace {
+
+[[nodiscard]] bool UseFagram() {
+	return AyuUiSettings::designStyle() == AyuUiSettings::DesignStyle::Fagram;
+}
+
+} // namespace
 
 TopBar::TopBar(
 	QWidget *parent,
@@ -144,6 +152,12 @@ void TopBar::enableBackButton() {
 	registerToggleControlCallback(_back.data(), [=] {
 		return !selectionMode();
 	});
+	if (UseFagram()) {
+		_back->widthValue(
+		) | rpl::on_next([this] {
+			updateControlsGeometry(width());
+		}, lifetime());
+	}
 
 	if (_title) {
 		_title->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -320,7 +334,9 @@ void TopBar::createSearchView(
 	widthValue(
 	) | rpl::on_next([=](int newWidth) {
 		auto left = _back
-			? _st.back.width
+			? (UseFagram()
+				? FA::Ui::TopBarBackPillSkip()
+				: _st.back.width)
 			: _st.titlePosition.x();
 		wrap->setGeometryToLeft(
 			left,
@@ -373,24 +389,36 @@ void TopBar::updateControlsGeometry(int newWidth) {
 
 void TopBar::updateDefaultControlsGeometry(int newWidth) {
 	auto right = 0;
-	for (auto &button : _buttons) {
-		if (!button) {
-			continue;
+	auto left = _back ? _st.back.width : 0;
+	if (UseFagram()) {
+		right = FA::Ui::LayoutTopBarPillButtons(
+			newWidth,
+			_st.height,
+			_buttons);
+		left = FA::Ui::LayoutTopBarBackButton(
+			newWidth,
+			_st.height,
+			_back.data());
+	} else {
+		for (auto &button : _buttons) {
+			if (!button) {
+				continue;
+			}
+			button->moveToRight(right, 0, newWidth);
+			right += button->width();
 		}
-		button->moveToRight(right, 0, newWidth);
-		right += button->width();
-	}
-	if (_back) {
-		_back->setGeometryToLeft(
-			0,
-			0,
-			newWidth - right,
-			_back->height(),
-			newWidth);
+		if (_back) {
+			_back->setGeometryToLeft(
+				0,
+				0,
+				newWidth - right,
+				_back->height(),
+				newWidth);
+		}
 	}
 	if (_title) {
-		const auto x = _back
-			? _st.back.width
+		const auto x = (left > 0)
+			? left
 			: _subtitle
 			? _st.titleWithSubtitlePosition.x()
 			: _st.titlePosition.x();
@@ -401,8 +429,8 @@ void TopBar::updateDefaultControlsGeometry(int newWidth) {
 		_title->entity()->resizeToWidth(available);
 		_title->moveToLeft(x, y, newWidth);
 		if (_subtitle) {
-			const auto subtitleX = _back
-				? _st.back.width
+			const auto subtitleX = (left > 0)
+				? left
 				: _st.subtitlePosition.x();
 			_subtitle->entity()->resizeToWidth(
 				std::max(newWidth - right - subtitleX, 0));
@@ -453,16 +481,22 @@ void TopBar::updateStoriesGeometry(int newWidth) {
 		return;
 	}
 
-	auto right = 0;
-	for (auto &button : _buttons) {
-		if (!button) {
-			continue;
+	if (!UseFagram()) {
+		auto right = 0;
+		for (auto &button : _buttons) {
+			if (!button) {
+				continue;
+			}
+			button->moveToRight(right, 0, newWidth);
+			right += button->width();
 		}
-		button->moveToRight(right, 0, newWidth);
-		right += button->width();
 	}
 	const auto &small = st::dialogsStories;
-	const auto wrapLeft = (_back ? _st.back.width : 0);
+	const auto wrapLeft = _back
+		? (UseFagram()
+			? FA::Ui::TopBarBackPillSkip()
+			: _st.back.width)
+		: 0;
 	const auto left = _back
 		? 0
 		: (_st.titlePosition.x() - small.left - small.photoLeft);
@@ -496,6 +530,17 @@ void TopBar::paintEvent(QPaintEvent *e) {
 			p,
 			rect(),
 			RectPart::TopLeft | RectPart::TopRight);
+	}
+
+	if (UseFagram()) {
+		FA::Ui::PaintTopBarPill(
+			p,
+			width(),
+			_st.height,
+			_buttons,
+			_back.data(),
+			_searchModeEnabled,
+			selectionMode());
 	}
 }
 

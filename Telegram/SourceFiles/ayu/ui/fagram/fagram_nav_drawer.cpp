@@ -1,0 +1,259 @@
+/*
+This file is part of FAgram Desktop,
+the unofficial desktop client based on Telegram Desktop.
+
+For license and copyright information please follow this link:
+https://github.com/fagramdesktop/fadesktop/blob/dev/LEGAL
+*/
+#include "ayu/ui/fagram/fagram_nav_drawer.h"
+#include "ayu/ui/fagram/fagram_design.h"
+#include "ayu/ui/fagram/fagram_switch.h"
+
+#include "ui/painter.h"
+#include "ui/widgets/shadow.h"
+#include "ui/effects/ripple_animation.h"
+#include "ui/effects/animation_value_f.h"
+#include "styles/style_basic.h"
+#include "styles/style_window.h"
+#include "styles/style_widgets.h"
+#include "styles/style_window_main_menu.h"
+
+#include <QtGui/QPainterPath>
+
+namespace FA::Ui {
+namespace {
+
+constexpr auto kNavDrawerItemHeight = 50;
+constexpr auto kPillMargin = 12.0;
+constexpr auto kPillPaddingY = 2.0;
+
+[[nodiscard]] style::margins ComputeNavDrawerPadding(const style::SettingsButton &st) {
+	const auto topPadding = (kNavDrawerItemHeight - st.style.font->height) / 2;
+	return style::margins(58, topPadding, 28, topPadding);
+}
+
+} // namespace
+
+NavDrawerButton::NavDrawerButton(
+	QWidget *parent,
+	rpl::producer<QString> text,
+	const style::SettingsButton &st,
+	Settings::IconDescriptor &&descriptor)
+: SettingsButton(parent, std::move(text), st)
+, _descriptor(std::move(descriptor))
+, _icon(_descriptor.icon) {
+	setPaddingOverride(ComputeNavDrawerPadding(st));
+}
+
+NavDrawerButton::NavDrawerButton(
+	QWidget *parent,
+	rpl::producer<TextWithEntities> text,
+	const style::SettingsButton &st,
+	Settings::IconDescriptor &&descriptor)
+: SettingsButton(parent, std::move(text), st)
+, _descriptor(std::move(descriptor))
+, _icon(_descriptor.icon) {
+	setPaddingOverride(ComputeNavDrawerPadding(st));
+}
+
+void NavDrawerButton::setIcon(const style::icon *icon) {
+	_icon = icon;
+	update();
+}
+
+void NavDrawerButton::setDescriptor(Settings::IconDescriptor &&descriptor) {
+	_descriptor = std::move(descriptor);
+	_icon = _descriptor.icon;
+	update();
+}
+
+int NavDrawerButton::resizeGetHeight(int newWidth) {
+	return kNavDrawerItemHeight;
+}
+
+void NavDrawerButton::paintEvent(QPaintEvent *e) {
+	Painter p(this);
+	const auto outerw = width();
+	const auto outerh = height();
+
+	const auto pillRect = QRectF(
+		kPillMargin,
+		kPillPaddingY,
+		outerw - 2.0 * kPillMargin,
+		outerh - 2.0 * kPillPaddingY);
+	const auto radius = pillRect.height() / 2.0;
+
+	const auto paintOver = (isOver() || isDown()) && !isDisabled();
+	if (paintOver) {
+		PainterHighQualityEnabler hq(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(st::windowBgOver);
+		p.drawRoundedRect(pillRect, radius, radius);
+	}
+
+	{
+		p.save();
+		auto clip = QPainterPath();
+		clip.addRoundedRect(pillRect, radius, radius);
+		p.setClipPath(clip);
+		paintRipple(p, 0, 0);
+		p.restore();
+	}
+
+	if (_icon) {
+		const auto iconLeft = int(pillRect.x() + 16.0);
+		const auto iconTop = (outerh - _icon->height()) / 2;
+		if (paintOver) {
+			_icon->paint(p, QPoint(iconLeft, iconTop), outerw, st::windowBoldFgOver->c);
+		} else {
+			_icon->paint(p, QPoint(iconLeft, iconTop), outerw);
+		}
+	}
+
+	paintText(p, paintOver, outerw);
+
+	if (maybeToggleRect().width() > 0) {
+		const auto isChecked = toggled();
+		if (!_hasToggled) {
+			_hasToggled = true;
+			_lastToggled = isChecked;
+		} else if (_lastToggled != isChecked) {
+			_lastToggled = isChecked;
+			_toggleAnimation.start(
+				[this] { update(); },
+				isChecked ? 0.0 : 1.0,
+				isChecked ? 1.0 : 0.0,
+				200,
+				anim::easeOutCubic);
+		}
+		const auto toggledProgress = _toggleAnimation.value(isChecked ? 1.0 : 0.0);
+		const auto switchWidth = 46.0;
+		const auto switchHeight = 26.0;
+		const auto toggleX = pillRect.right() - 14.0 - switchWidth;
+		const auto toggleY = (outerh - switchHeight) / 2.0;
+
+		PaintMd3Switch(p, toggleX, toggleY, toggledProgress, switchWidth, switchHeight);
+	} else {
+		paintToggle(p, outerw);
+	}
+}
+
+QImage NavDrawerButton::prepareRippleMask() const {
+	const auto pillRect = QRectF(
+		kPillMargin,
+		kPillPaddingY,
+		width() - 2.0 * kPillMargin,
+		height() - 2.0 * kPillPaddingY);
+	const auto radius = pillRect.height() / 2.0;
+
+	auto result = QImage(size(), QImage::Format_ARGB32_Premultiplied);
+	result.fill(Qt::transparent);
+	{
+		QPainter p(&result);
+		PainterHighQualityEnabler hq(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(Qt::white);
+		p.drawRoundedRect(pillRect, radius, radius);
+	}
+	return result;
+}
+
+QPoint NavDrawerButton::prepareRippleStartPosition() const {
+	const auto global = QCursor::pos();
+	const auto local = mapFromGlobal(global);
+	const auto pillRect = QRect(
+		int(kPillMargin),
+		int(kPillPaddingY),
+		int(width() - 2.0 * kPillMargin),
+		int(height() - 2.0 * kPillPaddingY));
+	return pillRect.contains(local) ? local : DisabledRippleStartPosition();
+}
+
+object_ptr<NavDrawerButton> CreateNavDrawerButton(
+		not_null<QWidget*> parent,
+		rpl::producer<QString> text,
+		const style::SettingsButton &st,
+		Settings::IconDescriptor &&descriptor) {
+	return object_ptr<NavDrawerButton>(
+		parent,
+		std::move(text),
+		st,
+		std::move(descriptor));
+}
+
+not_null<NavDrawerButton*> AddNavDrawerButton(
+		not_null<::Ui::VerticalLayout*> container,
+		rpl::producer<QString> text,
+		const style::SettingsButton &st,
+		Settings::IconDescriptor &&descriptor) {
+	return container->add(
+		CreateNavDrawerButton(
+			container,
+			std::move(text),
+			st,
+			std::move(descriptor)));
+}
+
+not_null<::Ui::RpWidget*> AddNavDrawerDivider(
+		not_null<::Ui::VerticalLayout*> container) {
+	const auto divider = container->add(
+		object_ptr<::Ui::RpWidget>(container),
+		style::margins(16, 6, 16, 6));
+	divider->resize(divider->width(), st::lineWidth);
+	divider->paintRequest(
+	) | rpl::on_next([divider] {
+		Painter p(divider);
+		p.fillRect(divider->rect(), st::shadowFg);
+	}, divider->lifetime());
+	return divider;
+}
+
+object_ptr<::Ui::SettingsButton> CreateMainMenuButton(
+		not_null<QWidget*> parent,
+		rpl::producer<QString> text,
+		const style::SettingsButton &st,
+		Settings::IconDescriptor &&descriptor) {
+	if (Enabled()) {
+		return CreateNavDrawerButton(
+			parent,
+			std::move(text),
+			st,
+			std::move(descriptor));
+	}
+	return Settings::CreateButtonWithIcon(
+		parent,
+		std::move(text),
+		st,
+		std::move(descriptor));
+}
+
+not_null<::Ui::SettingsButton*> AddMainMenuButton(
+		not_null<::Ui::VerticalLayout*> container,
+		rpl::producer<QString> text,
+		const style::SettingsButton &st,
+		Settings::IconDescriptor &&descriptor) {
+	if (Enabled()) {
+		return AddNavDrawerButton(
+			container,
+			std::move(text),
+			st,
+			std::move(descriptor));
+	}
+	return Settings::AddButtonWithIcon(
+		container,
+		std::move(text),
+		st,
+		std::move(descriptor));
+}
+
+void AddMainMenuDivider(not_null<::Ui::VerticalLayout*> container) {
+	if (Enabled()) {
+		AddNavDrawerDivider(container);
+		return;
+	}
+	container->add(
+		object_ptr<::Ui::PlainShadow>(container),
+		{ 0, st::mainMenuSkip, 0, st::mainMenuSkip });
+}
+
+} // namespace FA::Ui

@@ -81,6 +81,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/ui/fagram/fagram_nav_drawer.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "boxes/abstract_box.h"
 #include "styles/style_ayu_icons.h"
@@ -515,14 +516,12 @@ void MainMenu::setupArchive() {
 	const auto inner = wrap->entity();
 	wrap->toggle(checkArchive(), anim::type::instant);
 
-	const auto button = AddButtonWithIcon(
+	const auto button = FA::Ui::AddMainMenuButton(
 		inner,
 		tr::lng_archived_name(),
 		st::mainMenuButton,
 		{ &st::menuIconArchiveOpen });
-	inner->add(
-		object_ptr<Ui::PlainShadow>(inner),
-		{ 0, st::mainMenuSkip, 0, st::mainMenuSkip });
+	FA::Ui::AddMainMenuDivider(inner);
 	button->setAcceptBoth(true);
 	button->clicks(
 	) | rpl::on_next([=](Qt::MouseButton which) {
@@ -656,7 +655,7 @@ void MainMenu::setupMenu() {
 	const auto addAction = [&](
 			rpl::producer<QString> text,
 			IconDescriptor &&descriptor) {
-		return AddButtonWithIcon(
+		return FA::Ui::AddMainMenuButton(
 			_menu,
 			std::move(text),
 			st::mainMenuButton,
@@ -665,7 +664,7 @@ void MainMenu::setupMenu() {
 	if (!_controller->session().supportMode()) {
 		if (settings.showMyProfileInDrawer())
 		_menu->add(
-			CreateButtonWithIcon(
+			FA::Ui::CreateMainMenuButton(
 				_menu,
 				tr::lng_menu_my_profile(),
 				st::mainMenuButton,
@@ -679,9 +678,7 @@ void MainMenu::setupMenu() {
 		SetupMenuBots(_menu, controller);
 
 		if (settings.showMyProfileInDrawer() || settings.showBotsInDrawer())
-		_menu->add(
-			object_ptr<Ui::PlainShadow>(_menu),
-			{ 0, st::mainMenuSkip, 0, st::mainMenuSkip });
+		FA::Ui::AddMainMenuDivider(_menu);
 
 		if (settings.showNewGroupInDrawer())
 		AddMyChannelsBox(addAction(

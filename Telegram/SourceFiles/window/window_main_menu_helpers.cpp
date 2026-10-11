@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_main_menu_helpers.h"
 
 #include "apiwrap.h"
+#include "ayu/ui/fagram/fagram_nav_drawer.h"
 #include "base/platform/base_platform_info.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
@@ -313,7 +314,7 @@ void SetupMenuBots(
 				}
 				continue;
 			}
-			const auto button = wrap->add(object_ptr<Ui::SettingsButton>(
+			const auto button = wrap->add(FA::Ui::CreateMainMenuButton(
 				wrap,
 				rpl::single(bot.name),
 				st::mainMenuButton));
@@ -326,7 +327,9 @@ void SetupMenuBots(
 			button->heightValue(
 			) | rpl::on_next([=](int height) {
 				icon->move(
-					st::mainMenuButton.iconLeft,
+					FA::Ui::Enabled()
+						? (12 + 16)
+						: st::mainMenuButton.iconLeft,
 					(height - icon->height()) / 2);
 			}, button->lifetime());
 			const auto weak = base::make_weak(container);
