@@ -25,6 +25,9 @@ namespace {
 
 constexpr auto kModelsChannel = "freshgram_models"_cs;
 constexpr auto kFallbackManifestPostId = 22;
+constexpr auto kMaxWhisperSize = int64(1200) * 1024 * 1024;
+constexpr auto kMaxTesseractSize = int64(200) * 1024 * 1024;
+constexpr auto kSha256Length = 64;
 
 std::vector<Model> ModelsList;
 bool ModelsLoadedFromCache = false;
@@ -59,6 +62,18 @@ rpl::event_stream<int> DownloadFinishedStream;
 	}
 	channel = text.left(sep);
 	postId = parsed;
+	return true;
+}
+
+[[nodiscard]] bool IsSha256(const QString &value) {
+	if (value.size() != kSha256Length) {
+		return false;
+	}
+	for (const auto ch : value) {
+		if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) {
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -99,8 +114,13 @@ rpl::event_stream<int> DownloadFinishedStream;
 		} else {
 			continue;
 		}
+		const auto maxSize = (model.kind == ModelKind::Whisper)
+			? kMaxWhisperSize
+			: kMaxTesseractSize;
 		if (!model.id
 			|| model.size <= 0
+			|| model.size > maxSize
+			|| !IsSha256(model.sha256)
 			|| model.name.isEmpty()
 			|| !IsSafeFileName(model.file)
 			|| (model.kind != ModelKind::Whisper
@@ -109,7 +129,10 @@ rpl::event_stream<int> DownloadFinishedStream;
 			|| !ParseLocation(
 				object.value(u"location"_q).toString(),
 				model.channel,
-				model.postId)) {
+				model.postId)
+			|| model.channel.compare(
+				kModelsChannel.utf16(),
+				Qt::CaseInsensitive) != 0) {
 			continue;
 		}
 		result.push_back(std::move(model));
@@ -446,8 +469,7 @@ void ModelLoader::unpack(const QString &path) {
 	crl::async([=] {
 		auto success = false;
 		if (QFileInfo(path).size() == model.size
-			&& (model.sha256.isEmpty()
-				|| ShaOfFile(path) == model.sha256)) {
+			&& ShaOfFile(path) == model.sha256) {
 			const auto target = ModelPath(model);
 			QDir().mkpath(QFileInfo(target).absolutePath());
 			QFile::remove(target);

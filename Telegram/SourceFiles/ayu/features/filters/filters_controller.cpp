@@ -27,6 +27,13 @@ namespace FiltersController {
 
 std::unordered_set<long long> showingFilteredMessages;
 
+namespace {
+
+constexpr auto kMatchTimeLimit = 1'000'000;
+constexpr auto kMatchStackLimit = 1 << 20;
+
+} // namespace
+
 bool filterBlocked(const not_null<HistoryItem*> item) {
 	if (item->from() != item->history()->peer) {
 		if (isBlocked(item)) {
@@ -60,8 +67,14 @@ std::optional<bool> isFiltered(
 			LOG(("FILTER FAILED: %1").arg(u_errorName(status)));
 			return false;
 		}
+		matcher->setTimeLimit(kMatchTimeLimit, status);
+		matcher->setStackLimit(kMatchStackLimit, status);
 
-		const auto match = matcher->find();
+		const auto match = matcher->find(status);
+		if (U_FAILURE(status)) {
+			LOG(("FILTER FAILED: %1").arg(u_errorName(status)));
+			return false;
+		}
 		const auto reversed = pattern.reversed;
 
 		if ((!reversed && match) || (reversed && !match)) {
