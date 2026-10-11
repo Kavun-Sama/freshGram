@@ -139,6 +139,17 @@
 "ayu_TranscriptionProvider" = "转写服务";
 "ayu_TranscriptionWhisper" = "Whisper（本地）";
 "ayu_WhisperModel" = "Whisper 模型";
+"ayu_TextRecognitionSubtitle" = "文字识别";
+"ayu_OcrAuto" = "自动检测语言";
+"ayu_OcrAutoShort" = "自动";
+"ayu_RecognizeText" = "识别文字";
+"ayu_RecognizeButton" = "识别";
+"ayu_Recognizing" = "正在识别…";
+"ayu_RecognizeNoText" = "未发现文字。";
+"ayu_RecognizeFailed" = "无法识别文字：{error}";
+"ayu_RecognizeNoLanguages" = "请先在 设置 → 常规 中选择文字识别语言。";
+"ayu_RecognizeNotLoaded" = "照片尚未加载。";
+"ayu_RecognizeHint" = "拖动四角选择区域";
 "ayu_TranscribeNoModel" = "请先在 设置 → 常规 中选择 Whisper 模型。";
 "ayu_TranscribeNoSpeech" = "未发现语音。";
 "ayu_TranscribeFailed" = "无法识别语音：{error}";

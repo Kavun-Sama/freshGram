@@ -140,6 +140,8 @@ set(ayugram_files
         ayu/features/recognition/text_recognition.h
         ayu/features/recognition/speech_recognition.h
         ayu/ui/boxes/recognition_models_box.cpp
+        ayu/ui/components/recognition_picker.cpp
+        ayu/ui/components/recognition_picker.h
         ayu/ui/boxes/recognition_models_box.h
         ayu/ui/fagram/fagram_nav_drawer.cpp
         ayu/ui/fagram/fagram_nav_drawer.h

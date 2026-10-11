@@ -139,6 +139,17 @@
 "ayu_TranscriptionProvider" = "Поставщик расшифровки";
 "ayu_TranscriptionWhisper" = "Whisper (локально)";
 "ayu_WhisperModel" = "Модель Whisper";
+"ayu_TextRecognitionSubtitle" = "Распознавание текста";
+"ayu_OcrAuto" = "Автоопределение языка";
+"ayu_OcrAutoShort" = "Авто";
+"ayu_RecognizeText" = "Распознать текст";
+"ayu_RecognizeButton" = "Распознать";
+"ayu_Recognizing" = "Распознавание…";
+"ayu_RecognizeNoText" = "Текст не найден.";
+"ayu_RecognizeFailed" = "Не удалось распознать текст: {error}";
+"ayu_RecognizeNoLanguages" = "Сначала выберите языки распознавания текста в Настройки → Основные.";
+"ayu_RecognizeNotLoaded" = "Фото ещё не загружено.";
+"ayu_RecognizeHint" = "Перетащите углы, чтобы выбрать область";
 "ayu_TranscribeNoModel" = "Сначала выберите модель Whisper в Настройки → Основные.";
 "ayu_TranscribeNoSpeech" = "Речь не найдена.";
 "ayu_TranscribeFailed" = "Не удалось распознать речь: {error}";

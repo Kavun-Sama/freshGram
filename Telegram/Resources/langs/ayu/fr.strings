@@ -139,6 +139,17 @@
 "ayu_TranscriptionProvider" = "Fournisseur de transcription";
 "ayu_TranscriptionWhisper" = "Whisper (local)";
 "ayu_WhisperModel" = "Modèle Whisper";
+"ayu_TextRecognitionSubtitle" = "Reconnaissance de texte";
+"ayu_OcrAuto" = "Détection automatique de la langue";
+"ayu_OcrAutoShort" = "Automatique";
+"ayu_RecognizeText" = "Reconnaître le texte";
+"ayu_RecognizeButton" = "Reconnaître";
+"ayu_Recognizing" = "Reconnaissance…";
+"ayu_RecognizeNoText" = "Aucun texte trouvé.";
+"ayu_RecognizeFailed" = "Impossible de reconnaître le texte : {error}";
+"ayu_RecognizeNoLanguages" = "Choisissez d'abord les langues de reconnaissance dans Paramètres → Général.";
+"ayu_RecognizeNotLoaded" = "La photo n'est pas encore chargée.";
+"ayu_RecognizeHint" = "Faites glisser les coins pour choisir la zone";
 "ayu_TranscribeNoModel" = "Choisissez d'abord un modèle Whisper dans Paramètres → Général.";
 "ayu_TranscribeNoSpeech" = "Aucune parole trouvée.";
 "ayu_TranscribeFailed" = "Impossible de reconnaître la parole : {error}";

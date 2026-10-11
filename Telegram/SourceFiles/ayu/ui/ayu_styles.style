@@ -128,3 +128,17 @@ ayuServiceTimeBadgeVerticalPadding: 2px;
 ayuServiceTimeBadgeGap: 8px;
 ayuServiceTimeBadgeTrailingInset: 3px;
 ayuServiceTimeBadgeLastLineWidthAdd: 9px;
+
+recognitionHandleRadius: 7px;
+recognitionHandleTolerance: 16px;
+recognitionBorder: 2px;
+recognitionMinSide: 32px;
+recognitionButtonsSkip: 12px;
+recognitionButtonsBottom: 28px;
+recognitionHintTop: 24px;
+recognitionPanelRadius: 14px;
+recognitionPanelPadding: margins(18px, 14px, 18px, 14px);
+recognitionPanelMaxWidth: 640px;
+recognitionPanelMaxHeight: 440px;
+recognitionPanelMargin: 24px;
+recognitionPanelButtonsTop: 12px;

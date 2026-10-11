@@ -42,6 +42,10 @@ class DocumentMedia;
 struct StoriesContext;
 } // namespace Data
 
+namespace AyuUi {
+class RecognitionPicker;
+} // namespace AyuUi
+
 namespace Ui {
 class DropdownMenu;
 class PopupMenu;
@@ -585,6 +589,7 @@ private:
 	void validatePhotoImage(Image *image, bool blurred);
 	void validatePhotoCurrentImage();
 	void tryStartTextRecognition();
+	void startTextRecognition();
 
 	[[nodiscard]] bool hasCopyMediaRestriction(
 		bool skipPremiumCheck = false) const;
@@ -820,6 +825,7 @@ private:
 	bool _mousePressed = false;
 
 	base::unique_qptr<Ui::PopupMenu> _menu;
+	base::unique_qptr<AyuUi::RecognitionPicker> _recognitionPicker;
 	object_ptr<Ui::DropdownMenu> _dropdown;
 	base::Timer _dropdownShowTimer;
 

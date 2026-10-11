@@ -9,6 +9,7 @@
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/features/recognition/speech_recognition.h"
+#include "ayu/features/recognition/text_recognition.h"
 #include "ayu/ui/boxes/recognition_models_box.h"
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
@@ -186,6 +187,36 @@ void BuildTranscription(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	});
 }
 
+void BuildTextRecognition(SectionBuilder &builder) {
+	if (!AyuRecognition::TextRecognitionAvailable()) {
+		return;
+	}
+	const auto controller = builder.controller();
+	auto *settings = &AyuSettings::getInstance();
+
+	builder.addSubsectionTitle(tr::ayu_TextRecognitionSubtitle());
+	builder.addButton({
+		.id = u"ayu/ocrLanguages"_q,
+		.altIds = { u"ayu/ocr"_q, u"ayu/tesseract"_q, u"ayu/textRecognition"_q },
+		.title = tr::ayu_ManageOcrLanguages(),
+		.st = &st::settingsButtonNoIcon,
+		.label = settings->ocrLanguagesValue()
+			| rpl::map([](QString codes) {
+				if (codes.isEmpty()) {
+					return tr::ayu_RecognitionOff(tr::now);
+				} else if (codes == AyuRecognition::kAutoOcrLanguages.utf16()) {
+					return tr::ayu_OcrAutoShort(tr::now);
+				}
+				return codes.replace('+', u", "_q);
+			}),
+		.onClick = [=] {
+			controller->show(Box<AyuUi::RecognitionModelsBox>(
+				&controller->session(),
+				AyuRecognition::ModelKind::Tesseract));
+		},
+	});
+}
+
 void BuildShowPeerId(SectionBuilder &builder) {
 	auto *settings = &AyuSettings::getInstance();
 
@@ -233,6 +264,11 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 
 	BuildTranscription(builder, ayu);
 	ayu.addSectionDivider();
+
+	if (AyuRecognition::TextRecognitionAvailable()) {
+		BuildTextRecognition(builder);
+		ayu.addSectionDivider();
+	}
 
 	builder.addSubsectionTitle(tr::ayu_CategoryGeneral());
 

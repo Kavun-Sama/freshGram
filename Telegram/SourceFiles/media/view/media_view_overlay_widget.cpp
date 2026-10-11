@@ -137,6 +137,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <kurlmimedata.h>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/recognition/recognition_models.h"
+#include "ayu/features/recognition/text_recognition.h"
+#include "ayu/ui/boxes/recognition_models_box.h"
+#include "ayu/ui/components/recognition_picker.h"
 #include "ayu/ayu_state.h"
 #include "ayu/features/streamer_mode/streamer_mode.h"
 
@@ -2337,6 +2341,18 @@ void OverlayWidget::fillContextMenuActions(
 				[=] { copyMedia(); },
 				&st::mediaMenuIconCopy);
 		}
+	}
+	if (!hasRecognitionSelection
+		&& !_stories
+		&& AyuRecognition::TextRecognitionAvailable()
+		&& ((_photo && _photoMedia && _photoMedia->loaded())
+			|| (_document
+				&& _document->isImage()
+				&& !_staticContent.isNull()))) {
+		addAction(
+			tr::ayu_RecognizeText(tr::now),
+			[=] { startTextRecognition(); },
+			&st::mediaMenuIconFont);
 	}
 	if ((_photo && _photo->hasAttachedStickers())
 		|| (_document && _document->hasAttachedStickers())) {
@@ -4670,6 +4686,7 @@ void OverlayWidget::displayPhoto(
 
 	clearStreaming();
 	destroyThemePreview();
+	_recognitionPicker = nullptr;
 
 	_fullScreenVideo = false;
 	const auto photoChanged = (_photo != photo);
@@ -4762,6 +4779,7 @@ void OverlayWidget::displayDocument(
 		const StartStreaming &startStreaming) {
 	_fullScreenVideo = false;
 	_staticContent = QImage();
+	_recognitionPicker = nullptr;
 	const auto documentChanged = (_document != doc);
 	clearStreaming(_document != doc);
 	destroyThemePreview();
@@ -6301,6 +6319,61 @@ void OverlayWidget::validatePhotoCurrentImage() {
 			tryStartTextRecognition();
 		}
 	}
+}
+
+void OverlayWidget::startTextRecognition() {
+	if (_stories || !_session || _recognitionPicker) {
+		return;
+	}
+	auto image = QImage();
+	if (_photo && _photoMedia) {
+		_photoMedia->wanted(Data::PhotoSize::Large, fileOrigin());
+		if (const auto large = _photoMedia->image(Data::PhotoSize::Large)) {
+			image = large->original();
+		} else if (const auto small = _photoMedia->image(
+				Data::PhotoSize::Small)) {
+			image = small->original();
+		}
+	} else if (_document && _document->isImage()) {
+		image = _staticContent;
+	}
+	if (image.isNull()) {
+		Ui::Toast::Show(_body, tr::ayu_RecognizeNotLoaded(tr::now));
+		return;
+	}
+	const auto languages = AyuRecognition::EnabledOcrLanguages();
+	if (languages.isEmpty()) {
+		Ui::Toast::Show(_body, tr::ayu_RecognizeNoLanguages(tr::now));
+		if (const auto window = findWindow()) {
+			window->show(Box<AyuUi::RecognitionModelsBox>(
+				&window->session(),
+				AyuRecognition::ModelKind::Tesseract));
+		}
+		return;
+	}
+	if (_rotation) {
+		image = image.transformed(
+			QTransform().rotate(_rotation),
+			Qt::SmoothTransformation);
+	}
+	_recognitionPicker = base::make_unique_q<AyuUi::RecognitionPicker>(
+		_body,
+		std::move(image),
+		[=] {
+			const auto rect = finalContentRect();
+			return QRect(
+				_widget->mapTo(_body, rect.topLeft()),
+				rect.size());
+		},
+		languages,
+		[=] {
+			if (_recognitionPicker) {
+				_recognitionPicker->hide();
+			}
+			crl::on_main(base::make_weak(_widget), [=] {
+				_recognitionPicker = nullptr;
+			});
+		});
 }
 
 void OverlayWidget::tryStartTextRecognition() {
@@ -8884,6 +8957,7 @@ Window::SessionController *OverlayWidget::findWindow(bool switchTo) const {
 
 // #TODO unite and check
 void OverlayWidget::clearBeforeHide() {
+	_recognitionPicker = nullptr;
 	AyuState::disableGhostModeOnStoryClose(_storiesSession);
 	checkSingleViewMediaBurn();
 	_message = nullptr;
