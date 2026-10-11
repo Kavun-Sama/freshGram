@@ -6099,6 +6099,7 @@ void InputField::addMarkdownActions(
 	if (disabled) {
 		return;
 	}
+	const auto saved = textCursor();
 	const auto add = [&](
 			const QString &base,
 			QKeySequence sequence,
@@ -6108,7 +6109,13 @@ void InputField::addMarkdownActions(
 			? QString()
 			: QChar('\t') + sequence.toString(QKeySequence::NativeText);
 		const auto action = new QAction(base + add, submenu);
-		connect(action, &QAction::triggered, this, callback);
+		connect(action, &QAction::triggered, this, [=] {
+			// The popup may drop the selection before the action fires.
+			if (saved.hasSelection() && !textCursor().hasSelection()) {
+				setTextCursor(saved);
+			}
+			callback();
+		});
 		action->setDisabled(disabled);
 		submenu->addAction(action);
 	};
