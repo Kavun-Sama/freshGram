@@ -232,7 +232,7 @@ bool Cancelled(void *flag, int) {
 		1,
 		int(prepared.bytesPerLine()));
 
-	auto monitor = ETEXT_DESC();
+	auto monitor = tesseract::ETEXT_DESC();
 	monitor.cancel = &Cancelled;
 	monitor.cancel_this = const_cast<std::atomic<bool>*>(&cancelled);
 	const auto code = api.Recognize(&monitor);
