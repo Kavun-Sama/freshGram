@@ -376,6 +376,48 @@ struct BoldFace {
 	int weight = 0;
 };
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+[[nodiscard]] QStringList DatabaseStyles(const QString &family) {
+	return QFontDatabase().styles(family);
+}
+
+[[nodiscard]] bool DatabaseItalic(
+		const QString &family,
+		const QString &style) {
+	return QFontDatabase().italic(family, style);
+}
+
+[[nodiscard]] int DatabaseWeight(
+		const QString &family,
+		const QString &style) {
+	return QFontDatabase().weight(family, style);
+}
+
+[[nodiscard]] QStringList DatabaseFamilies() {
+	return QFontDatabase().families();
+}
+#else // Qt < 6
+[[nodiscard]] QStringList DatabaseStyles(const QString &family) {
+	return QFontDatabase::styles(family);
+}
+
+[[nodiscard]] bool DatabaseItalic(
+		const QString &family,
+		const QString &style) {
+	return QFontDatabase::italic(family, style);
+}
+
+[[nodiscard]] int DatabaseWeight(
+		const QString &family,
+		const QString &style) {
+	return QFontDatabase::weight(family, style);
+}
+
+[[nodiscard]] QStringList DatabaseFamilies() {
+	return QFontDatabase::families();
+}
+#endif // Qt < 6
+
 [[nodiscard]] std::optional<BoldFace> FindBoldFace(const QFont &font) {
 	static auto Cache = base::flat_map<QString, std::optional<BoldFace>>();
 
@@ -383,11 +425,11 @@ struct BoldFace {
 	const auto regular = [&] {
 		auto result = int(QFont::Normal);
 		auto distance = 10000;
-		for (const auto &style : QFontDatabase::styles(family)) {
-			if (QFontDatabase::italic(family, style)) {
+		for (const auto &style : DatabaseStyles(family)) {
+			if (DatabaseItalic(family, style)) {
 				continue;
 			}
-			const auto weight = QFontDatabase::weight(family, style);
+			const auto weight = DatabaseWeight(family, style);
 			const auto delta = std::abs(weight - int(QFont::Normal));
 			if (delta < distance) {
 				distance = delta;
@@ -412,11 +454,11 @@ struct BoldFace {
 	auto result = std::optional<BoldFace>();
 	auto bestRank = rank(regular);
 	const auto consider = [&](const QString &candidate) {
-		for (const auto &style : QFontDatabase::styles(candidate)) {
-			if (QFontDatabase::italic(candidate, style)) {
+		for (const auto &style : DatabaseStyles(candidate)) {
+			if (DatabaseItalic(candidate, style)) {
 				continue;
 			}
-			const auto weight = QFontDatabase::weight(candidate, style);
+			const auto weight = DatabaseWeight(candidate, style);
 			if (weight <= regular) {
 				continue;
 			}
@@ -429,7 +471,7 @@ struct BoldFace {
 	consider(base);
 	consider(family);
 	const auto prefix = base + ' ';
-	for (const auto &candidate : QFontDatabase::families()) {
+	for (const auto &candidate : DatabaseFamilies()) {
 		if (candidate.startsWith(prefix, Qt::CaseInsensitive)
 			&& StripWeightWord(candidate).compare(
 				base,
