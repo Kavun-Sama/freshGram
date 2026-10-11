@@ -605,3 +605,4 @@
 "ayu_FakePasscodeClearMedia" = "Gespeicherte Medien gelöschter Nachrichten löschen";
 "ayu_FakePasscodeLogoutDb" = "Lokale Nachrichtendatenbank dieser Konten löschen";
 "ayu_FakePasscodeLogoutMedia" = "Gespeicherte Medien gelöschter Nachrichten dieser Konten löschen";
+"ayu_ModelsLoadFailed" = "Die Modellliste konnte nicht geladen werden. Prüfe die Verbindung und öffne das Fenster erneut.";

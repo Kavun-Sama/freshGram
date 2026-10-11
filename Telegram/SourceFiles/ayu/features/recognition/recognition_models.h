@@ -77,4 +77,17 @@ private:
 
 };
 
+// The downloads go on after the models box is closed.
+[[nodiscard]] ModelLoader *ModelDownload(int id);
+void StartModelDownload(
+	not_null<Main::Session*> session,
+	const Model &model);
+void CancelModelDownload(int id);
+[[nodiscard]] rpl::producer<int> ModelDownloadFinished();
+
+// Selects the model when its download finishes.
+void WantModel(const Model &model);
+
+[[nodiscard]] rpl::producer<bool> ManifestFinished();
+
 } // namespace AyuRecognition

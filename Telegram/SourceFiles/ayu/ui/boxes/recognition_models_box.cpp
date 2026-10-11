@@ -41,6 +41,11 @@ constexpr auto kMaxQueryLength = 15;
 	return enabled ? BlobState(Active()) : BlobState(Ready());
 }
 
+struct Selection {
+	QString value;
+	std::vector<Model> pending;
+};
+
 class Inner final : public Ui::RpWidget {
 public:
 	Inner(
@@ -48,22 +53,31 @@ public:
 		not_null<Main::Session*> session,
 		ModelKind kind);
 
-	[[nodiscard]] QString enabledValue() const;
+	[[nodiscard]] Selection selection() const;
 	[[nodiscard]] Fn<void(const QString &)> queryCallback() const;
 
 private:
 	void setupContent(not_null<Main::Session*> session);
+	void rebuildRows(
+		not_null<Main::Session*> session,
+		const QStringList &selected);
 	void addRow(
-		not_null<Ui::VerticalLayout*> content,
 		not_null<Main::Session*> session,
 		const Model &model,
 		bool enabled,
 		bool automatic = false);
+	[[nodiscard]] QString keyOf(const Model &model) const;
+	[[nodiscard]] QStringList currentKeys() const;
+	[[nodiscard]] QString savedValue() const;
 
 	const ModelKind _kind;
+	Ui::VerticalLayout *_content = nullptr;
+	Ui::SlideWrap<Ui::FlatLabel> *_loading = nullptr;
+	std::vector<int> _builtIds;
 	std::vector<int> _enabledIds;
 	std::vector<Model> _models;
-	int _autoId = 0;
+	std::optional<Model> _aux;
+	int _lastSingleId = 0;
 	rpl::event_stream<QStringView> _query;
 	rpl::event_stream<int> _selected;
 	rpl::event_stream<> _autoOn;
@@ -85,39 +99,95 @@ Fn<void(const QString &)> Inner::queryCallback() const {
 	return _queryCallback;
 }
 
-QString Inner::enabledValue() const {
-	if (_autoId && ranges::contains(_enabledIds, _autoId)) {
-		return kAutoOcrLanguages.utf16();
-	}
+QString Inner::keyOf(const Model &model) const {
+	return (model.kind == ModelKind::Whisper)
+		? model.file
+		: (model.kind == ModelKind::TesseractAux)
+		? kAutoOcrLanguages.utf16()
+		: model.code;
+}
+
+QString Inner::savedValue() const {
+	const auto &settings = AyuSettings::getInstance();
+	return (_kind == ModelKind::Whisper)
+		? settings.whisperModel()
+		: settings.ocrLanguages();
+}
+
+QStringList Inner::currentKeys() const {
 	auto result = QStringList();
+	if (_aux && ranges::contains(_enabledIds, _aux->id)) {
+		result.push_back(keyOf(*_aux));
+	}
 	for (const auto &model : _models) {
-		if (!ranges::contains(_enabledIds, model.id)
-			|| !ModelExists(model)) {
-			continue;
-		}
-		result.push_back((_kind == ModelKind::Whisper)
-			? model.file
-			: model.code);
-		if (_kind == ModelKind::Whisper) {
-			break;
+		if (ranges::contains(_enabledIds, model.id)) {
+			result.push_back(keyOf(model));
 		}
 	}
-	return result.join('+');
+	return result;
+}
+
+Selection Inner::selection() const {
+	auto result = Selection();
+	const auto enabled = [&](const Model &model) {
+		return ranges::contains(_enabledIds, model.id);
+	};
+	if (_aux && enabled(*_aux)) {
+		if (ModelExists(*_aux)) {
+			result.value = kAutoOcrLanguages.utf16();
+		} else {
+			result.value = savedValue();
+			result.pending.push_back(*_aux);
+		}
+		return result;
+	}
+	if (_kind == ModelKind::Whisper) {
+		const Model *chosen = nullptr;
+		const Model *pending = nullptr;
+		for (const auto &model : _models) {
+			if (!enabled(model)) {
+				continue;
+			} else if (!ModelExists(model)) {
+				pending = &model;
+			} else if (!chosen || model.id == _lastSingleId) {
+				chosen = &model;
+			}
+		}
+		if (chosen) {
+			result.value = chosen->file;
+		} else if (pending) {
+			result.value = savedValue();
+			result.pending.push_back(*pending);
+		}
+		return result;
+	}
+	auto codes = QStringList();
+	for (const auto &model : _models) {
+		if (!enabled(model)) {
+			continue;
+		} else if (ModelExists(model)) {
+			codes.push_back(model.code);
+		} else {
+			result.pending.push_back(model);
+		}
+	}
+	result.value = codes.join('+');
+	return result;
 }
 
 void Inner::addRow(
-		not_null<Ui::VerticalLayout*> content,
 		not_null<Main::Session*> session,
 		const Model &model,
 		bool enabled,
 		bool automatic) {
+	const auto content = _content;
 	const auto id = model.id;
 	const auto title = automatic
 		? tr::ayu_OcrAuto(tr::now)
 		: ModelTitle(model);
 	const auto single = (_kind == ModelKind::Whisper);
 	const auto languages = (_kind == ModelKind::Tesseract) && !automatic;
-	enabled = enabled && ModelExists(model);
+	enabled = (enabled && ModelExists(model)) || (ModelDownload(id) != nullptr);
 	if (enabled) {
 		_enabledIds.push_back(id);
 	}
@@ -142,7 +212,6 @@ void Inner::addRow(
 	}, button->lifetime());
 
 	struct State {
-		base::unique_qptr<ModelLoader> loader;
 		rpl::variable<BlobState> state;
 		rpl::event_stream<bool> forced;
 		rpl::lifetime loaderLifetime;
@@ -191,58 +260,55 @@ void Inner::addRow(
 				end(_enabledIds));
 		}
 	};
-	const auto stopLoader = [=] {
+	const auto attach = [=] {
 		state->loaderLifetime.destroy();
-		state->loader = nullptr;
+		if (const auto loader = ModelDownload(id)) {
+			loader->state(
+			) | rpl::on_next([=](const BlobState &value) {
+				state->state = value;
+			}, state->loaderLifetime);
+		}
 	};
 
 	button->toggledValue(
 	) | rpl::on_next([=](bool toggled) {
 		setEnabled(toggled);
 		if (toggled) {
+			if (single) {
+				_lastSingleId = id;
+				_selected.fire_copy(id);
+			} else if (automatic) {
+				_autoOn.fire({});
+			} else if (languages) {
+				_languageOn.fire({});
+			}
 			if (ModelExists(model)) {
 				state->state = ComputeState(model, true);
-				if (single) {
-					_selected.fire_copy(id);
-				} else if (automatic) {
-					_autoOn.fire({});
-				} else if (languages) {
-					_languageOn.fire({});
-				}
-				return;
-			} else if (state->loader) {
 				return;
 			}
-			state->loader = base::make_unique_q<ModelLoader>(
-				QCoreApplication::instance(),
-				session,
-				model,
-				crl::guard(button, [=] {
-					stopLoader();
-					if (ModelExists(model)) {
-						const auto on = button->toggled();
-						state->state = ComputeState(model, on);
-						if (on && single) {
-							_selected.fire_copy(id);
-						} else if (on && automatic) {
-							_autoOn.fire({});
-						} else if (on && languages) {
-							_languageOn.fire({});
-						}
-					} else {
-						state->state = BlobState(Failed());
-						state->forced.fire(false);
-					}
-				}));
-			state->loader->state(
-			) | rpl::on_next([=](const BlobState &value) {
-				state->state = value;
-			}, state->loaderLifetime);
+			StartModelDownload(session, model);
+			attach();
 		} else {
-			stopLoader();
+			if (ModelDownload(id)) {
+				CancelModelDownload(id);
+			}
+			state->loaderLifetime.destroy();
 			if (!v::is<Failed>(state->state.current())) {
 				state->state = ComputeState(model, false);
 			}
+		}
+	}, button->lifetime());
+
+	ModelDownloadFinished(
+	) | rpl::filter([=](int finished) {
+		return finished == id;
+	}) | rpl::on_next([=] {
+		state->loaderLifetime.destroy();
+		if (ModelExists(model)) {
+			state->state = ComputeState(model, button->toggled());
+		} else {
+			state->state = BlobState(Failed());
+			state->forced.fire(false);
 		}
 	}, button->lifetime());
 
@@ -299,8 +365,55 @@ void Inner::addRow(
 	});
 }
 
+void Inner::rebuildRows(
+		not_null<Main::Session*> session,
+		const QStringList &selected) {
+	auto models = Models(_kind);
+	if (models.empty()) {
+		return;
+	}
+	auto aux = std::optional<Model>();
+	if (_kind == ModelKind::Tesseract) {
+		const auto list = Models(ModelKind::TesseractAux);
+		if (!list.empty()) {
+			aux = list.front();
+		}
+	}
+	auto ids = std::vector<int>();
+	if (aux) {
+		ids.push_back(aux->id);
+	}
+	for (const auto &model : models) {
+		ids.push_back(model.id);
+	}
+	if (ids == _builtIds) {
+		return;
+	}
+	_builtIds = std::move(ids);
+	_loading->hide(anim::type::instant);
+	while (_content->count() > 1) {
+		delete _content->widgetAt(1);
+	}
+	_enabledIds.clear();
+	_models = std::move(models);
+	_aux = std::move(aux);
+
+	const auto autoChosen = _aux
+		&& selected.contains(kAutoOcrLanguages.utf16());
+	if (_aux) {
+		addRow(session, *_aux, autoChosen, true);
+	}
+	for (const auto &model : _models) {
+		addRow(
+			session,
+			model,
+			!autoChosen && selected.contains(keyOf(model)));
+	}
+	_content->resizeToWidth(st::boxWidth);
+}
+
 void Inner::setupContent(not_null<Main::Session*> session) {
-	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+	_content = Ui::CreateChild<Ui::VerticalLayout>(this);
 
 	const auto selected = [&] {
 		const auto &settings = AyuSettings::getInstance();
@@ -309,54 +422,26 @@ void Inner::setupContent(not_null<Main::Session*> session) {
 			: settings.ocrLanguages().split('+', Qt::SkipEmptyParts);
 	}();
 
-	const auto loading = content->add(
+	_loading = _content->add(
 		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
-			content,
+			_content,
 			object_ptr<Ui::FlatLabel>(
-				content,
+				_content,
 				tr::ayu_ModelsLoading(),
 				st::defaultFlatLabel)),
 		st::boxRowPadding);
-	const auto built = content->lifetime().make_state<bool>(false);
-	const auto buildRows = [=] {
-		if (*built) {
-			return;
-		}
-		auto models = Models(_kind);
-		if (models.empty()) {
-			return;
-		}
-		*built = true;
-		loading->hide(anim::type::instant);
-		_models = models;
-		if (_kind == ModelKind::Tesseract) {
-			const auto aux = Models(ModelKind::TesseractAux);
-			if (!aux.empty()) {
-				_autoId = aux.front().id;
-				addRow(
-					content,
-					session,
-					aux.front(),
-					selected.contains(kAutoOcrLanguages.utf16()),
-					true);
-			}
-		}
-		const auto autoChosen = selected.contains(kAutoOcrLanguages.utf16());
-		for (const auto &model : models) {
-			const auto key = (_kind == ModelKind::Whisper)
-				? model.file
-				: model.code;
-			addRow(
-				content,
-				session,
-				model,
-				!autoChosen && selected.contains(key));
-		}
-		content->resizeToWidth(st::boxWidth);
+	const auto rebuild = [=] {
+		rebuildRows(session, _builtIds.empty() ? selected : currentKeys());
 	};
-	buildRows();
+	rebuild();
 	ModelsChanged(
-	) | rpl::on_next(buildRows, content->lifetime());
+	) | rpl::on_next(rebuild, _content->lifetime());
+	ManifestFinished(
+	) | rpl::on_next([=](bool loaded) {
+		if (!loaded && _builtIds.empty()) {
+			_loading->entity()->setText(tr::ayu_ModelsLoadFailed(tr::now));
+		}
+	}, _content->lifetime());
 	RefreshManifest(session);
 
 	_queryCallback = [=](const QString &query) {
@@ -366,8 +451,8 @@ void Inner::setupContent(not_null<Main::Session*> session) {
 		_query.fire_copy(query);
 	};
 
-	content->resizeToWidth(st::boxWidth);
-	Ui::ResizeFitChild(this, content);
+	_content->resizeToWidth(st::boxWidth);
+	Ui::ResizeFitChild(this, _content);
 }
 
 } // namespace
@@ -409,15 +494,35 @@ void RecognitionModelsBox::prepare() {
 
 	const auto kind = _kind;
 	addButton(tr::lng_settings_save(), [=] {
+		const auto selection = inner->selection();
 		auto &settings = AyuSettings::getInstance();
 		if (kind == ModelKind::Whisper) {
-			settings.setWhisperModel(inner->enabledValue());
+			settings.setWhisperModel(selection.value);
 		} else {
-			settings.setOcrLanguages(inner->enabledValue());
+			settings.setOcrLanguages(selection.value);
+		}
+		for (const auto &model : selection.pending) {
+			WantModel(model);
 		}
 		closeBox();
 	});
 	addButton(tr::lng_close(), [=] { closeBox(); });
+
+	setDimensionsToContent(st::boxWidth, inner);
+
+	using namespace rpl::mappers;
+	const auto max = lifetime().make_state<int>(0);
+	rpl::combine(
+		inner->heightValue(),
+		multiSelect->heightValue(),
+		_1 + _2
+	) | rpl::on_next([=](int height) {
+		accumulate_max(*max, height);
+		setDimensions(
+			st::boxWidth,
+			std::min(*max, st::boxMaxListHeight),
+			true);
+	}, inner->lifetime());
 }
 
 } // namespace AyuUi

@@ -2,12 +2,14 @@
 #include "ayu/features/recognition/recognition_models.h"
 
 #include "ayu/ayu_settings.h"
+#include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
 #include "settings.h"
 #include "logs.h"
 #include "main/main_session.h"
 #include "mtproto/dedicated_file_loader.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
@@ -15,6 +17,8 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+
+#include <map>
 
 namespace AyuRecognition {
 namespace {
@@ -25,6 +29,16 @@ constexpr auto kFallbackManifestPostId = 22;
 std::vector<Model> ModelsList;
 bool ModelsLoadedFromCache = false;
 rpl::event_stream<> ModelsListChanged;
+rpl::event_stream<bool> ManifestFinishedStream;
+
+struct Download {
+	base::unique_qptr<ModelLoader> loader;
+	std::shared_ptr<bool> active;
+};
+
+std::map<int, Download> Downloads;
+std::map<int, Model> WantedModels;
+rpl::event_stream<int> DownloadFinishedStream;
 
 [[nodiscard]] QString ManifestCachePath() {
 	return ModelsPath() + u"/manifest.json"_q;
@@ -142,6 +156,45 @@ void LoadCachedManifest() {
 		return QString();
 	}
 	return QString::fromLatin1(hash.result().toHex());
+}
+
+void ApplyDownloaded(const Model &model) {
+	auto &settings = AyuSettings::getInstance();
+	switch (model.kind) {
+	case ModelKind::Whisper:
+		settings.setWhisperModel(model.file);
+		break;
+	case ModelKind::TesseractAux:
+		settings.setOcrLanguages(kAutoOcrLanguages.utf16());
+		break;
+	case ModelKind::Tesseract: {
+		const auto current = settings.ocrLanguages();
+		if (current == kAutoOcrLanguages.utf16()) {
+			break;
+		}
+		auto codes = current.split('+', Qt::SkipEmptyParts);
+		if (!codes.contains(model.code)) {
+			codes.push_back(model.code);
+			settings.setOcrLanguages(codes.join('+'));
+		}
+	} break;
+	}
+}
+
+void FinishDownload(const Model &model, const std::shared_ptr<bool> &active) {
+	if (!*active) {
+		return;
+	}
+	const auto id = model.id;
+	Downloads.erase(id);
+	const auto wanted = WantedModels.find(id);
+	if (wanted != end(WantedModels)) {
+		if (ModelExists(model)) {
+			ApplyDownloaded(model);
+		}
+		WantedModels.erase(wanted);
+	}
+	DownloadFinishedStream.fire_copy(id);
 }
 
 class ManifestLoader final : public base::has_weak_ptr {
@@ -266,6 +319,8 @@ void ManifestLoader::download(int postId) {
 void ManifestLoader::finish() {
 	crl::on_main([] {
 		ActiveManifestLoader.reset();
+		LoadCachedManifest();
+		ManifestFinishedStream.fire(!ModelsList.empty());
 	});
 }
 
@@ -422,6 +477,53 @@ void ModelLoader::destroy() {
 void ModelLoader::fail() {
 	BlobLoader::fail();
 	destroy();
+}
+
+ModelLoader *ModelDownload(int id) {
+	const auto i = Downloads.find(id);
+	return (i != end(Downloads)) ? i->second.loader.get() : nullptr;
+}
+
+void StartModelDownload(
+		not_null<Main::Session*> session,
+		const Model &model) {
+	if (Downloads.contains(model.id)) {
+		return;
+	}
+	const auto active = std::make_shared<bool>(true);
+	Downloads.emplace(model.id, Download{
+		.loader = base::make_unique_q<ModelLoader>(
+			QCoreApplication::instance(),
+			session,
+			model,
+			[=] { FinishDownload(model, active); }),
+		.active = active,
+	});
+}
+
+void CancelModelDownload(int id) {
+	WantedModels.erase(id);
+	const auto i = Downloads.find(id);
+	if (i != end(Downloads)) {
+		*i->second.active = false;
+		Downloads.erase(i);
+	}
+}
+
+rpl::producer<int> ModelDownloadFinished() {
+	return DownloadFinishedStream.events();
+}
+
+void WantModel(const Model &model) {
+	if (ModelExists(model)) {
+		ApplyDownloaded(model);
+	} else if (Downloads.contains(model.id)) {
+		WantedModels.insert_or_assign(model.id, model);
+	}
+}
+
+rpl::producer<bool> ManifestFinished() {
+	return ManifestFinishedStream.events();
 }
 
 } // namespace AyuRecognition

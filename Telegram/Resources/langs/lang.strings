@@ -8920,6 +8920,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ModelEnabled" = "Enabled";
 "ayu_ModelRemove" = "Remove from this device";
 "ayu_ModelsLoading" = "Loading the list of models…";
+"ayu_ModelsLoadFailed" = "Could not load the list of models. Check the connection and open this window again.";
 "ayu_RecognitionOff" = "Off";
 "ayu_TranscriptionSubtitle" = "Voice transcription";
 "ayu_TranscriptionProvider" = "Transcription provider";

@@ -613,3 +613,4 @@
 "ayu_FakePasscodeClearMedia" = "Elimina i contenuti salvati dei messaggi eliminati";
 "ayu_FakePasscodeLogoutDb" = "Elimina il database locale dei messaggi di questi account";
 "ayu_FakePasscodeLogoutMedia" = "Elimina i contenuti salvati dei messaggi eliminati di questi account";
+"ayu_ModelsLoadFailed" = "Impossibile caricare l'elenco dei modelli. Controlla la connessione e riapri questa finestra.";

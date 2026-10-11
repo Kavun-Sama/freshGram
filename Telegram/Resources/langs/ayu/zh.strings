@@ -592,3 +592,4 @@
 "ayu_FakePasscodeClearMedia" = "删除已删除消息的已保存媒体";
 "ayu_FakePasscodeLogoutDb" = "删除这些账号的本地消息数据库";
 "ayu_FakePasscodeLogoutMedia" = "删除这些账号已删除消息的已保存媒体";
+"ayu_ModelsLoadFailed" = "无法加载模型列表。请检查网络连接后重新打开此窗口。";
