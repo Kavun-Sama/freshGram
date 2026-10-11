@@ -431,7 +431,7 @@ bool saveSnapshot() {
 		sqlite3_free(data);
 		SavedChanges = sqlite3_total_changes64(MemoryHandle);
 	}
-	if (!AyuVault::WriteFile(snapshotPath(), plain)) {
+	if (!AyuVault::WriteSealedFile(snapshotPath(), plain)) {
 		SavedChanges = -1;
 		return false;
 	}
@@ -499,7 +499,7 @@ void importLegacyDatabase() {
 
 void loadSnapshot(bool &imported) {
 	if (QFile::exists(snapshotPath())) {
-		const auto plain = AyuVault::ReadFile(snapshotPath());
+		const auto plain = AyuVault::ReadFile(snapshotPath(), true);
 		if (!plain || plain->isEmpty()) {
 			throwSqlite(kSqliteNotADatabase);
 		}
@@ -530,7 +530,7 @@ void sealLegacyCopies(const QString &directory, const QString &pattern) {
 		if (const auto plain = AyuVault::ReadFile(info.absoluteFilePath())) {
 			auto target = info.absoluteFilePath();
 			target.chop(3);
-			if (AyuVault::WriteFile(target + ".enc", *plain)) {
+			if (AyuVault::WriteSealedFile(target + ".enc", *plain)) {
 				QFile::remove(info.absoluteFilePath());
 				QFile::remove(info.absoluteFilePath() + "-wal");
 				QFile::remove(info.absoluteFilePath() + "-shm");
@@ -1059,6 +1059,7 @@ void clearAllDeleted() {
 			storage.remove_all<KeptDialog>();
 		});
 	});
+	AyuDatabaseBackup::removeAll();
 }
 
 template<typename Callback>
@@ -1092,6 +1093,7 @@ void clearUserData(ID userId) {
 		});
 		storage.vacuum();
 	});
+	AyuDatabaseBackup::purgeUser(userId);
 	flush();
 }
 
@@ -1105,10 +1107,14 @@ void clearEverything() {
 		});
 		storage.vacuum();
 	});
+	AyuDatabaseBackup::removeAll();
 	flush();
 }
 
 bool exportSealed(QByteArray &sealed, qint64 &rows) {
+	if (!AyuVault::HasKey()) {
+		return false;
+	}
 	auto plain = QByteArray();
 	{
 		std::lock_guard lock(DatabaseMutex);

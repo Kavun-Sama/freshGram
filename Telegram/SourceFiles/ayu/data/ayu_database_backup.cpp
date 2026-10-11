@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace AyuDatabaseBackup {
@@ -27,6 +28,7 @@ namespace {
 constexpr auto kHour = crl::time(60 * 60 * 1000);
 
 std::atomic<bool> Running = false;
+std::mutex BackupMutex;
 // Nothing is rotated out until the settings are known.
 std::atomic<bool> Configured = false;
 std::atomic<int> KeepCount = 5;
@@ -124,7 +126,7 @@ struct Handle {
 }
 
 [[nodiscard]] bool Verify(const QString &path, qint64 *rows = nullptr) {
-	const auto plain = AyuVault::ReadFile(path);
+	const auto plain = AyuVault::ReadFile(path, true);
 	if (!plain || plain->size() < 15 || !plain->startsWith("SQLite format 3")) {
 		return false;
 	}
@@ -167,7 +169,7 @@ struct Handle {
 }
 
 void ScrubSecrets(const QString &path) {
-	const auto plain = AyuVault::ReadFile(path);
+	const auto plain = AyuVault::ReadFile(path, true);
 	auto handle = Handle();
 	if (!plain || !OpenMemory(handle, *plain)) {
 		return;
@@ -195,7 +197,7 @@ void ScrubSecrets(const QString &path) {
 	auto size = sqlite3_int64();
 	const auto data = sqlite3_serialize(handle.db, "main", &size, 0);
 	if (data) {
-		AyuVault::WriteFile(path, QByteArray(
+		AyuVault::WriteSealedFile(path, QByteArray(
 			reinterpret_cast<const char*>(data),
 			qsizetype(size)));
 		sqlite3_free(data);
@@ -243,6 +245,7 @@ bool create() {
 		return false;
 	}
 	const auto guard = gsl::finally([] { Running = false; });
+	const auto lock = std::lock_guard(BackupMutex);
 	auto sealed = QByteArray();
 	auto rows = qint64(0);
 	if (!AyuDatabase::exportSealed(sealed, rows)) {
@@ -281,6 +284,57 @@ bool restore(int &index) {
 	}
 	index = int(list.size());
 	return false;
+}
+
+void removeAll() {
+	const auto lock = std::lock_guard(BackupMutex);
+	QDir(Directory()).removeRecursively();
+	const auto moved = QDir("./tdata").entryList(
+		QStringList() << "ayudata_*.enc",
+		QDir::Files);
+	for (const auto &name : moved) {
+		QFile::remove("./tdata/" + name);
+	}
+}
+
+void purgeUser(long long userId) {
+	static const auto kTables = {
+		"DeletedExtra", "DeletedMarkup", "DeletedMessage", "EditedMessage",
+		"DeletedDialog", "KeptTopic", "KeptDialog", "KnownUser", "LocalPin",
+		"SecretChat", "SecretMessage", "SecretState", "PeekedStatus",
+		"PeekRestore", "SpyMessageRead", "SpyMessageContentsRead",
+	};
+	const auto lock = std::lock_guard(BackupMutex);
+	for (const auto &entry : List()) {
+		const auto plain = AyuVault::ReadFile(entry.path, true);
+		auto handle = Handle();
+		if (!plain || !OpenMemory(handle, *plain)) {
+			QFile::remove(entry.path);
+			continue;
+		}
+		static_cast<void>(Exec(handle.db, QString("PRAGMA secure_delete = ON")));
+		for (const auto &table : kTables) {
+			if (TableExists(handle.db, table)) {
+				static_cast<void>(Exec(handle.db, QString(
+					"DELETE FROM %1 WHERE userId = %2"
+				).arg(table).arg(userId)));
+			}
+		}
+		static_cast<void>(Exec(handle.db, QString("VACUUM")));
+		auto size = sqlite3_int64();
+		const auto data = sqlite3_serialize(handle.db, "main", &size, 0);
+		if (!data) {
+			QFile::remove(entry.path);
+			continue;
+		}
+		const auto saved = AyuVault::WriteSealedFile(entry.path, QByteArray(
+			reinterpret_cast<const char*>(data),
+			qsizetype(size)));
+		sqlite3_free(data);
+		if (!saved) {
+			QFile::remove(entry.path);
+		}
+	}
 }
 
 void startPeriodic() {

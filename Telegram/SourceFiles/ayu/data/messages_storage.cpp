@@ -750,6 +750,8 @@ void clearEverything() {
 	flushPendingDeleted();
 	AyuDatabase::clearEverything();
 	clearSavedMedia();
+	QDir(u"./tdata/ayu_secret"_q).removeRecursively();
+	QDir(u"./tdata/ayu_secret_tmp"_q).removeRecursively();
 }
 
 void clearDeletedMessages(not_null<PeerData*> peer, ID topicId) {

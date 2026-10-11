@@ -16,10 +16,16 @@ void SetKey(MTP::AuthKeyPtr key);
 
 [[nodiscard]] bool IsSealed(const QByteArray &bytes);
 [[nodiscard]] QByteArray Seal(const QByteArray &plain);
-[[nodiscard]] bool Unseal(const QByteArray &sealed, QByteArray &plain);
+[[nodiscard]] bool Unseal(
+	const QByteArray &sealed,
+	QByteArray &plain,
+	bool requireSealed = false);
 
 bool WriteFile(const QString &path, const QByteArray &plain);
-[[nodiscard]] std::optional<QByteArray> ReadFile(const QString &path);
+bool WriteSealedFile(const QString &path, const QByteArray &plain);
+[[nodiscard]] std::optional<QByteArray> ReadFile(
+	const QString &path,
+	bool requireSealed = false);
 void SealFilesIn(const QString &directory);
 
 } // namespace AyuVault
