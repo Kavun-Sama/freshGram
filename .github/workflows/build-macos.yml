@@ -163,10 +163,12 @@ jobs:
           API_HASH: ${{ secrets.API_HASH }}
         run: |
           cd freshGram/Telegram
+          # std::filesystem in whisper.cpp, Tesseract and the settings needs 10.15.
           ./configure.sh \
             -D TDESKTOP_API_ID="$API_ID" \
             -D TDESKTOP_API_HASH="$API_HASH" \
             -D CMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -D CMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
 
