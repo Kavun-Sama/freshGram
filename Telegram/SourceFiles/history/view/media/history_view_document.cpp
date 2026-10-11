@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_document_resolver.h"
 #include "data/data_file_click_handler.h"
 #include "api/api_transcribes.h"
+#include "ayu/features/recognition/local_transcribe.h"
 #include "apiwrap.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_style.h"
@@ -506,15 +507,18 @@ QSize Document::countOptimalSize() {
 		const auto history = _realParent->history();
 		const auto session = &history->session();
 		const auto transcribes = &session->api().transcribes();
+		const auto local = AyuRecognition::LocalTranscriptionEnabled();
 		const auto media = _parent->data()->media();
 		if ((media && media->ttlSeconds())
 			|| IsHostedInstantViewMedia(_parent)
 			|| _realParent->isScheduled()
 			|| _realParent->isAdminLogEntry()
-			|| (!session->premium()
+			|| (!local
+				&& !session->premium()
 				&& !transcribes->freeFor(_realParent)
 				&& !transcribes->trialsSupport())
-			|| (!session->premium()
+			|| (!local
+				&& !session->premium()
 				&& _data->duration() > transcribes->trialsMaxLengthMs())) {
 			voice->transcribe = nullptr;
 			voice->transcribeText = {};

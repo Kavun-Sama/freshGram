@@ -30,6 +30,7 @@ include(cmake/telegram_options.cmake)
 include(cmake/lib_ffmpeg.cmake)
 include(cmake/lib_stripe.cmake)
 include(cmake/lib_tgcalls.cmake)
+include(cmake/lib_whisper.cmake)
 include(cmake/lib_prisma.cmake)
 include(cmake/lib_fido2.cmake)
 include(cmake/td_export.cmake)
@@ -71,6 +72,7 @@ target_link_libraries(Telegram
 PRIVATE
     tdesktop::lib_fido2
     tdesktop::lib_tgcalls
+    tdesktop::lib_whisper
     tdesktop::td_export
     tdesktop::td_iv
     tdesktop::td_lang
@@ -125,8 +127,14 @@ set(ayugram_files
         ayu/utils/builtin_lang.cpp
         ayu/utils/builtin_lang.h
         ayu/utils/crash_trace.cpp
+        ayu/features/recognition/local_transcribe.cpp
+        ayu/features/recognition/local_transcribe.h
+        ayu/features/recognition/recognition_audio.cpp
+        ayu/features/recognition/recognition_audio.h
         ayu/features/recognition/recognition_models.cpp
         ayu/features/recognition/recognition_models.h
+        ayu/features/recognition/speech_recognition.cpp
+        ayu/features/recognition/speech_recognition.h
         ayu/ui/boxes/recognition_models_box.cpp
         ayu/ui/boxes/recognition_models_box.h
         ayu/ui/fagram/fagram_nav_drawer.cpp

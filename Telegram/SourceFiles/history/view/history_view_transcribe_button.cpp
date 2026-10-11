@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/rect.h"
 #include "api/api_transcribes.h"
+#include "ayu/features/recognition/local_transcribe.h"
 #include "apiwrap.h"
 #include "styles/style_chat.h"
 #include "window/window_session_controller.h"
@@ -331,7 +332,8 @@ void TranscribeButton::paint(
 
 bool TranscribeButton::hasLock() const {
 	const auto session = &_item->history()->session();
-	if (session->premium()) {
+	if (session->premium()
+		|| (!_summarize && AyuRecognition::LocalTranscriptionEnabled())) {
 		return false;
 	}
 	const auto transcribes = &session->api().transcribes();
@@ -378,7 +380,8 @@ ClickHandlerPtr TranscribeButton::link() {
 		if (!item) {
 			return;
 		}
-		if (session->premium()) {
+		if (session->premium()
+			|| (!summarize && AyuRecognition::LocalTranscriptionEnabled())) {
 			auto &transcribes = session->api().transcribes();
 			return summarize
 				? transcribes.toggleSummary(item)

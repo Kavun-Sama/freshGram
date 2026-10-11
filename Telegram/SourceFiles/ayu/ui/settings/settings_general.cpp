@@ -8,6 +8,8 @@
 
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/features/recognition/speech_recognition.h"
+#include "ayu/ui/boxes/recognition_models_box.h"
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
@@ -115,6 +117,73 @@ void BuildTranslator(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	}
 }
 
+void BuildTranscription(SectionBuilder &builder, AyuSectionBuilder &ayu) {
+	const auto controller = builder.controller();
+	auto *settings = &AyuSettings::getInstance();
+	const auto whisper = AyuRecognition::SpeechRecognitionAvailable();
+
+	auto options = std::vector<QString>{ u"Telegram"_q };
+	if (whisper) {
+		options.push_back(tr::ayu_TranscriptionWhisper(tr::now));
+	}
+
+	builder.addSubsectionTitle(tr::ayu_TranscriptionSubtitle());
+	builder.addButton({
+		.id = u"ayu/transcriptionProvider"_q,
+		.altIds = { u"ayu/whisperProvider"_q, u"ayu/voiceToText"_q },
+		.title = tr::ayu_TranscriptionProvider(),
+		.st = &st::settingsButtonNoIcon,
+		.label = settings->transcriptionProviderValue()
+			| rpl::map([=](TranscriptionProvider value) {
+				const auto index = std::min(
+					int(value),
+					int(options.size()) - 1);
+				return options[index];
+			}),
+		.onClick = [=] {
+			controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+				SingleChoiceBox(box, {
+					.title = tr::ayu_TranscriptionProvider(),
+					.options = options,
+					.initialSelection = std::min(
+						int(AyuSettings::getInstance().transcriptionProvider()),
+						int(options.size()) - 1),
+					.callback = [=](int index) {
+						AyuSettings::getInstance().setTranscriptionProvider(
+							static_cast<TranscriptionProvider>(index));
+					},
+				});
+			}));
+		},
+	});
+	if (!whisper) {
+		return;
+	}
+	builder.addButton({
+		.id = u"ayu/whisperModel"_q,
+		.altIds = { u"ayu/whisperModels"_q, u"ayu/speechModel"_q },
+		.title = tr::ayu_WhisperModel(),
+		.st = &st::settingsButtonNoIcon,
+		.label = settings->whisperModelValue()
+			| rpl::map([](QString file) {
+				if (file.isEmpty()) {
+					return tr::ayu_RecognitionOff(tr::now);
+				}
+				file.remove(u"ggml-"_q);
+				return file.left(file.indexOf('-'));
+			}),
+		.onClick = [=] {
+			controller->show(Box<AyuUi::RecognitionModelsBox>(
+				&controller->session(),
+				AyuRecognition::ModelKind::Whisper));
+		},
+		.shown = settings->transcriptionProviderValue()
+			| rpl::map([](TranscriptionProvider value) {
+				return value == TranscriptionProvider::WhisperLocal;
+			}),
+	});
+}
+
 void BuildShowPeerId(SectionBuilder &builder) {
 	auto *settings = &AyuSettings::getInstance();
 
@@ -158,6 +227,9 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	auto *settings = &AyuSettings::getInstance();
 
 	BuildTranslator(builder, ayu);
+	ayu.addSectionDivider();
+
+	BuildTranscription(builder, ayu);
 	ayu.addSectionDivider();
 
 	builder.addSubsectionTitle(tr::ayu_CategoryGeneral());
