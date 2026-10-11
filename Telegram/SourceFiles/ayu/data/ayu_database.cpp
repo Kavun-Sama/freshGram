@@ -7,11 +7,18 @@
 #include "ayu/data/ayu_database.h"
 
 #include "ayu/data/ayu_database_backup.h"
+#include "ayu/data/ayu_vault.h"
 #include "ayu/data/entities.h"
+#include "ayu/libs/sqlite/sqlite3.h"
 #include "ayu/libs/sqlite/sqlite_orm.h"
 #include "ayu/utils/id_search.h"
+#include "base/timer.h"
 #include "base/unixtime.h"
+#include "core/application.h"
 #include "crl/crl_async.h"
+#include "crl/crl_on_main.h"
+#include "main/main_domain.h"
+#include "storage/storage_domain.h"
 
 #include <atomic>
 #include <chrono>
@@ -19,9 +26,30 @@
 #include <system_error>
 #include <thread>
 
+struct sqlite3_api_routines;
+
+namespace {
+
+sqlite3 *MemoryHandle = nullptr;
+
+int captureMemoryHandle(sqlite3 *db, char **, const sqlite3_api_routines *) {
+	if (!MemoryHandle) {
+		MemoryHandle = db;
+	}
+	return SQLITE_OK;
+}
+
+const auto kMemoryHandleCapture = [] {
+	sqlite3_auto_extension(
+		reinterpret_cast<void(*)(void)>(&captureMemoryHandle));
+	return true;
+}();
+
+} // namespace
+
 using namespace sqlite_orm;
 auto storage = make_storage(
-	"./tdata/ayudata.db",
+	":memory:",
 	make_table<SchemaVersion>(
 		"SchemaVersion",
 		make_column("id", &SchemaVersion::id, primary_key()),
@@ -298,12 +326,50 @@ namespace {
 std::recursive_mutex DatabaseMutex;
 bool DatabaseReady = false;
 std::atomic<int> PurgeDays = 0;
+std::atomic<sqlite3_int64> SavedChanges = 0;
+std::atomic<bool> SavePending = false;
+std::unique_ptr<base::Timer> SaveTimer;
+bool FinishLegacyMigrationPending = false;
 
 constexpr auto kBusyTimeoutMs = 5000;
 constexpr auto kSqliteBusy = 5;
 constexpr auto kSqliteLocked = 6;
 constexpr auto kSqliteCorrupt = 11;
 constexpr auto kSqliteNotADatabase = 26;
+constexpr auto kSaveDelay = crl::time(3000);
+
+[[nodiscard]] QString snapshotPath() {
+	return "./tdata/ayudata.enc";
+}
+
+[[nodiscard]] QString legacyPath() {
+	return "./tdata/ayudata.db";
+}
+
+bool saveSnapshot();
+
+void scheduleSave() {
+	if (SavePending.exchange(true)) {
+		return;
+	}
+	crl::on_main([] {
+		if (!SaveTimer) {
+			SaveTimer = std::make_unique<base::Timer>([] {
+				crl::async([] {
+					[[maybe_unused]] const auto saved = saveSnapshot();
+				});
+			});
+		}
+		SaveTimer->callOnce(kSaveDelay);
+	});
+}
+
+void noteChanges() {
+	if (MemoryHandle
+		&& sqlite3_total_changes64(MemoryHandle) != SavedChanges.load()) {
+		scheduleSave();
+	}
+}
 
 template<typename Result, typename Callback>
 Result run(const char *what, Result fallback, Callback &&callback) {
@@ -312,7 +378,9 @@ Result run(const char *what, Result fallback, Callback &&callback) {
 		return fallback;
 	}
 	try {
-		return callback();
+		Result result = callback();
+		noteChanges();
+		return result;
 	} catch (const std::exception &ex) {
 		LOG(("[AyuGram] Database: failed to %1: %2").arg(QString::fromUtf8(what), QString::fromUtf8(ex.what())));
 	} catch (...) {
@@ -344,26 +412,139 @@ void inTransaction(Callback &&callback) {
 	}
 }
 
-QString databasePath() {
-	return "./tdata/ayudata.db";
+bool saveSnapshot() {
+	SavePending = false;
+	auto plain = QByteArray();
+	{
+		std::lock_guard lock(DatabaseMutex);
+		if (!DatabaseReady || !MemoryHandle) {
+			return false;
+		}
+		auto size = sqlite3_int64();
+		const auto data = sqlite3_serialize(MemoryHandle, "main", &size, 0);
+		if (!data) {
+			return false;
+		}
+		plain = QByteArray(
+			reinterpret_cast<const char*>(data),
+			qsizetype(size));
+		sqlite3_free(data);
+		SavedChanges = sqlite3_total_changes64(MemoryHandle);
+	}
+	if (!AyuVault::WriteFile(snapshotPath(), plain)) {
+		SavedChanges = -1;
+		return false;
+	}
+	return true;
 }
 
 void renameDatabaseFiles(const QString &suffix) {
 	for (const auto &extension : {QString(), QString("-shm"), QString("-wal")}) {
-		const auto from = databasePath() + extension;
+		const auto from = legacyPath() + extension;
 		if (QFile::exists(from)) {
 			QFile::rename(from, QString("./tdata/ayudata_%1.db%2").arg(suffix, extension));
 		}
 	}
+	if (QFile::exists(snapshotPath())) {
+		QFile::rename(snapshotPath(), QString("./tdata/ayudata_%1.enc").arg(suffix));
+	}
 }
 
 void copyDatabaseFiles(const QString &suffix) {
-	for (const auto &extension : {QString(), QString("-shm"), QString("-wal")}) {
-		const auto from = databasePath() + extension;
-		if (QFile::exists(from)) {
-			QFile::copy(from, QString("./tdata/ayudata_%1.db%2").arg(suffix, extension));
+	if (QFile::exists(snapshotPath())) {
+		QFile::copy(snapshotPath(), QString("./tdata/ayudata_%1.enc").arg(suffix));
+	}
+}
+
+[[noreturn]] void throwSqlite(int code) {
+	throw std::system_error(
+		std::error_code(code, sqlite_orm::get_sqlite_error_category()));
+}
+
+void resetMemoryDatabase() {
+	sqlite3 *empty = nullptr;
+	if (sqlite3_open_v2(":memory:", &empty, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr) != SQLITE_OK) {
+		sqlite3_close(empty);
+		return;
+	}
+	if (const auto backup = sqlite3_backup_init(MemoryHandle, "main", empty, "main")) {
+		sqlite3_backup_step(backup, -1);
+		sqlite3_backup_finish(backup);
+	}
+	sqlite3_close(empty);
+}
+
+void importLegacyDatabase() {
+	sqlite3 *legacy = nullptr;
+	const auto path = legacyPath().toUtf8();
+	if (sqlite3_open_v2(path.constData(), &legacy, SQLITE_OPEN_READWRITE, nullptr) != SQLITE_OK) {
+		const auto code = legacy ? sqlite3_extended_errcode(legacy) : SQLITE_CANTOPEN;
+		sqlite3_close(legacy);
+		throwSqlite(code);
+	}
+	sqlite3_busy_timeout(legacy, kBusyTimeoutMs);
+	sqlite3_exec(legacy, "PRAGMA journal_mode = DELETE", nullptr, nullptr, nullptr);
+	auto code = SQLITE_ERROR;
+	if (const auto backup = sqlite3_backup_init(MemoryHandle, "main", legacy, "main")) {
+		sqlite3_backup_step(backup, -1);
+		code = sqlite3_backup_finish(backup);
+	} else {
+		code = sqlite3_errcode(MemoryHandle);
+	}
+	sqlite3_close(legacy);
+	if (code != SQLITE_OK) {
+		throwSqlite(code);
+	}
+}
+
+void loadSnapshot(bool &imported) {
+	if (QFile::exists(snapshotPath())) {
+		const auto plain = AyuVault::ReadFile(snapshotPath());
+		if (!plain || plain->isEmpty()) {
+			throwSqlite(kSqliteNotADatabase);
+		}
+		const auto size = sqlite3_int64(plain->size());
+		const auto buffer = static_cast<unsigned char*>(sqlite3_malloc64(size));
+		if (!buffer) {
+			throw std::bad_alloc();
+		}
+		memcpy(buffer, plain->constData(), size_t(size));
+		const auto code = sqlite3_deserialize(
+			MemoryHandle,
+			"main",
+			buffer,
+			size,
+			size,
+			SQLITE_DESERIALIZE_FREEONCLOSE | SQLITE_DESERIALIZE_RESIZEABLE);
+		if (code != SQLITE_OK) {
+			throwSqlite(code);
+		}
+	} else if (QFile::exists(legacyPath())) {
+		importLegacyDatabase();
+		imported = true;
+	}
+}
+
+void sealLegacyCopies(const QString &directory, const QString &pattern) {
+	for (const auto &info : QDir(directory).entryInfoList(QStringList() << pattern, QDir::Files)) {
+		if (const auto plain = AyuVault::ReadFile(info.absoluteFilePath())) {
+			auto target = info.absoluteFilePath();
+			target.chop(3);
+			if (AyuVault::WriteFile(target + ".enc", *plain)) {
+				QFile::remove(info.absoluteFilePath());
+				QFile::remove(info.absoluteFilePath() + "-wal");
+				QFile::remove(info.absoluteFilePath() + "-shm");
+			}
 		}
 	}
+}
+
+void finishLegacyMigration() {
+	for (const auto &extension : {QString(), QString("-shm"), QString("-wal")}) {
+		QFile::remove(legacyPath() + extension);
+	}
+	sealLegacyCopies("./tdata", "ayudata_*.db");
+	sealLegacyCopies("./tdata/ayu_backups", "ayudata_*.db");
 }
 
 }
@@ -470,41 +651,70 @@ void backupCurrentDatabase() {
 
 namespace {
 
-void prepareStorage() {
+bool prepareStorage() {
+	if (!MemoryHandle) {
+		throw std::runtime_error("The database handle is missing.");
+	}
+	auto imported = false;
+	loadSnapshot(imported);
+	const auto before = sqlite3_total_changes64(MemoryHandle);
+
 	storage.sync_schema(true);
 
 	runMigrations(storage);
 
 	storage.sync_schema(true);
 
-	storage.on_open = [](sqlite3 *db) {
-		sqlite3_exec(db, "PRAGMA secure_delete = ON", nullptr, nullptr, nullptr);
-	};
-	storage.open_forever();
+	sqlite3_exec(MemoryHandle, "PRAGMA secure_delete = ON", nullptr, nullptr, nullptr);
 	try {
-		storage.pragma.journal_mode(sqlite_orm::journal_mode::WAL);
-		storage.pragma.synchronous(1);
 		storage.busy_timeout(kBusyTimeoutMs);
 	} catch (const std::exception &ex) {
 		LOG(("[AyuGram] Database: failed to apply pragmas: %1").arg(ex.what()));
 	}
+	if (imported) {
+		FinishLegacyMigrationPending = true;
+	}
+	return imported || (sqlite3_total_changes64(MemoryHandle) != before);
 }
 
 }
 
 void initialize() {
 	std::lock_guard lock(DatabaseMutex);
-	DatabaseReady = false;
-
-	[[maybe_unused]] const auto backedUp = AyuDatabaseBackup::create();
+	const auto &domain = Core::App().domain();
+	const auto key = domain.started() ? domain.local().localKey() : nullptr;
+	if (!key) {
+		LOG(("[AyuGram] Database: the local key is unavailable."));
+		return;
+	}
+	AyuVault::SetKey(key);
+	if (DatabaseReady) {
+		crl::async([] {
+			[[maybe_unused]] const auto saved = saveSnapshot();
+		});
+		return;
+	}
 
 	auto retriedBusy = false;
 	auto resetCorrupted = false;
 	auto restoreIndex = 0;
 	while (true) {
 		try {
-			prepareStorage();
+			const auto changed = prepareStorage();
 			DatabaseReady = true;
+			SavedChanges = sqlite3_total_changes64(MemoryHandle);
+			auto saved = QFile::exists(snapshotPath());
+			if (changed || !saved) {
+				saved = saveSnapshot();
+			}
+			if (FinishLegacyMigrationPending && saved) {
+				FinishLegacyMigrationPending = false;
+				finishLegacyMigration();
+			}
+			crl::async([] {
+				AyuVault::SealFilesIn("./tdata/ayu_media");
+				[[maybe_unused]] const auto created = AyuDatabaseBackup::create();
+			});
 			AyuDatabaseBackup::startPeriodic();
 			if (const auto days = PurgeDays.load()) {
 				purgeOlderThan(days);
@@ -521,6 +731,7 @@ void initialize() {
 			}
 			if (sqliteError && (code == kSqliteCorrupt || code == kSqliteNotADatabase)) {
 				moveCurrentDatabase();
+				resetMemoryDatabase();
 				if (AyuDatabaseBackup::restore(restoreIndex)) {
 					continue;
 				} else if (!resetCorrupted) {
@@ -848,6 +1059,89 @@ void clearAllDeleted() {
 			storage.remove_all<KeptDialog>();
 		});
 	});
+}
+
+template<typename Callback>
+void forEachUserTable(Callback &&callback) {
+	callback(std::type_identity<DeletedExtra>());
+	callback(std::type_identity<DeletedMarkup>());
+	callback(std::type_identity<DeletedMessage>());
+	callback(std::type_identity<EditedMessage>());
+	callback(std::type_identity<DeletedDialog>());
+	callback(std::type_identity<KeptTopic>());
+	callback(std::type_identity<KeptDialog>());
+	callback(std::type_identity<KnownUser>());
+	callback(std::type_identity<LocalPin>());
+	callback(std::type_identity<SecretMessageRow>());
+	callback(std::type_identity<SecretChatRow>());
+	callback(std::type_identity<SecretStateRow>());
+	callback(std::type_identity<PeekedStatusRow>());
+	callback(std::type_identity<PeekRestoreRow>());
+	callback(std::type_identity<SpyMessageRead>());
+	callback(std::type_identity<SpyMessageContentsRead>());
+}
+
+void clearUserData(ID userId) {
+	runVoid("clear user data", [&] {
+		inTransaction([&] {
+			forEachUserTable([&](auto tag) {
+				using Row = typename decltype(tag)::type;
+				storage.remove_all<Row>(
+					where(column<Row>(&Row::userId) == userId));
+			});
+		});
+		storage.vacuum();
+	});
+	flush();
+}
+
+void clearEverything() {
+	runVoid("clear everything", [&] {
+		inTransaction([&] {
+			forEachUserTable([&](auto tag) {
+				using Row = typename decltype(tag)::type;
+				storage.remove_all<Row>();
+			});
+		});
+		storage.vacuum();
+	});
+	flush();
+}
+
+bool exportSealed(QByteArray &sealed, qint64 &rows) {
+	auto plain = QByteArray();
+	{
+		std::lock_guard lock(DatabaseMutex);
+		if (!DatabaseReady || !MemoryHandle) {
+			return false;
+		}
+		auto size = sqlite3_int64();
+		const auto data = sqlite3_serialize(MemoryHandle, "main", &size, 0);
+		if (!data) {
+			return false;
+		}
+		plain = QByteArray(
+			reinterpret_cast<const char*>(data),
+			qsizetype(size));
+		sqlite3_free(data);
+		rows = 0;
+		try {
+			rows = storage.count<DeletedMessage>()
+				+ storage.count<EditedMessage>();
+		} catch (...) {
+		}
+	}
+	sealed = AyuVault::Seal(plain);
+	return true;
+}
+
+void flush() {
+	[[maybe_unused]] const auto saved = saveSnapshot();
+}
+
+void finish() {
+	SaveTimer = nullptr;
+	flush();
 }
 
 void saveKeptDialog(const KeptDialog &dialog) {

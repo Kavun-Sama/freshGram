@@ -321,6 +321,8 @@ set(ayugram_files
         ayu/data/ayu_database.cpp
         ayu/data/ayu_database.h
         ayu/data/ayu_database_backup.cpp
+        ayu/data/ayu_vault.cpp
+        ayu/data/ayu_vault.h
         ayu/data/ayu_database_backup.h
 
         info/profile/info_profile_music_button.cpp

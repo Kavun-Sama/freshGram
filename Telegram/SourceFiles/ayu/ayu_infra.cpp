@@ -34,10 +34,6 @@ void initUiSettings() {
 	Ui::SetAppliedBubbleRadius(settings.messageBubbleRadius());
 }
 
-void initDatabase() {
-	AyuDatabase::initialize();
-}
-
 void initWorker() {
 	AyuWorker::initialize();
 }
@@ -54,7 +50,6 @@ void initIcon() {
 }
 
 void init() {
-	initDatabase();
 	initUiSettings();
 	initIcon();
 	initWorker();

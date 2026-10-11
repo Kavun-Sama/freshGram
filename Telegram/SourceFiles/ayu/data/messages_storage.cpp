@@ -10,6 +10,7 @@
 
 #include "ayu/ayu_settings.h"
 #include "ayu/data/ayu_database.h"
+#include "ayu/data/ayu_vault.h"
 #include "ayu/utils/ayu_mapper.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "base/timer.h"
@@ -111,10 +112,7 @@ bool WritePhotoBytes(
 	const auto bytes = media->imageBytes(Data::PhotoSize::Large);
 	if (!bytes.isEmpty()) {
 		QDir().mkpath(QFileInfo(path).absolutePath());
-		auto file = QFile(path);
-		if (file.open(QIODevice::WriteOnly)) {
-			file.write(bytes);
-		}
+		AyuVault::WriteFile(path, bytes);
 	}
 	return true;
 }
@@ -183,10 +181,7 @@ bool WriteDocumentBytes(
 	const auto bytes = DocumentBytes(media);
 	if (!bytes.isEmpty()) {
 		QDir().mkpath(QFileInfo(path).absolutePath());
-		auto file = QFile(path);
-		if (file.open(QIODevice::WriteOnly)) {
-			file.write(bytes);
-		}
+		AyuVault::WriteFile(path, bytes);
 	}
 	return true;
 }
@@ -389,11 +384,11 @@ void cacheDeletedMedia(not_null<HistoryItem*> item) {
 void PutPhotoBytesIntoCache(
 		not_null<PhotoData*> photo,
 		const QString &path) {
-	auto file = QFile(path);
-	if (!file.open(QIODevice::ReadOnly)) {
+	const auto read = AyuVault::ReadFile(path);
+	if (!read) {
 		return;
 	}
-	const auto bytes = file.readAll();
+	const auto &bytes = *read;
 	const auto cacheKey = photo->location(
 		Data::PhotoSize::Large).file().cacheKey();
 	if (bytes.isEmpty() || !cacheKey) {
@@ -409,11 +404,11 @@ void PutPhotoBytesIntoCache(
 void PutDocumentBytesIntoCache(
 		not_null<DocumentData*> document,
 		const QString &path) {
-	auto file = QFile(path);
-	if (!file.open(QIODevice::ReadOnly)) {
+	const auto read = AyuVault::ReadFile(path);
+	if (!read) {
 		return;
 	}
-	const auto bytes = file.readAll();
+	const auto &bytes = *read;
 	if (bytes.isEmpty()) {
 		return;
 	}
@@ -460,9 +455,7 @@ void saveTtlMedia(not_null<HistoryItem*> item) {
 		return;
 	}
 	QDir().mkpath(QFileInfo(path).absolutePath());
-	auto file = QFile(path);
-	if (file.open(QIODevice::WriteOnly)) {
-		file.write(saved.data(), qint64(saved.size()));
+	if (AyuVault::WriteFile(path, QByteArray(saved.data(), qsizetype(saved.size())))) {
 		LOG(("Ayu: saved self-destructing media of %1").arg(item->id.bare));
 	} else {
 		LOG(("Ayu: could not save self-destructing media of %1").arg(item->id.bare));
@@ -509,12 +502,12 @@ std::optional<MTPMessageMedia> savedTtlMedia(
 		storageUserId(history->peer),
 		getDialogIdFromPeer(history->peer),
 		id.bare));
-	auto file = QFile(path);
-	if (!file.open(QIODevice::ReadOnly)) {
+	const auto read = AyuVault::ReadFile(path);
+	if (!read) {
 		LOG(("Ayu: no saved self-destructing media for %1").arg(id.bare));
 		return std::nullopt;
 	}
-	const auto bytes = file.readAll();
+	const auto &bytes = *read;
 	if (bytes.isEmpty()) {
 		return std::nullopt;
 	}
@@ -727,6 +720,36 @@ void clearAllDeleted() {
 	flushPendingDeleted();
 	AyuDatabase::clearAllDeleted();
 	QDir(SavedMediaDirectory()).removeRecursively();
+}
+
+void clearDeletedDatabase() {
+	flushPendingDeleted();
+	AyuDatabase::clearAllDeleted();
+	AyuDatabase::flush();
+}
+
+void clearSavedMedia() {
+	QDir(SavedMediaDirectory()).removeRecursively();
+}
+
+void clearUserDatabase(ID userId) {
+	flushPendingDeleted();
+	AyuDatabase::clearUserData(userId);
+}
+
+void clearUserMedia(ID userId) {
+	const auto dir = QDir(SavedMediaDirectory());
+	for (const auto &name : dir.entryList(
+			QStringList() << (QString::number(userId) + "_*"),
+			QDir::Files)) {
+		QFile::remove(dir.absoluteFilePath(name));
+	}
+}
+
+void clearEverything() {
+	flushPendingDeleted();
+	AyuDatabase::clearEverything();
+	clearSavedMedia();
 }
 
 void clearDeletedMessages(not_null<PeerData*> peer, ID topicId) {

@@ -21,6 +21,11 @@ public:
 namespace AyuDatabase {
 
 void initialize();
+void finish();
+void flush();
+bool exportSealed(QByteArray &sealed, qint64 &rows);
+void clearUserData(ID userId);
+void clearEverything();
 
 void addEditedMessage(const EditedMessage &message, int maxRevisions);
 void purgeOlderThan(int days);
