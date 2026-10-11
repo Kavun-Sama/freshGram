@@ -80,6 +80,8 @@ rpl::event_stream<> ModelsListChanged;
 			model.kind = ModelKind::Whisper;
 		} else if (kind == u"tesseract"_q) {
 			model.kind = ModelKind::Tesseract;
+		} else if (kind == u"tesseract-aux"_q) {
+			model.kind = ModelKind::TesseractAux;
 		} else {
 			continue;
 		}
@@ -87,7 +89,7 @@ rpl::event_stream<> ModelsListChanged;
 			|| model.size <= 0
 			|| model.name.isEmpty()
 			|| !IsSafeFileName(model.file)
-			|| (model.kind == ModelKind::Tesseract
+			|| (model.kind != ModelKind::Whisper
 				&& (!IsSafeFileName(model.code)
 					|| model.code.contains('+')))
 			|| !ParseLocation(
@@ -336,10 +338,27 @@ QString SelectedWhisperModelPath() {
 	return QString();
 }
 
+QStringList InstalledOcrLanguages() {
+	auto result = QStringList();
+	for (const auto &model : Models(ModelKind::Tesseract)) {
+		if (ModelExists(model)) {
+			result.push_back(model.code);
+		}
+	}
+	return result;
+}
+
 QString EnabledOcrLanguages() {
-	const auto enabled = AyuSettings::getInstance().ocrLanguages().split(
-		'+',
-		Qt::SkipEmptyParts);
+	const auto &value = AyuSettings::getInstance().ocrLanguages();
+	if (value == kAutoOcrLanguages.utf16()) {
+		for (const auto &model : Models(ModelKind::TesseractAux)) {
+			if (ModelExists(model)) {
+				return value;
+			}
+		}
+		return QString();
+	}
+	const auto enabled = value.split('+', Qt::SkipEmptyParts);
 	auto result = QStringList();
 	for (const auto &model : Models(ModelKind::Tesseract)) {
 		if (enabled.contains(model.code) && ModelExists(model)) {

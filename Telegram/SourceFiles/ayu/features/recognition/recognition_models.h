@@ -15,6 +15,7 @@ namespace AyuRecognition {
 enum class ModelKind {
 	Whisper,
 	Tesseract,
+	TesseractAux, // The data for the automatic language detection.
 };
 
 struct Model : Storage::CloudBlob::Blob {
@@ -41,8 +42,15 @@ void RefreshManifest(not_null<Main::Session*> session);
 // The path of the selected Whisper model if it is downloaded.
 [[nodiscard]] QString SelectedWhisperModelPath();
 
-// Enabled and downloaded Tesseract languages joined with '+'.
+// The value of the setting meaning "choose the languages automatically".
+inline constexpr auto kAutoOcrLanguages = "auto"_cs;
+
+// Enabled and downloaded Tesseract languages joined with '+'. Returns
+// "auto" if the automatic detection is chosen and its data is downloaded.
 [[nodiscard]] QString EnabledOcrLanguages();
+
+// All downloaded Tesseract languages.
+[[nodiscard]] QStringList InstalledOcrLanguages();
 
 class ModelLoader : public Storage::CloudBlob::BlobLoader {
 public:

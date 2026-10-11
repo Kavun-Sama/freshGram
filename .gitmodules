@@ -97,3 +97,9 @@
 [submodule "Telegram/ThirdParty/whisper.cpp"]
 	path = Telegram/ThirdParty/whisper.cpp
 	url = https://github.com/ggml-org/whisper.cpp
+[submodule "Telegram/ThirdParty/leptonica"]
+	path = Telegram/ThirdParty/leptonica
+	url = https://github.com/DanBloomberg/leptonica
+[submodule "Telegram/ThirdParty/tesseract"]
+	path = Telegram/ThirdParty/tesseract
+	url = https://github.com/tesseract-ocr/tesseract
