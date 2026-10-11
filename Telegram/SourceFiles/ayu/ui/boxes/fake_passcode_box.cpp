@@ -29,6 +29,7 @@ namespace {
 using namespace AyuFakePasscode;
 
 constexpr auto kMaxNameLength = 64;
+constexpr auto kMaxCommandLength = 256;
 
 [[nodiscard]] QString AccountTitle(
 		not_null<Main::Account*> account,
@@ -196,6 +197,7 @@ void EditBox(
 		content,
 		tr::ayu_FakePasscodeCommand(),
 		entry.actions.command);
+	command->setMaxLength(kMaxCommandLength);
 	Ui::AddDividerText(content, tr::ayu_FakePasscodeCommandAbout());
 
 	const auto collect = [=] {
@@ -237,7 +239,7 @@ void EditBox(
 		field->selectAll();
 		field->showError();
 	};
-	box->addButton(tr::lng_settings_save(), [=] {
+	const auto save = [=] {
 		if (editing) {
 			Update(id, title(), collect());
 			changed();
@@ -251,6 +253,9 @@ void EditBox(
 			return;
 		case AddResult::Empty:
 			passcode->showError();
+			return;
+		case AddResult::TooShort:
+			fail(tr::ayu_FakePasscodeTooShort(tr::now), passcode);
 			return;
 		case AddResult::TooMany:
 			fail(tr::ayu_FakePasscodeLimit(
@@ -270,6 +275,20 @@ void EditBox(
 		case AddResult::Failed:
 			fail(tr::ayu_FakePasscodeFailed(tr::now), passcode);
 			return;
+		}
+	};
+	box->addButton(tr::lng_settings_save(), [=] {
+		if ((!editing && !unlocks()) || collect().deleteAll) {
+			box->uiShow()->showBox(Ui::MakeConfirmBox({
+				.text = tr::ayu_FakePasscodeConfirm(),
+				.confirmed = [=](Fn<void()> &&close) {
+					close();
+					save();
+				},
+				.confirmText = tr::lng_settings_save(),
+			}));
+		} else {
+			save();
 		}
 	});
 	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });

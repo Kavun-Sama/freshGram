@@ -34,6 +34,7 @@ enum class AddResult : uchar {
 	Ok,
 	Empty,
 	TooMany,
+	TooShort,
 	WrongPasscode,
 	SameAsReal,
 	Duplicate,

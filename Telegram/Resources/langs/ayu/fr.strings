@@ -614,3 +614,5 @@
 "ayu_FakePasscodeLogoutDb" = "Supprimer la base locale des messages de ces comptes";
 "ayu_FakePasscodeLogoutMedia" = "Supprimer les médias enregistrés des messages supprimés de ces comptes";
 "ayu_ModelsLoadFailed" = "Impossible de charger la liste des modèles. Vérifie la connexion et rouvre cette fenêtre.";
+"ayu_FakePasscodeTooShort" = "Un faux code qui déverrouille l'application doit comporter au moins 6 caractères.";
+"ayu_FakePasscodeConfirm" = "Ce code n'affichera rien : lorsqu'il est saisi, les actions choisies s'exécutent et sont irréversibles. Enregistrer ?";

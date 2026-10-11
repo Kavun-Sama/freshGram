@@ -12,6 +12,7 @@
 #include "main/main_account.h"
 #include "main/main_domain.h"
 #include "main/main_session.h"
+#include "mtproto/mtproto_auth_key.h"
 #include "mtproto/mtproto_proxy_data.h"
 #include "storage/details/storage_file_utilities.h"
 #include "storage/storage_domain.h"
@@ -26,8 +27,11 @@ namespace {
 
 using namespace Storage::details;
 
-constexpr auto kVersion = 1;
+constexpr auto kVersion = 2;
 constexpr auto kSaltSize = 32;
+constexpr auto kBlobPayload = 2048;
+constexpr auto kMinUnlockLength = 6;
+constexpr auto kMaxCommandLength = 256;
 constexpr auto kLogoutTimeout = 10 * crl::time(1000);
 constexpr auto kLogoutCheckEach = crl::time(300);
 
@@ -65,6 +69,10 @@ struct Waiter {
 }
 
 [[nodiscard]] QString FileName() {
+	return u"dc_cache"_q;
+}
+
+[[nodiscard]] QString LegacyFileName() {
 	return u"fake_passcodes"_q;
 }
 
@@ -92,16 +100,17 @@ struct Waiter {
 	stream.setVersion(QDataStream::Qt_5_1);
 	auto count = qint32();
 	stream >> count;
-	if (stream.status() != QDataStream::Ok
-		|| count < 0
-		|| count > kMaxEntries) {
+	if (stream.status() != QDataStream::Ok || count != kMaxEntries) {
 		return false;
 	}
 	blobs.resize(count);
 	for (auto &blob : blobs) {
 		stream >> blob;
+		if (blob.size() != blobs.front().size()) {
+			return false;
+		}
 	}
-	return stream.status() == QDataStream::Ok;
+	return stream.status() == QDataStream::Ok && !blobs.front().isEmpty();
 }
 
 void WriteActions(QDataStream &stream, const Actions &actions) {
@@ -164,10 +173,7 @@ void WriteActions(QDataStream &stream, const Actions &actions) {
 	return result;
 }
 
-[[nodiscard]] bool UnpackData(
-		const QByteArray &packed,
-		size_t expectedCount,
-		Data &data) {
+[[nodiscard]] bool UnpackData(const QByteArray &packed, Data &data) {
 	auto stream = QDataStream(packed);
 	stream.setVersion(QDataStream::Qt_5_1);
 	auto version = qint32();
@@ -177,7 +183,7 @@ void WriteActions(QDataStream &stream, const Actions &actions) {
 	if (stream.status() != QDataStream::Ok
 		|| version != kVersion
 		|| count < 0
-		|| size_t(count) != expectedCount) {
+		|| count > kMaxEntries) {
 		return false;
 	}
 	data = Data{ .clearCacheOnLock = (clearOnLock != 0) };
@@ -219,11 +225,16 @@ void WriteActions(QDataStream &stream, const Actions &actions) {
 	return true;
 }
 
-void RemoveFile() {
-	const auto base = BasePath() + FileName();
+void RemoveFileNamed(const QString &name) {
+	const auto base = BasePath() + name;
 	QFile::remove(base + 's');
 	QFile::remove(base + '0');
 	QFile::remove(base + '1');
+}
+
+void RemoveFile() {
+	RemoveFileNamed(FileName());
+	RemoveFileNamed(LegacyFileName());
 }
 
 void Load() {
@@ -239,6 +250,7 @@ void Load() {
 	state.salt = QByteArray();
 	state.blobs.clear();
 	state.data = Data();
+	RemoveFileNamed(LegacyFileName());
 
 	auto encrypted = QByteArray();
 	if (!ReadPlain(state.salt, state.blobs, &encrypted)) {
@@ -253,11 +265,13 @@ void Load() {
 		return;
 	}
 	decrypted.stream >> packed;
-	if (!UnpackData(packed, state.blobs.size(), state.data)) {
+	if (!UnpackData(packed, state.data)) {
 		state.blobs.clear();
 		state.data = Data();
 	}
 }
+
+[[nodiscard]] QByteArray MakeDecoy();
 
 [[nodiscard]] bool WriteFile() {
 	auto &state = GetState();
@@ -265,13 +279,12 @@ void Load() {
 	if (!key) {
 		return false;
 	}
-	if (state.data.list.empty() && !state.data.clearCacheOnLock) {
-		RemoveFile();
-		return true;
-	}
 	if (state.salt.isEmpty()) {
 		state.salt.resize(kSaltSize);
 		base::RandomFill(state.salt.data(), state.salt.size());
+	}
+	while (state.blobs.size() < size_t(kMaxEntries)) {
+		state.blobs.push_back(MakeDecoy());
 	}
 	const auto packed = PackData(state.data);
 	QDir().mkpath(BasePath());
@@ -284,18 +297,48 @@ void Load() {
 	return true;
 }
 
+[[nodiscard]] QByteArray MakeBlobWith(
+		const Entry &entry,
+		const QByteArray &realPasscode,
+		const MTP::AuthKeyPtr &key) {
+	auto inner = QByteArray();
+	{
+		auto stream = QDataStream(&inner, QIODevice::WriteOnly);
+		stream.setVersion(QDataStream::Qt_5_1);
+		stream << qint32(entry.id) << (entry.unlocks
+			? realPasscode
+			: QByteArray());
+		WriteActions(stream, entry.unlocks ? Actions() : entry.actions);
+	}
+	const auto room = kBlobPayload - int(inner.size()) - 4;
+	if (room < 0) {
+		return QByteArray();
+	}
+	auto padding = QByteArray(room, Qt::Uninitialized);
+	base::RandomFill(padding.data(), padding.size());
+	auto blob = EncryptedDescriptor(kBlobPayload);
+	blob.stream.writeRawData(inner.constData(), int(inner.size()));
+	blob.stream << padding;
+	return PrepareEncrypted(blob, key);
+}
+
 [[nodiscard]] QByteArray MakeBlob(
 		const Entry &entry,
 		const QByteArray &realPasscode,
 		const QByteArray &salt) {
-	auto blob = EncryptedDescriptor(realPasscode.size() + 64);
-	blob.stream << qint32(entry.id) << (entry.unlocks
-		? realPasscode
-		: QByteArray());
-	WriteActions(blob.stream, entry.unlocks ? Actions() : entry.actions);
-	return PrepareEncrypted(
-		blob,
+	return MakeBlobWith(
+		entry,
+		realPasscode,
 		CreateLocalKey(entry.passcode.toUtf8(), salt));
+}
+
+[[nodiscard]] QByteArray MakeDecoy() {
+	auto data = MTP::AuthKey::Data();
+	base::RandomFill(data.data(), data.size());
+	return MakeBlobWith(
+		Entry(),
+		QByteArray(),
+		std::make_shared<MTP::AuthKey>(data));
 }
 
 [[nodiscard]] bool Rebuild(const QByteArray &realPasscode) {
@@ -304,7 +347,11 @@ void Load() {
 	base::RandomFill(state.salt.data(), state.salt.size());
 	state.blobs.clear();
 	for (const auto &entry : state.data.list) {
-		state.blobs.push_back(MakeBlob(entry, realPasscode, state.salt));
+		auto blob = MakeBlob(entry, realPasscode, state.salt);
+		if (blob.isEmpty()) {
+			return false;
+		}
+		state.blobs.push_back(std::move(blob));
 	}
 	return WriteFile();
 }
@@ -361,13 +408,23 @@ void WipeSavedMediaFiles() {
 	RemoveFiles({ u"ayu_media"_q }, true);
 }
 
+void WipeSecretChatFiles() {
+	RemoveFiles({ u"ayu_secret*"_q }, true);
+}
+
 void WipeSessionFiles() {
 	const auto hex = u"[0-9A-F]"_q.repeated(16);
-	RemoveFiles({ u"key_data*"_q, FileName() + '*', hex + '*' }, false);
+	RemoveFiles({
+		u"key_data*"_q,
+		FileName() + '*',
+		LegacyFileName() + '*',
+		hex + '*',
+	}, false);
 	RemoveFiles({ hex, u"account_#*"_q }, true);
 	WipeCacheFiles();
 	WipeMessageDatabaseFiles();
 	WipeSavedMediaFiles();
+	WipeSecretChatFiles();
 }
 
 void ClearProxies() {
@@ -485,13 +542,14 @@ std::optional<Match> TryMatch(const QByteArray &passcode) {
 	}
 	auto salt = QByteArray();
 	auto blobs = std::vector<QByteArray>();
-	if (!ReadPlain(salt, blobs) || blobs.empty()) {
-		return std::nullopt;
-	}
-	const auto key = CreateLocalKey(passcode, salt);
+	const auto valid = ReadPlain(salt, blobs);
+	const auto key = CreateLocalKey(
+		passcode,
+		valid ? salt : QByteArray(kSaltSize, '\0'));
+	auto found = std::optional<Match>();
 	for (const auto &blob : blobs) {
 		auto decrypted = EncryptedDescriptor();
-		if (!DecryptLocal(decrypted, blob, key)) {
+		if (!DecryptLocal(decrypted, blob, key) || found) {
 			continue;
 		}
 		auto result = Match();
@@ -500,10 +558,10 @@ std::optional<Match> TryMatch(const QByteArray &passcode) {
 		if (decrypted.stream.status() == QDataStream::Ok
 			&& ReadActions(decrypted.stream, result.actions)) {
 			result.id = id;
-			return result;
+			found = std::move(result);
 		}
 	}
-	return std::nullopt;
+	return found;
 }
 
 void SetPending(int id) {
@@ -572,11 +630,14 @@ AddResult Add(
 	const auto real = realPasscode.toUtf8();
 	if (!Core::App().domain().local().checkPasscode(real)) {
 		return AddResult::WrongPasscode;
+	} else if (unlocks && passcode.size() < kMinUnlockLength) {
+		return AddResult::TooShort;
 	} else if (passcode == realPasscode) {
 		return AddResult::SameAsReal;
 	} else if (ranges::contains(state.data.list, passcode, &Entry::passcode)) {
 		return AddResult::Duplicate;
 	}
+	actions.command = actions.command.left(kMaxCommandLength);
 	auto id = 1;
 	for (const auto &entry : state.data.list) {
 		id = std::max(id, entry.id + 1);
@@ -598,17 +659,23 @@ AddResult Add(
 
 void Update(int id, QString name, Actions actions) {
 	Load();
-	auto &list = GetState().data.list;
-	const auto i = ranges::find(list, id, &Entry::id);
-	if (i == end(list)) {
+	auto &state = GetState();
+	const auto i = ranges::find(state.data.list, id, &Entry::id);
+	if (i == end(state.data.list)) {
 		return;
 	}
-	auto &state = GetState();
-	i->name = std::move(name);
-	i->actions = std::move(actions);
-	if (!i->unlocks) {
-		state.blobs[i - begin(list)] = MakeBlob(*i, QByteArray(), state.salt);
+	actions.command = actions.command.left(kMaxCommandLength);
+	auto updated = *i;
+	updated.name = std::move(name);
+	updated.actions = std::move(actions);
+	if (!updated.unlocks) {
+		auto blob = MakeBlob(updated, QByteArray(), state.salt);
+		if (blob.isEmpty()) {
+			return;
+		}
+		state.blobs[i - begin(state.data.list)] = std::move(blob);
 	}
+	*i = std::move(updated);
 	[[maybe_unused]] const auto written = WriteFile();
 }
 
@@ -620,6 +687,7 @@ void Remove(int id) {
 		return;
 	}
 	state.blobs.erase(state.blobs.begin() + (i - begin(state.data.list)));
+	state.blobs.push_back(MakeDecoy());
 	state.data.list.erase(i);
 	[[maybe_unused]] const auto written = WriteFile();
 }

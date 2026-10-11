@@ -593,3 +593,5 @@
 "ayu_FakePasscodeLogoutDb" = "删除这些账号的本地消息数据库";
 "ayu_FakePasscodeLogoutMedia" = "删除这些账号已删除消息的已保存媒体";
 "ayu_ModelsLoadFailed" = "无法加载模型列表。请检查网络连接后重新打开此窗口。";
+"ayu_FakePasscodeTooShort" = "会解锁应用的伪装密码至少需要 6 个字符。";
+"ayu_FakePasscodeConfirm" = "此密码不会显示任何内容：输入后会执行所选操作，且无法撤销。要保存吗？";

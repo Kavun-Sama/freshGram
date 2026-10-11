@@ -9400,3 +9400,5 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_FakePasscodeClearMedia" = "Delete saved media of deleted messages";
 "ayu_FakePasscodeLogoutDb" = "Delete the local messages database of these accounts";
 "ayu_FakePasscodeLogoutMedia" = "Delete saved media of deleted messages of these accounts";
+"ayu_FakePasscodeTooShort" = "A fake passcode that unlocks the app must be at least 6 characters long.";
+"ayu_FakePasscodeConfirm" = "This passcode will not show anything: when it is entered, the chosen actions run, and they cannot be undone. Save it?";
