@@ -78,8 +78,8 @@ jobs:
             Libraries
             win64
             ThirdParty
-          key: windows-libraries-v3-${{ hashFiles('freshGram/Telegram/build/prepare/**', 'freshGram/Telegram/build/qt_version.py') }}-${{ github.run_id }}
-          restore-keys: windows-libraries-v3-${{ hashFiles('freshGram/Telegram/build/prepare/**', 'freshGram/Telegram/build/qt_version.py') }}-
+          key: windows-libraries-qt5-v1-${{ hashFiles('freshGram/Telegram/build/prepare/**', 'freshGram/Telegram/build/qt_version.py') }}-${{ github.run_id }}
+          restore-keys: windows-libraries-qt5-v1-${{ hashFiles('freshGram/Telegram/build/prepare/**', 'freshGram/Telegram/build/qt_version.py') }}-
 
       - name: Install ATL and MFC for the toolset
         shell: pwsh
@@ -117,7 +117,7 @@ jobs:
         continue-on-error: true
         timeout-minutes: 300
         shell: cmd
-        run: freshGram\Telegram\build\prepare\win.bat silent qt6
+        run: freshGram\Telegram\build\prepare\win.bat silent
 
       - name: Save libraries
         if: always() && steps.libraries.outcome == 'success'
@@ -127,7 +127,7 @@ jobs:
             Libraries
             win64
             ThirdParty
-          key: windows-libraries-v3-${{ hashFiles('freshGram/Telegram/build/prepare/**', 'freshGram/Telegram/build/qt_version.py') }}-${{ github.run_id }}
+          key: windows-libraries-qt5-v1-${{ hashFiles('freshGram/Telegram/build/prepare/**', 'freshGram/Telegram/build/qt_version.py') }}-${{ github.run_id }}
 
       - name: Stop when libraries are not ready
         if: steps.prepare.outcome != 'success'
@@ -143,7 +143,7 @@ jobs:
           API_HASH: ${{ secrets.API_HASH }}
         run: |
           cd freshGram\Telegram
-          call configure.bat x64 qt6 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+          call configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON
 
       - name: Build
         id: build
