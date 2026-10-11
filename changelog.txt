@@ -1,3 +1,17 @@
+7.5.0 (12.10.26)
+
+- Add fake passcodes: each can log out accounts, clear the cache and proxies, run a command or wipe all data.
+- Add local voice transcription (Whisper) and text recognition (Tesseract) with models from the freshGram channel.
+- Encrypt the deleted messages database and saved media with the local key.
+- Add the Fagram design with its icon set, top bar and navigation drawer.
+- Add a type filter to the chat search and search deleted messages and chats.
+- Keep deleted chats, topics and inline buttons, with settings and a button to clear them.
+- Pin any number of chats locally, keep drafts on this device and reduce network tracking.
+- Block unsafe link schemes and limit the time of message filters.
+- Add Linux AppImage, deb and rpm packages, and Windows and macOS builds.
+- Fix the rounding of media without a bubble next to other messages.
+- Fix the crashes and hangs when restoring deleted messages.
+
 7.4.0 (06.10.26)
 
 - Restore deleted messages in groups with topics.
