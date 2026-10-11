@@ -7,6 +7,7 @@
 #include "ui/painter.h"
 #include "ui/text/text_entity.h"
 #include "ui/toast/toast.h"
+#include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
@@ -269,7 +270,12 @@ void RecognitionPicker::updateControls() {
 	if (_state != State::Result) {
 		return;
 	}
-	const auto c = _contentRect().marginsRemoved(QMargins(
+	auto area = _contentRect().intersected(rect());
+	if (area.width() < st::recognitionPanelMinWidth
+		|| area.height() < st::recognitionPanelMinHeight) {
+		area = rect();
+	}
+	const auto c = area.marginsRemoved(QMargins(
 		st::recognitionPanelMargin,
 		st::recognitionPanelMargin,
 		st::recognitionPanelMargin,
@@ -463,6 +469,9 @@ void RecognitionPicker::mousePressEvent(QMouseEvent *e) {
 }
 
 void RecognitionPicker::mouseMoveEvent(QMouseEvent *e) {
+	if (!(e->buttons() & Qt::LeftButton)) {
+		_dragging = Part::None;
+	}
 	if (_state != State::Selecting) {
 		updateCursor(Part::None);
 		return;
@@ -525,7 +534,14 @@ void RecognitionPicker::keyPressEvent(QKeyEvent *e) {
 }
 
 void RecognitionPicker::resizeEvent(QResizeEvent *e) {
+	_dragging = Part::None;
 	updateControls();
+	Ui::PostponeCall(this, [=] { updateControls(); });
+}
+
+void RecognitionPicker::refreshLayout() {
+	updateControls();
+	update();
 }
 
 } // namespace AyuUi

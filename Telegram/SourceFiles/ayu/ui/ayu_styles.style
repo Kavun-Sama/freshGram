@@ -140,5 +140,7 @@ recognitionPanelRadius: 14px;
 recognitionPanelPadding: margins(18px, 14px, 18px, 14px);
 recognitionPanelMaxWidth: 640px;
 recognitionPanelMaxHeight: 440px;
+recognitionPanelMinWidth: 240px;
+recognitionPanelMinHeight: 160px;
 recognitionPanelMargin: 24px;
 recognitionPanelButtonsTop: 12px;

@@ -32,6 +32,7 @@ public:
 	~RecognitionPicker();
 
 	void cancelOrClose();
+	void refreshLayout();
 
 protected:
 	void paintEvent(QPaintEvent *e) override;

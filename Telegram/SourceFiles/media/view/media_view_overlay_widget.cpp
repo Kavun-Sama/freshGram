@@ -2868,6 +2868,9 @@ void OverlayWidget::resizeContentByScreenSize() {
 		? (_minUsedTop + (_maxUsedHeight - _h) / 2)
 		: (_skipTop + (useh - _h) / 2);
 	_geometryAnimation.stop();
+	if (_recognitionPicker) {
+		_recognitionPicker->refreshLayout();
+	}
 }
 
 float64 OverlayWidget::radialProgress() const {
@@ -4694,7 +4697,7 @@ void OverlayWidget::displayPhoto(
 	_rotation = _photo->owner().mediaRotation().get(_photo);
 	_radial.stop();
 	if (photoChanged) {
-		_recognitionPicker = nullptr;
+		closeRecognitionPicker();
 		_showRecognitionResults = false;
 		_recognitionResult = {};
 		_recognitionPendingSessionUniqueId = 0;
@@ -4791,7 +4794,7 @@ void OverlayWidget::displayDocument(
 	_themeCloudData = cloud;
 	_radial.stop();
 	if (documentChanged) {
-		_recognitionPicker = nullptr;
+		closeRecognitionPicker();
 		_showRecognitionResults = false;
 		_recognitionResult = {};
 		_recognitionPendingSessionUniqueId = 0;
@@ -6376,9 +6379,19 @@ void OverlayWidget::startTextRecognition() {
 				_recognitionPicker->hide();
 			}
 			crl::on_main(base::make_weak(_widget), [=] {
-				_recognitionPicker = nullptr;
+				closeRecognitionPicker();
 			});
 		});
+}
+
+void OverlayWidget::closeRecognitionPicker() {
+	if (!_recognitionPicker) {
+		return;
+	}
+	_recognitionPicker = nullptr;
+	if (!isHidden()) {
+		setFocus();
+	}
 }
 
 void OverlayWidget::tryStartTextRecognition() {
@@ -8968,7 +8981,7 @@ Window::SessionController *OverlayWidget::findWindow(bool switchTo) const {
 
 // #TODO unite and check
 void OverlayWidget::clearBeforeHide() {
-	_recognitionPicker = nullptr;
+	closeRecognitionPicker();
 	AyuState::disableGhostModeOnStoryClose(_storiesSession);
 	checkSingleViewMediaBurn();
 	_message = nullptr;
@@ -9014,7 +9027,7 @@ void OverlayWidget::clearBeforeHide() {
 }
 
 void OverlayWidget::clearAfterHide() {
-	_recognitionPicker = nullptr;
+	closeRecognitionPicker();
 	_recognitionResult = {};
 	_recognitionPendingSessionUniqueId = 0;
 	_recognitionPendingPhotoId = 0;

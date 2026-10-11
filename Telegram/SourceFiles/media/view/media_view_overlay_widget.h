@@ -590,6 +590,7 @@ private:
 	void validatePhotoCurrentImage();
 	void tryStartTextRecognition();
 	void startTextRecognition();
+	void closeRecognitionPicker();
 
 	[[nodiscard]] bool hasCopyMediaRestriction(
 		bool skipPremiumCheck = false) const;
