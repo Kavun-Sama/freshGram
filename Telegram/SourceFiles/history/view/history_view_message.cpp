@@ -6669,8 +6669,10 @@ QRect Message::countGeometry() const {
 }
 
 Ui::BubbleRounding Message::countMessageRounding() const {
-	const auto smallTop = isBubbleAttachedToPrevious();
-	const auto smallBottom = isBubbleAttachedToNext();
+	// A media without a bubble has nothing to join with the neighbours.
+	const auto joins = !Ui::MaterialBubbles() || hasBubble();
+	const auto smallTop = joins && isBubbleAttachedToPrevious();
+	const auto smallBottom = joins && isBubbleAttachedToNext();
 	const auto media = smallBottom ? nullptr : this->media();
 	const auto item = data();
 	const auto keyboard = item->inlineReplyKeyboard();
