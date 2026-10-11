@@ -146,7 +146,7 @@ if (NOT FRESHGRAM_DISABLE_RECOGNITION)
     add_library(freshgram_tesseract STATIC ${tess_sources})
     set_target_properties(freshgram_tesseract PROPERTIES
         POSITION_INDEPENDENT_CODE ON)
-    target_compile_features(freshgram_tesseract PUBLIC cxx_std_17)
+    target_compile_features(freshgram_tesseract PUBLIC cxx_std_20)
     target_include_directories(freshgram_tesseract
     PRIVATE
         ${tess_dir}/src
@@ -163,6 +163,7 @@ if (NOT FRESHGRAM_DISABLE_RECOGNITION)
         ${tess_dir}/src/wordrec
         ${tess_dir}/src/training
         ${ocr_gen}
+        ${ocr_gen}/leptonica
     PUBLIC
         ${tess_dir}/include
         ${ocr_gen})
