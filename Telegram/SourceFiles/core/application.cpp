@@ -112,6 +112,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ayu_infra.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/data/ayu_database.h"
+#include "ayu/data/messages_storage.h"
 #include "ayu/features/fake_passcode/fake_passcode.h"
 #include "ayu/secret/secret_policy.h"
 #include "ayu/utils/crash_trace.h"
@@ -293,6 +294,7 @@ Application::~Application() {
 	_private->proxyRotation = nullptr;
 	_domain->finish();
 	AyuDatabase::finish();
+	AyuMessages::clearOpenedMedia();
 	MTP::WebProxy::Transport::Shutdown();
 
 	Local::finish();

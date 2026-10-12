@@ -520,6 +520,8 @@
 "ayu_DeletedRestoreLimit" = "Messaggi eliminati caricati per chat";
 "ayu_KeptSnapshotLimit" = "Messaggi salvati quando si lascia una chat";
 "ayu_DeletedMediaMaxSize" = "Dimensione massima dei contenuti eliminati salvati";
+"ayu_DeletedMediaDecrypting" = "Preparazione del file salvato...";
+"ayu_DeletedMediaDecryptFailed" = "Impossibile leggere il file salvato.";
 "ayu_KeepDeletedDays" = "Conserva messaggi eliminati e modifiche per";
 "ayu_BackupKeepCount" = "Backup del database da conservare";
 "ayu_BackupInterval" = "Backup del database ogni";

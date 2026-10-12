@@ -9307,6 +9307,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DeletedRestoreLimit" = "Deleted messages loaded per chat";
 "ayu_KeptSnapshotLimit" = "Messages saved when leaving a chat";
 "ayu_DeletedMediaMaxSize" = "Max size of saved deleted media";
+"ayu_DeletedMediaDecrypting" = "Preparing the saved file...";
+"ayu_DeletedMediaDecryptFailed" = "Could not read the saved file.";
 "ayu_KeepDeletedDays" = "Keep deleted messages and edits for";
 "ayu_BackupKeepCount" = "Database backups to keep";
 "ayu_BackupInterval" = "Database backup every";

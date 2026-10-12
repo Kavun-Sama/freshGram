@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_document_resolver.h"
 
+#include "ayu/data/messages_storage.h"
 #include "base/platform/base_platform_info.h"
 #include "boxes/abstract_box.h" // Ui::show().
 #include "chat_helpers/ttl_media_layer_widget.h"
@@ -240,7 +241,7 @@ void ResolveDocument(
 		MsgId topicRootId,
 		PeerId monoforumPeerId,
 		bool showDrawButton) {
-	if (document->isNull()) {
+	if (document->isNull() || AyuMessages::prepareLargeMedia(document)) {
 		return;
 	}
 	const auto msgId = item ? item->fullId() : FullMsgId();

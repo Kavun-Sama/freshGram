@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_file_click_handler.h"
 
+#include "ayu/data/messages_storage.h"
 #include "core/click_handler_types.h"
 #include "core/file_utilities.h"
 #include "core/application.h"
@@ -80,7 +81,7 @@ void DocumentSaveClickHandler::Save(
 		return;
 	}
 
-	if (data->forbidsFileSave()) {
+	if (data->forbidsFileSave() || AyuMessages::prepareLargeMedia(data)) {
 		return;
 	}
 	auto savename = QString();

@@ -520,6 +520,8 @@
 "ayu_DeletedRestoreLimit" = "Messages supprimés chargés par discussion";
 "ayu_KeptSnapshotLimit" = "Messages enregistrés en quittant une discussion";
 "ayu_DeletedMediaMaxSize" = "Taille max. des médias supprimés enregistrés";
+"ayu_DeletedMediaDecrypting" = "Préparation du fichier enregistré...";
+"ayu_DeletedMediaDecryptFailed" = "Impossible de lire le fichier enregistré.";
 "ayu_KeepDeletedDays" = "Garder les messages supprimés et les modifications pendant";
 "ayu_BackupKeepCount" = "Sauvegardes de la base à conserver";
 "ayu_BackupInterval" = "Sauvegarde de la base toutes les";

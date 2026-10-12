@@ -504,6 +504,8 @@
 "ayu_DeletedRestoreLimit" = "每个聊天加载的已删除消息数";
 "ayu_KeptSnapshotLimit" = "离开聊天时保存的消息数";
 "ayu_DeletedMediaMaxSize" = "保存的已删除媒体大小上限";
+"ayu_DeletedMediaDecrypting" = "正在准备已保存的文件...";
+"ayu_DeletedMediaDecryptFailed" = "无法读取已保存的文件。";
 "ayu_KeepDeletedDays" = "已删除消息和编辑记录保留时长";
 "ayu_BackupKeepCount" = "保留的数据库备份数";
 "ayu_BackupInterval" = "数据库备份间隔";

@@ -8,6 +8,7 @@
 
 #include "ayu/data/entities.h"
 
+class DocumentData;
 class History;
 
 namespace AyuMessages {
@@ -43,6 +44,8 @@ void clearDeletedDatabase();
 void clearSavedMedia();
 void clearUserDatabase(ID userId);
 void clearUserMedia(ID userId);
+void clearOpenedMedia();
+bool prepareLargeMedia(not_null<DocumentData*> document);
 void clearEverything();
 
 }
