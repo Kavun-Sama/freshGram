@@ -17,6 +17,7 @@ struct Row {
 	bool dead = false;
 	std::optional<DeletedExtra> extra;
 	std::vector<char> markup;
+	std::string rank;
 };
 
 void noteDeleted(not_null<History*> history);

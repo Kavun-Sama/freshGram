@@ -356,6 +356,7 @@ public:
 	void ayuSetDeletedAt(TimeId date) {
 		_ayuDeletedAt = date;
 	}
+	void ayuSetFromRank(const QString &rank);
 	[[nodiscard]] bool hideDisplayDate() const {
 		return isEmpty() || (_flags & MessageFlag::HideDisplayDate);
 	}

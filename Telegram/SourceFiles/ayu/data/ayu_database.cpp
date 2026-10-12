@@ -174,6 +174,15 @@ auto storage = make_storage(
 		make_column("markup", &DeletedMarkup::markup),
 		make_column("entityCreateDate", &DeletedMarkup::entityCreateDate)
 	),
+	make_table<DeletedRank>(
+		"DeletedRank",
+		make_column("fakeId", &DeletedRank::fakeId, primary_key().autoincrement()),
+		make_column("userId", &DeletedRank::userId),
+		make_column("dialogId", &DeletedRank::dialogId),
+		make_column("messageId", &DeletedRank::messageId),
+		make_column("rank", &DeletedRank::rank),
+		make_column("entityCreateDate", &DeletedRank::entityCreateDate)
+	),
 	make_table<DeletedExtra>(
 		"DeletedExtra",
 		make_column("fakeId", &DeletedExtra::fakeId, primary_key().autoincrement()),
@@ -767,6 +776,8 @@ void purgeOlderThan(int days) {
 					where(column<DeletedExtra>(&DeletedExtra::entityCreateDate) < cutoff));
 				storage.remove_all<DeletedMarkup>(
 					where(column<DeletedMarkup>(&DeletedMarkup::entityCreateDate) < cutoff));
+				storage.remove_all<DeletedRank>(
+					where(column<DeletedRank>(&DeletedRank::entityCreateDate) < cutoff));
 			});
 		});
 	});
@@ -877,6 +888,36 @@ void addDeletedMarkups(const std::vector<DeletedMarkup> &markups) {
 				storage.insert(markup);
 			}
 		});
+	});
+}
+
+void addDeletedRanks(const std::vector<DeletedRank> &ranks) {
+	if (ranks.empty()) {
+		return;
+	}
+	runVoid("save deleted ranks", [&] {
+		inTransaction([&] {
+			for (const auto &rank : ranks) {
+				storage.remove_all<DeletedRank>(
+					where(
+						column<DeletedRank>(&DeletedRank::userId) == rank.userId and
+						column<DeletedRank>(&DeletedRank::dialogId) == rank.dialogId and
+						column<DeletedRank>(&DeletedRank::messageId) == rank.messageId
+					)
+				);
+				storage.insert(rank);
+			}
+		});
+	});
+}
+
+std::vector<DeletedRank> getDeletedRanks(ID userId, ID dialogId) {
+	return run<std::vector<DeletedRank>>("load deleted ranks", {}, [&] {
+		return storage.get_all<DeletedRank>(
+			where(
+				column<DeletedRank>(&DeletedRank::userId) == userId and
+				column<DeletedRank>(&DeletedRank::dialogId) == dialogId
+			));
 	});
 }
 
@@ -1012,6 +1053,13 @@ void removeDeletedMessage(ID userId, ID dialogId, ID messageId) {
 				column<DeletedMarkup>(&DeletedMarkup::messageId) == messageId
 			)
 		);
+		storage.remove_all<DeletedRank>(
+			where(
+				column<DeletedRank>(&DeletedRank::userId) == userId and
+				column<DeletedRank>(&DeletedRank::dialogId) == dialogId and
+				column<DeletedRank>(&DeletedRank::messageId) == messageId
+			)
+		);
 		storage.remove_all<DeletedMessage>(
 			where(
 				column<DeletedMessage>(&DeletedMessage::userId) == userId and
@@ -1037,6 +1085,12 @@ void clearDeletedMessages(ID userId, ID dialogId, ID topicId) {
 					column<DeletedMarkup>(&DeletedMarkup::dialogId) == dialogId
 				)
 			);
+			storage.remove_all<DeletedRank>(
+				where(
+					column<DeletedRank>(&DeletedRank::userId) == userId and
+					column<DeletedRank>(&DeletedRank::dialogId) == dialogId
+				)
+			);
 		}
 		storage.remove_all<DeletedMessage>(
 			where(
@@ -1053,6 +1107,7 @@ void clearAllDeleted() {
 		inTransaction([&] {
 			storage.remove_all<DeletedExtra>();
 			storage.remove_all<DeletedMarkup>();
+			storage.remove_all<DeletedRank>();
 			storage.remove_all<DeletedMessage>();
 			storage.remove_all<DeletedDialog>();
 			storage.remove_all<KeptTopic>();
@@ -1066,6 +1121,7 @@ template<typename Callback>
 void forEachUserTable(Callback &&callback) {
 	callback(std::type_identity<DeletedExtra>());
 	callback(std::type_identity<DeletedMarkup>());
+	callback(std::type_identity<DeletedRank>());
 	callback(std::type_identity<DeletedMessage>());
 	callback(std::type_identity<EditedMessage>());
 	callback(std::type_identity<DeletedDialog>());

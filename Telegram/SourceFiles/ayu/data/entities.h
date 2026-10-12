@@ -89,6 +89,18 @@ public:
 	int entityCreateDate;
 };
 
+// The tag of the author of a deleted message, kept in its own table.
+class DeletedRank
+{
+public:
+	ID fakeId;
+	ID userId;
+	ID dialogId;
+	int messageId;
+	std::string rank;
+	int entityCreateDate;
+};
+
 class DeletedDialog
 {
 public:

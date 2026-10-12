@@ -299,7 +299,8 @@ void removeAll() {
 
 void purgeUser(long long userId) {
 	static const auto kTables = {
-		"DeletedExtra", "DeletedMarkup", "DeletedMessage", "EditedMessage",
+		"DeletedExtra", "DeletedMarkup", "DeletedRank", "DeletedMessage",
+		"EditedMessage",
 		"DeletedDialog", "KeptTopic", "KeptDialog", "KnownUser", "LocalPin",
 		"SecretChat", "SecretMessage", "SecretState", "PeekedStatus",
 		"PeekRestore", "SpyMessageRead", "SpyMessageContentsRead",

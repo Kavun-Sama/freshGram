@@ -16,6 +16,7 @@
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "history/history.h"
+#include "history/view/history_view_element.h"
 #include "history/history_item.h"
 #include "history/history_item_components.h"
 #include "history/history_item_helpers.h"
@@ -23,6 +24,34 @@
 #include "ui/text/text_utilities.h"
 
 namespace AyuRestore {
+namespace {
+
+constexpr auto kRankScanLimit = 600;
+
+// The tag the author has on the messages that are still in the chat.
+[[nodiscard]] QString LiveRank(not_null<History*> history, PeerId author) {
+	if (!author) {
+		return QString();
+	}
+	auto scanned = 0;
+	for (auto b = history->blocks.rbegin(); b != history->blocks.rend(); ++b) {
+		const auto &messages = (*b)->messages;
+		for (auto m = messages.rbegin(); m != messages.rend(); ++m) {
+			const auto live = (*m)->data();
+			if (live->from()->id == author) {
+				if (const auto rank = live->fromRank(); !rank.isEmpty()) {
+					return rank;
+				}
+			}
+			if (++scanned >= kRankScanLimit) {
+				return QString();
+			}
+		}
+	}
+	return QString();
+}
+
+} // namespace
 namespace {
 
 [[nodiscard]] UserData *unknownSender(Data::Session &owner, ID id) {
@@ -172,9 +201,11 @@ void State::load(ID userId, ID dialogId) {
 		auto messages = std::vector<AyuMessageBase>();
 		auto extras = std::vector<DeletedExtra>();
 		auto markups = std::vector<DeletedMarkup>();
+		auto ranks = std::vector<DeletedRank>();
 		try {
 			extras = AyuMessages::loadDeletedExtras(userId, dialogId);
 			markups = AyuMessages::loadDeletedMarkups(userId, dialogId);
+			ranks = AyuMessages::loadDeletedRanks(userId, dialogId);
 			messages = AyuMessages::loadDeletedMessages(
 				userId,
 				dialogId,
@@ -187,7 +218,7 @@ void State::load(ID userId, ID dialogId) {
 			messages.clear();
 		}
 
-		crl::on_main([=, messages = std::move(messages), extras = std::move(extras), markups = std::move(markups)]() mutable {
+		crl::on_main([=, messages = std::move(messages), extras = std::move(extras), markups = std::move(markups), ranks = std::move(ranks)]() mutable {
 			const auto strong = weak.get();
 			if (!strong || strong->_disabled) {
 				return;
@@ -214,6 +245,12 @@ void State::load(ID userId, ID dialogId) {
 				for (const auto &markup : markups) {
 					if (markup.messageId == strong->_rows.back().message.messageId) {
 						strong->_rows.back().markup = markup.markup;
+						break;
+					}
+				}
+				for (const auto &rank : ranks) {
+					if (rank.messageId == strong->_rows.back().message.messageId) {
+						strong->_rows.back().rank = rank.rank;
 						break;
 					}
 				}
@@ -591,6 +628,11 @@ HistoryItem *State::create(Row &row) {
 	AyuMessages::restoreSavedMedia(item, message);
 	if (row.extra) {
 		AyuMessages::restoreExtra(item, *row.extra);
+	}
+	if (peer->isMegagroup()) {
+		item->ayuSetFromRank(!row.rank.empty()
+			? QString::fromStdString(row.rank)
+			: LiveRank(_history, from ? from->id : PeerId()));
 	}
 	if (peer->isUser() || !_history->ayuKept()) {
 		item->setDeleted();

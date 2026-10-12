@@ -4055,6 +4055,16 @@ QString HistoryItem::originalPostAuthor() const {
 	return QString();
 }
 
+void HistoryItem::ayuSetFromRank(const QString &rank) {
+	if (rank.isEmpty()) {
+		return;
+	}
+	if (!Has<HistoryMessageFromRank>()) {
+		AddComponents(HistoryMessageFromRank::Bit());
+	}
+	Get<HistoryMessageFromRank>()->rank = rank;
+}
+
 QString HistoryItem::fromRank() const {
 	if (const auto component = Get<HistoryMessageFromRank>()) {
 		return component->rank;

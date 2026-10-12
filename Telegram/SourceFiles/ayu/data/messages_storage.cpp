@@ -72,6 +72,7 @@ struct DocumentSaveTask {
 std::vector<DeletedMessage> PendingDeleted;
 std::vector<DeletedExtra> PendingExtras;
 std::vector<DeletedMarkup> PendingMarkups;
+std::vector<DeletedRank> PendingRanks;
 bool FlushScheduled = false;
 std::vector<std::unique_ptr<PhotoSaveTask>> PhotoSaveTasks;
 std::vector<std::unique_ptr<DocumentSaveTask>> DocumentSaveTasks;
@@ -239,6 +240,9 @@ void flushPendingDeleted() {
 	auto markups = std::move(PendingMarkups);
 	PendingMarkups.clear();
 	AyuDatabase::addDeletedMarkups(markups);
+	auto ranks = std::move(PendingRanks);
+	PendingRanks.clear();
+	AyuDatabase::addDeletedRanks(ranks);
 }
 
 }
@@ -616,6 +620,16 @@ void addDeletedMessage(not_null<HistoryItem*> item) {
 			.entityCreateDate = base::unixtime::now(),
 		});
 	}
+	if (const auto rank = item->fromRank(); !rank.isEmpty()) {
+		PendingRanks.push_back({
+			.fakeId = 0,
+			.userId = message.userId,
+			.dialogId = message.dialogId,
+			.messageId = message.messageId,
+			.rank = rank.toStdString(),
+			.entityCreateDate = base::unixtime::now(),
+		});
+	}
 	PendingDeleted.push_back(std::move(message));
 	AyuRestore::noteDeleted(item->history());
 	if (!FlushScheduled) {
@@ -663,6 +677,10 @@ std::vector<DeletedExtra> loadDeletedExtras(ID userId, ID dialogId) {
 
 std::vector<DeletedMarkup> loadDeletedMarkups(ID userId, ID dialogId) {
 	return AyuDatabase::getDeletedMarkups(userId, dialogId);
+}
+
+std::vector<DeletedRank> loadDeletedRanks(ID userId, ID dialogId) {
+	return AyuDatabase::getDeletedRanks(userId, dialogId);
 }
 
 void restoreExtra(not_null<HistoryItem*> item, const DeletedExtra &extra) {
