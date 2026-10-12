@@ -180,7 +180,7 @@ if (NOT FRESHGRAM_DISABLE_RECOGNITION)
             NOMINMAX
             _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS=1
             _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
-        target_compile_options(freshgram_tesseract PRIVATE /w)
+        target_compile_options(freshgram_tesseract PRIVATE /w /FIcstdint)
     else()
         target_compile_options(freshgram_tesseract PRIVATE -w)
     endif()
