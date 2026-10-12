@@ -675,12 +675,11 @@ Images::CornersMaskRef MediaRoundingMask(
 	auto result = Images::CornersMaskRef();
 	const auto &small = Ui::CachedCornersMasks(Radius::BubbleSmall);
 	const auto &large = Ui::CachedCornersMasks(Radius::BubbleLarge);
-	const auto smallCorner = Ui::MaterialBubbles()
-		? Corner::None
-		: Corner::Small;
+	const auto material = Ui::MaterialBubbles();
 	for (auto i = 0; i != 4; ++i) {
 		const auto corner = (*rounding)[i];
-		if (corner == smallCorner) {
+		if (corner == Corner::Small
+			|| (material && corner == Corner::None)) {
 			result.p[i] = &small[i];
 		} else if (corner == Corner::Large) {
 			result.p[i] = &large[i];

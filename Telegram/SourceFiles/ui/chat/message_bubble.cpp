@@ -118,7 +118,8 @@ void PaintBubbleGeneric(
 	const auto cornerSize = [&](Corner corner) {
 		return (corner == Corner::Large)
 			? large
-			: (corner == (material ? Corner::None : Corner::Small))
+			: (corner == Corner::Small
+				|| (material && corner == Corner::None))
 			? small
 			: 0;
 	};
