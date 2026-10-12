@@ -194,7 +194,7 @@ auto RecognitionPicker::partAt(QPoint position) const -> Part {
 	const auto s = selectionRect();
 	const auto tolerance = qreal(st::recognitionHandleTolerance);
 	const auto p = QPointF(position);
-	const auto near = [&](qreal a, qreal b) {
+	const auto isNear = [&](qreal a, qreal b) {
 		return std::abs(a - b) <= tolerance;
 	};
 	const auto inX = (p.x() >= s.left() - tolerance)
@@ -204,10 +204,10 @@ auto RecognitionPicker::partAt(QPoint position) const -> Part {
 	if (!inX || !inY) {
 		return Part::None;
 	}
-	const auto left = near(p.x(), s.left());
-	const auto right = near(p.x(), s.right());
-	const auto top = near(p.y(), s.top());
-	const auto bottom = near(p.y(), s.bottom());
+	const auto left = isNear(p.x(), s.left());
+	const auto right = isNear(p.x(), s.right());
+	const auto top = isNear(p.y(), s.top());
+	const auto bottom = isNear(p.y(), s.bottom());
 	if (left && top) {
 		return Part::TopLeft;
 	} else if (right && top) {
