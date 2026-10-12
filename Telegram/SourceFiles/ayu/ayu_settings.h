@@ -264,6 +264,7 @@ public:
 
 	static void load();
 	static void save();
+	static void attachVault();
 	static void reset();
 
 	[[nodiscard]] static GhostModeAccountSettings &ghost(not_null<Main::Session*> session);
@@ -734,6 +735,7 @@ private:
 	rpl::variable<bool> _saveMessagesHistory = true;
 	rpl::variable<bool> _saveForBots = false;
 	std::unordered_set<int64> _shadowBanIds;
+	bool _accountsVaulted = false;
 	rpl::variable<bool> _filtersEnabled = false;
 	rpl::variable<bool> _filtersEnabledInChats = false;
 	rpl::variable<bool> _hideFromBlocked = false;
@@ -848,6 +850,8 @@ private:
 	rpl::variable<bool> _streamerMode = false;
 	rpl::variable<bool> _streamerHideWholeWindow = true;
 	rpl::variable<bool> _streamerSpoilers = true;
+
+	static void applyForcedGhost();
 
 	rpl::variable<bool> _useGlobalGhostMode = true;
 	std::map<uint64, std::unique_ptr<GhostModeAccountSettings>> _ghostAccounts;

@@ -416,6 +416,7 @@ void WipeSessionFiles() {
 	const auto hex = u"[0-9A-F]"_q.repeated(16);
 	RemoveFiles({
 		u"key_data*"_q,
+		u"ayu_accounts*"_q,
 		FileName() + '*',
 		LegacyFileName() + '*',
 		hex + '*',
