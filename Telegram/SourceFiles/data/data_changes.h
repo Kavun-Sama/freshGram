@@ -230,8 +230,9 @@ struct MessageUpdate {
 		NewMaybeAdded      = (1U << 7),
 		ReplyToTopAdded    = (1U << 8),
 		NewUnreadReaction  = (1U << 9),
+		Deleted            = (1U << 10),
 
-		LastUsedBit        = (1U << 9),
+		LastUsedBit        = (1U << 10),
 	};
 	using Flags = base::flags<Flag>;
 	friend inline constexpr auto is_flag_type(Flag) { return true; }

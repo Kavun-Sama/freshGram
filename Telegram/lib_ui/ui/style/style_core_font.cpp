@@ -520,6 +520,12 @@ struct BoldFace {
 			if (face) {
 				font.setFamily(face->family);
 				font.setWeight(QFont::Weight(face->weight));
+			} else if (!overriden && !system) {
+				if (DatabaseFamilies().contains(u"Google Sans Medium"_q)) {
+					font.setFamily(u"Google Sans Medium"_q);
+				} else {
+					font.setWeight(QFont::DemiBold);
+				}
 			} else {
 				font.setWeight(QFont::Bold);
 			}
@@ -576,24 +582,26 @@ void StartFonts() {
 #endif //  __has_include(<glib.h>)
 	}
 
-	QFont::insertSubstitution(name, u"Vazirmatn UI NL"_q);
+	for (const auto &family : { name, name + u" Medium"_q }) {
+		QFont::insertSubstitution(family, u"Vazirmatn UI NL"_q);
 
 #ifdef Q_OS_WIN
-	QFont::insertSubstitutions(name, {
-		// https://qt-project.atlassian.net/browse/QTBUG-134052
-		u"Ebrima"_q,
-		// https://qt-project.atlassian.net/browse/QTBUG-94756
-		u"Nirmala UI"_q,
-	});
+		QFont::insertSubstitutions(family, {
+			// https://qt-project.atlassian.net/browse/QTBUG-134052
+			u"Ebrima"_q,
+			// https://qt-project.atlassian.net/browse/QTBUG-94756
+			u"Nirmala UI"_q,
+		});
 #elif defined Q_OS_MAC // Q_OS_WIN
-	const auto list = QStringList{
-		u"STIXGeneral"_q,
-		u".SF NS Text"_q,
-		u"Helvetica Neue"_q,
-		u"Lucida Grande"_q,
-	};
-	QFont::insertSubstitutions(name, list);
+		const auto list = QStringList{
+			u"STIXGeneral"_q,
+			u".SF NS Text"_q,
+			u"Helvetica Neue"_q,
+			u"Lucida Grande"_q,
+		};
+		QFont::insertSubstitutions(family, list);
 #endif // Q_OS_MAC
+	}
 }
 
 void DestroyFonts() {

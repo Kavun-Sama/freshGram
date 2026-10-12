@@ -467,6 +467,7 @@ void FieldHeader::init() {
 	_data->session().changes().messageUpdates(
 		Data::MessageUpdate::Flag::Edited
 		| Data::MessageUpdate::Flag::Destroyed
+		| Data::MessageUpdate::Flag::Deleted
 	) | rpl::filter([=](const Data::MessageUpdate &update) {
 		const auto fullId = update.item->fullId();
 		return (update.item == _shownMessage)
@@ -476,7 +477,11 @@ void FieldHeader::init() {
 		const auto fullId = update.item->fullId();
 		const auto realReply = _replyTo.current();
 		const auto externalReply = _replyToExternal.current();
-		if (update.flags & Data::MessageUpdate::Flag::Destroyed) {
+		if (update.flags & Data::MessageUpdate::Flag::Deleted) {
+			if (_editMsgId.current() == fullId) {
+				_editCancelled.fire({});
+			}
+		} else if (update.flags & Data::MessageUpdate::Flag::Destroyed) {
 			if (_editMsgId.current() == fullId) {
 				_editCancelled.fire({});
 			}

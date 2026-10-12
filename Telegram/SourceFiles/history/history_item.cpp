@@ -4231,6 +4231,9 @@ void HistoryItem::setDeleted() {
 	if (!_ayuDeletedAt) {
 		_ayuDeletedAt = base::unixtime::now();
 	}
+	history()->session().changes().messageUpdated(
+		this,
+		Data::MessageUpdate::Flag::Deleted);
 
 	// cleanup reactions as they tend to bug with deleted messages
 	if (hasUnreadReaction()) {

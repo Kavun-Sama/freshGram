@@ -85,7 +85,7 @@ void BuildVersionInfo(SectionBuilder &builder) {
 				ctx.container,
 				tr::ayu_SettingsDescription(),
 				st::centeredBoxLabel),
-			.align = style::al_top,
+			.margin = st::boxRowPadding,
 		};
 	});
 }
