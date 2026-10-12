@@ -622,7 +622,8 @@ void PaintRow(
 				+ st::dialogsChatTypeSkip);
 		}
 	}
-	if (from && AyuKept::showsDeleted(from)) {
+	if ((from && AyuKept::showsDeleted(from))
+		|| (fakeRow && item && item->isDeleted())) {
 		const auto &trash = ThreeStateIcon(
 			st::ayuDeletedChatIcon,
 			context.active,
