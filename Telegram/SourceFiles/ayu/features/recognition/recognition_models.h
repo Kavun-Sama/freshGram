@@ -6,6 +6,10 @@
 
 #include "storage/storage_cloud_blob.h"
 
+#include <QtCore/QHash>
+
+#include <optional>
+
 namespace Main {
 class Session;
 } // namespace Main
@@ -39,8 +43,14 @@ void RefreshManifest(not_null<Main::Session*> session);
 [[nodiscard]] MTP::DedicatedLoader::Location ModelLocation(
 	const Model &model);
 
-// The path of the selected Whisper model if it is downloaded.
-[[nodiscard]] QString SelectedWhisperModelPath();
+[[nodiscard]] std::optional<Model> SelectedWhisperModel();
+
+// Checks the SHA-256 of a file, remembered until it changes; thread-safe.
+[[nodiscard]] bool ModelFileIntact(
+	const QString &path,
+	const QString &sha256);
+
+[[nodiscard]] QHash<QString, QString> TesseractHashes();
 
 // The value of the setting meaning "choose the languages automatically".
 inline constexpr auto kAutoOcrLanguages = "auto"_cs;

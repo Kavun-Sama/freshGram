@@ -2,6 +2,7 @@
 #include "ayu/features/recognition/speech_recognition.h"
 
 #include "ayu/features/recognition/recognition_audio.h"
+#include "ayu/features/recognition/recognition_models.h"
 
 #ifdef FRESHGRAM_LOCAL_RECOGNITION
 #include <whisper.h>
@@ -77,6 +78,10 @@ bool AbortCallback(void *userData) {
 	auto result = SpeechResult();
 	if (!ProcessorIsSupported()) {
 		result.error = u"This processor is not supported."_q;
+		return result;
+	}
+	if (!ModelFileIntact(request.modelPath, request.modelSha256)) {
+		result.error = u"The model failed the integrity check."_q;
 		return result;
 	}
 	const auto audio = DecodeAudioFile(request.audioPath, cancelled);

@@ -3,6 +3,7 @@
 // Local text recognition on photos with Tesseract.
 #pragma once
 
+#include <QtCore/QHash>
 #include <QtGui/QImage>
 
 #include <atomic>
@@ -15,6 +16,7 @@ struct TextRequest {
 	// "auto" or the languages joined with '+', for example "rus+eng".
 	QString languages;
 	QStringList installed;
+	QHash<QString, QString> hashes;
 };
 
 struct TextResult {

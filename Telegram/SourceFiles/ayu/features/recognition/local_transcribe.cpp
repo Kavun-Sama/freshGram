@@ -27,6 +27,7 @@ struct Job {
 	FullMsgId id;
 	DocumentId documentId = 0;
 	QString model;
+	QString modelSha256;
 	QString temporary;
 	std::shared_ptr<Data::DocumentMedia> media;
 	std::shared_ptr<std::atomic<bool>> cancel;
@@ -63,6 +64,7 @@ void Recognize(const std::shared_ptr<Job> &job, const QString &path) {
 	job->cancel = TranscribeAsync({
 		.audioPath = path,
 		.modelPath = job->model,
+		.modelSha256 = job->modelSha256,
 	}, nullptr, [=](SpeechResult result) {
 		auto transcript = LocalTranscript();
 		if (result.cancelled) {
@@ -131,8 +133,8 @@ void TranscribeLocally(
 		done(std::move(result));
 		return;
 	}
-	const auto model = SelectedWhisperModelPath();
-	if (model.isEmpty()) {
+	const auto model = SelectedWhisperModel();
+	if (!model) {
 		auto result = LocalTranscript();
 		result.status = LocalTranscribeStatus::NoModel;
 		done(std::move(result));
@@ -151,7 +153,8 @@ void TranscribeLocally(
 	job->session = base::make_weak(session);
 	job->id = id;
 	job->documentId = document->id;
-	job->model = model;
+	job->model = ModelPath(*model);
+	job->modelSha256 = model->sha256;
 	job->done = std::move(done);
 	job->media = document->createMediaView();
 	Jobs.emplace(id, job);

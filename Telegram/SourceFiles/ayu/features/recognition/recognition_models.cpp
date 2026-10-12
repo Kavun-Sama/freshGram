@@ -2,6 +2,7 @@
 #include "ayu/features/recognition/recognition_models.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/data/ayu_vault.h"
 #include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
 #include "settings.h"
@@ -11,6 +12,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
@@ -19,6 +21,7 @@
 #include <QtCore/QJsonObject>
 
 #include <map>
+#include <mutex>
 
 namespace AyuRecognition {
 namespace {
@@ -33,6 +36,17 @@ std::vector<Model> ModelsList;
 bool ModelsLoadedFromCache = false;
 rpl::event_stream<> ModelsListChanged;
 rpl::event_stream<bool> ManifestFinishedStream;
+
+struct Stamp {
+	int64 size = 0;
+	int64 modified = 0;
+	QString sha256;
+
+	friend inline bool operator==(const Stamp&, const Stamp&) = default;
+};
+
+std::mutex IntactMutex;
+std::map<QString, Stamp> IntactFiles;
 
 struct Download {
 	base::unique_qptr<ModelLoader> loader;
@@ -152,10 +166,13 @@ void LoadCachedManifest() {
 	if (ModelsLoadedFromCache) {
 		return;
 	}
+	if (!AyuVault::HasKey()) {
+		return;
+	}
 	ModelsLoadedFromCache = true;
-	auto file = QFile(ManifestCachePath());
-	if (file.open(QIODevice::ReadOnly)) {
-		auto parsed = ParseManifest(file.readAll());
+	// A manifest that is not sealed with the local key could be replaced.
+	if (const auto bytes = AyuVault::ReadFile(ManifestCachePath(), true)) {
+		auto parsed = ParseManifest(*bytes);
 		if (!parsed.empty()) {
 			ModelsList = std::move(parsed);
 		}
@@ -317,10 +334,7 @@ void ManifestLoader::download(int postId) {
 					file.close();
 					auto parsed = ParseManifest(bytes);
 					if (!parsed.empty()) {
-						auto cache = QFile(ManifestCachePath());
-						if (cache.open(QIODevice::WriteOnly)) {
-							cache.write(bytes);
-						}
+						AyuVault::WriteSealedFile(ManifestCachePath(), bytes);
 						ApplyManifest(std::move(parsed));
 					}
 				}
@@ -403,17 +417,60 @@ MTP::DedicatedLoader::Location ModelLocation(const Model &model) {
 	};
 }
 
-QString SelectedWhisperModelPath() {
+std::optional<Model> SelectedWhisperModel() {
 	const auto &file = AyuSettings::getInstance().whisperModel();
 	if (file.isEmpty()) {
-		return QString();
+		return std::nullopt;
 	}
 	for (const auto &model : Models(ModelKind::Whisper)) {
 		if (model.file == file) {
-			return ModelExists(model) ? ModelPath(model) : QString();
+			return ModelExists(model)
+				? std::make_optional(model)
+				: std::nullopt;
 		}
 	}
-	return QString();
+	return std::nullopt;
+}
+
+bool ModelFileIntact(const QString &path, const QString &sha256) {
+	const auto info = QFileInfo(path);
+	if (!info.exists() || !IsSha256(sha256)) {
+		return false;
+	}
+	const auto stamp = Stamp{
+		.size = info.size(),
+		.modified = info.lastModified().toMSecsSinceEpoch(),
+		.sha256 = sha256,
+	};
+	{
+		const auto lock = std::lock_guard(IntactMutex);
+		const auto i = IntactFiles.find(path);
+		if (i != end(IntactFiles) && i->second == stamp) {
+			return true;
+		}
+	}
+	if (ShaOfFile(path) != sha256) {
+		LOG(("Recognition Error: '%1' failed the integrity check."
+			).arg(info.fileName()));
+		return false;
+	}
+	const auto lock = std::lock_guard(IntactMutex);
+	IntactFiles[path] = stamp;
+	return true;
+}
+
+QHash<QString, QString> TesseractHashes() {
+	auto result = QHash<QString, QString>();
+	for (const auto kind : { ModelKind::Tesseract, ModelKind::TesseractAux }) {
+		for (const auto &model : Models(kind)) {
+			if (ModelExists(model)) {
+				result.insert(
+					QFileInfo(ModelPath(model)).fileName(),
+					model.sha256);
+			}
+		}
+	}
+	return result;
 }
 
 QStringList InstalledOcrLanguages() {

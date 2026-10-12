@@ -14,6 +14,7 @@ namespace AyuRecognition {
 struct SpeechRequest {
 	QString audioPath;
 	QString modelPath;
+	QString modelSha256;
 	QString language; // Empty for the automatic detection.
 };
 

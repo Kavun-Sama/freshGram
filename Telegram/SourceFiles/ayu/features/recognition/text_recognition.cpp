@@ -2,13 +2,16 @@
 #include "ayu/features/recognition/text_recognition.h"
 
 #include "ayu/features/recognition/recognition_models.h"
+#include "logs.h"
 
 #ifdef FRESHGRAM_LOCAL_OCR
 #include <tesseract/baseapi.h>
 #include <tesseract/ocrclass.h>
 #endif // FRESHGRAM_LOCAL_OCR
 
+#include <QtCore/QCryptographicHash>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QStringList>
 #include <QtGui/QPainter>
 
@@ -31,6 +34,9 @@ constexpr auto kNullDevice = "NUL";
 constexpr auto kNullDevice = "/dev/null";
 #endif // !Q_OS_WIN
 
+thread_local const QHash<QString, QString> *ExpectedHashes = nullptr;
+thread_local bool IntegrityFailed = false;
+
 // Opens the files through Qt, so non-ASCII paths work on Windows.
 bool ReadFile(const char *filename, std::vector<char> *data) {
 	auto file = QFile(QString::fromUtf8(filename));
@@ -38,6 +44,19 @@ bool ReadFile(const char *filename, std::vector<char> *data) {
 		return false;
 	}
 	const auto bytes = file.readAll();
+	const auto name = QFileInfo(file).fileName();
+	const auto expected = ExpectedHashes
+		? ExpectedHashes->value(name)
+		: QString();
+	if (expected.isEmpty()
+		|| QCryptographicHash::hash(
+			bytes,
+			QCryptographicHash::Sha256).toHex() != expected.toLatin1()) {
+		LOG(("Recognition Error: '%1' failed the integrity check."
+			).arg(name));
+		IntegrityFailed = true;
+		return false;
+	}
 	data->assign(bytes.constData(), bytes.constData() + bytes.size());
 	return true;
 }
@@ -160,6 +179,8 @@ bool Cancelled(void *flag, int) {
 		const TextRequest &request,
 		const std::atomic<bool> &cancelled) {
 	auto result = TextResult();
+	ExpectedHashes = &request.hashes;
+	IntegrityFailed = false;
 	const auto &installed = request.installed;
 	if (installed.isEmpty()) {
 		result.error = u"No languages are downloaded."_q;
@@ -237,7 +258,9 @@ bool Cancelled(void *flag, int) {
 			&values,
 			false,
 			&ReadFile) != 0) {
-		result.error = u"Could not load the language data."_q;
+		result.error = IntegrityFailed
+			? u"A language file failed the integrity check."_q
+			: u"Could not load the language data."_q;
 		return result;
 	}
 	auto text = QString();
@@ -299,6 +322,7 @@ std::shared_ptr<std::atomic<bool>> RecognizeTextAsync(
 	auto cancelled = std::make_shared<std::atomic<bool>>(false);
 #ifdef FRESHGRAM_LOCAL_OCR
 	request.installed = InstalledOcrLanguages();
+	request.hashes = TesseractHashes();
 	crl::async([=] {
 		const auto result = Recognize(request, *cancelled);
 		crl::on_main([=] {
