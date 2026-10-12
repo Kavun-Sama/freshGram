@@ -350,17 +350,17 @@ void Sticker::paintAnimationFrame(
 		: _lastFrameCached;
 
 	const auto rounding = Ui::BubbleRounding{
-		.topLeft = Ui::BubbleCornerRounding::Small,
-		.topRight = Ui::BubbleCornerRounding::Small,
-		.bottomLeft = Ui::BubbleCornerRounding::Small,
-		.bottomRight = Ui::BubbleCornerRounding::Small,
+		.topLeft = Ui::BubbleCornerRounding::Large,
+		.topRight = Ui::BubbleCornerRounding::Large,
+		.bottomLeft = Ui::BubbleCornerRounding::Large,
+		.bottomRight = Ui::BubbleCornerRounding::Large,
 	};
 	auto prepared = (!_lastFrameCached.isNull() && context.selected())
 		? Images::Colored(
 			base::duplicate(image),
 			context.st->msgStickerOverlay()->c)
 		: image;
-	if (Ui::MaterialBubbles()) {
+	if (Ui::MaterialBubbles() && !customEmojiPart()) {
 		prepared = Images::Round(
 			std::move(prepared),
 			MediaRoundingMask(rounding));
@@ -464,7 +464,7 @@ void Sticker::paintPath(
 }
 
 QPixmap Sticker::paintedPixmap(const PaintContext &context) const {
-	const auto roundOptions = Ui::MaterialBubbles()
+	const auto roundOptions = (Ui::MaterialBubbles() && !customEmojiPart())
 		? Images::RoundOptions(ImageRoundRadius::Large)
 		: Images::Options();
 	auto helper = std::optional<style::owned_color>();
