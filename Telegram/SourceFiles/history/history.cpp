@@ -32,6 +32,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/stickers/data_stickers.h"
 #include "data/data_cloud_themes.h"
 #include "data/data_drafts.h"
+#include "ayu/features/compose_stash/compose_stash.h"
+#include "ayu/features/compose_stash/compose_stash_storage.h"
 #include "data/data_saved_messages.h"
 #include "data/data_saved_sublist.h"
 #include "data/data_session.h"
@@ -577,6 +579,53 @@ void History::setForwardDraft(
 				thread,
 				Data::EntryUpdate::Flag::ForwardDraft);
 		}
+	}
+}
+
+Data::ComposeStash *History::composeStash(Data::DraftKey key) const {
+	const auto i = _composeStashes.find(key);
+	return (i != end(_composeStashes)) ? i->second.get() : nullptr;
+}
+
+void History::setComposeStash(
+		Data::DraftKey key,
+		std::unique_ptr<Data::ComposeStash> stash) {
+	if (!key) {
+		return;
+	}
+	_composeStashesChecked.emplace(key);
+	AyuComposeStash::Persist(this, key, stash.get());
+	if (stash) {
+		_composeStashes[key] = std::move(stash);
+	} else if (!_composeStashes.remove(key)) {
+		return;
+	}
+	session().changes().historyUpdated(
+		this,
+		Data::HistoryUpdate::Flag::ComposeStash);
+}
+
+std::unique_ptr<Data::ComposeStash> History::takeComposeStash(
+		Data::DraftKey key) {
+	_composeStashesChecked.emplace(key);
+	const auto i = _composeStashes.find(key);
+	if (i == end(_composeStashes)) {
+		return nullptr;
+	}
+	auto result = std::move(i->second);
+	_composeStashes.erase(i);
+	AyuComposeStash::Persist(this, key, nullptr);
+	session().changes().historyUpdated(
+		this,
+		Data::HistoryUpdate::Flag::ComposeStash);
+	return result;
+}
+
+void History::restoreComposeStash(Data::DraftKey key) {
+	if (!key || !_composeStashesChecked.emplace(key).second) {
+		return;
+	} else if (auto restored = AyuComposeStash::Restore(this, key)) {
+		_composeStashes[key] = std::move(restored);
 	}
 }
 

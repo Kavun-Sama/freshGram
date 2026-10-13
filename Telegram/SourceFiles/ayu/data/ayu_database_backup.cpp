@@ -304,6 +304,7 @@ void purgeUser(long long userId) {
 		"DeletedDialog", "KeptTopic", "KeptDialog", "KnownUser", "LocalPin",
 		"SecretChat", "SecretMessage", "SecretState", "PeekedStatus",
 		"PeekRestore", "SpyMessageRead", "SpyMessageContentsRead",
+		"ComposeStash",
 	};
 	const auto lock = std::lock_guard(BackupMutex);
 	for (const auto &entry : List()) {

@@ -101,6 +101,18 @@ public:
 	int entityCreateDate;
 };
 
+class ComposeStashRow
+{
+public:
+	ID fakeId;
+	ID userId;
+	ID dialogId;
+	ID topicRootId;
+	ID monoforumPeerId;
+	std::vector<char> payload;
+	int entityCreateDate;
+};
+
 class DeletedDialog
 {
 public:

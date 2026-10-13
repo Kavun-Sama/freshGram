@@ -253,6 +253,9 @@ void Forum::applyTopicDeleted(MsgId rootId) {
 			PeerId()));
 	}
 	_history->setForwardDraft(rootId, PeerId(), {});
+	_history->setComposeStash(
+		Data::DraftKey::Local(rootId, PeerId()),
+		nullptr);
 }
 
 void Forum::reorderLastTopics() {

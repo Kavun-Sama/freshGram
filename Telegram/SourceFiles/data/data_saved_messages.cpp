@@ -534,6 +534,9 @@ void SavedMessages::applySublistDeleted(not_null<PeerData*> sublistPeer) {
 		MsgId(),
 		sublistPeer->id));
 	history->setForwardDraft(MsgId(), sublistPeer->id, {});
+	history->setComposeStash(
+		Data::DraftKey::Local(MsgId(), sublistPeer->id),
+		nullptr);
 }
 
 void SavedMessages::reorderLastSublists() {

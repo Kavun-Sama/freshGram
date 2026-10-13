@@ -183,6 +183,16 @@ auto storage = make_storage(
 		make_column("rank", &DeletedRank::rank),
 		make_column("entityCreateDate", &DeletedRank::entityCreateDate)
 	),
+	make_table<ComposeStashRow>(
+		"ComposeStash",
+		make_column("fakeId", &ComposeStashRow::fakeId, primary_key().autoincrement()),
+		make_column("userId", &ComposeStashRow::userId),
+		make_column("dialogId", &ComposeStashRow::dialogId),
+		make_column("topicRootId", &ComposeStashRow::topicRootId),
+		make_column("monoforumPeerId", &ComposeStashRow::monoforumPeerId),
+		make_column("payload", &ComposeStashRow::payload),
+		make_column("entityCreateDate", &ComposeStashRow::entityCreateDate)
+	),
 	make_table<DeletedExtra>(
 		"DeletedExtra",
 		make_column("fakeId", &DeletedExtra::fakeId, primary_key().autoincrement()),
@@ -1129,6 +1139,7 @@ void forEachUserTable(Callback &&callback) {
 	callback(std::type_identity<KeptDialog>());
 	callback(std::type_identity<KnownUser>());
 	callback(std::type_identity<LocalPin>());
+	callback(std::type_identity<ComposeStashRow>());
 	callback(std::type_identity<SecretMessageRow>());
 	callback(std::type_identity<SecretChatRow>());
 	callback(std::type_identity<SecretStateRow>());
@@ -1350,6 +1361,59 @@ void saveLocalPins(ID userId, const std::vector<ID> &peers) {
 				storage.insert(LocalPin{ 0, userId, peerId, position++ });
 			}
 		});
+	});
+}
+
+void saveComposeStash(const ComposeStashRow &row) {
+	runVoid("save compose stash", [&] {
+		inTransaction([&] {
+			storage.remove_all<ComposeStashRow>(
+				where(
+					column<ComposeStashRow>(&ComposeStashRow::userId) == row.userId and
+					column<ComposeStashRow>(&ComposeStashRow::dialogId) == row.dialogId and
+					column<ComposeStashRow>(&ComposeStashRow::topicRootId) == row.topicRootId and
+					column<ComposeStashRow>(&ComposeStashRow::monoforumPeerId) == row.monoforumPeerId
+				)
+			);
+			storage.insert(row);
+		});
+	});
+}
+
+std::optional<ComposeStashRow> getComposeStash(
+		ID userId,
+		ID dialogId,
+		ID topicRootId,
+		ID monoforumPeerId) {
+	return run<std::optional<ComposeStashRow>>("load compose stash", std::nullopt, [&] {
+		const auto rows = storage.get_all<ComposeStashRow>(
+			where(
+				column<ComposeStashRow>(&ComposeStashRow::userId) == userId and
+				column<ComposeStashRow>(&ComposeStashRow::dialogId) == dialogId and
+				column<ComposeStashRow>(&ComposeStashRow::topicRootId) == topicRootId and
+				column<ComposeStashRow>(&ComposeStashRow::monoforumPeerId) == monoforumPeerId
+			),
+			limit(1));
+		return rows.empty()
+			? std::optional<ComposeStashRow>()
+			: std::optional<ComposeStashRow>(rows.front());
+	});
+}
+
+void removeComposeStash(
+		ID userId,
+		ID dialogId,
+		ID topicRootId,
+		ID monoforumPeerId) {
+	runVoid("remove compose stash", [&] {
+		storage.remove_all<ComposeStashRow>(
+			where(
+				column<ComposeStashRow>(&ComposeStashRow::userId) == userId and
+				column<ComposeStashRow>(&ComposeStashRow::dialogId) == dialogId and
+				column<ComposeStashRow>(&ComposeStashRow::topicRootId) == topicRootId and
+				column<ComposeStashRow>(&ComposeStashRow::monoforumPeerId) == monoforumPeerId
+			)
+		);
 	});
 }
 
