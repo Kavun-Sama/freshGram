@@ -149,6 +149,8 @@ set(ayugram_files
         ayu/ui/boxes/recognition_models_box.cpp
         ayu/ui/components/recognition_picker.cpp
         ayu/ui/components/recognition_picker.h
+        ayu/ui/components/stash_button.cpp
+        ayu/ui/components/stash_button.h
         ayu/ui/boxes/recognition_models_box.h
         ayu/ui/fagram/fagram_nav_drawer.cpp
         ayu/ui/fagram/fagram_nav_drawer.h
