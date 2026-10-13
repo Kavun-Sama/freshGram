@@ -150,6 +150,8 @@ set(ayugram_files
         ayu/features/recognition/speech_recognition.h
         ayu/ui/boxes/delete_own_messages_box.cpp
         ayu/ui/boxes/delete_own_messages_box.h
+        ayu/ui/boxes/delete_own_topics_box.cpp
+        ayu/ui/boxes/delete_own_topics_box.h
         ayu/ui/boxes/fake_passcode_box.cpp
         ayu/ui/boxes/fake_passcode_box.h
         ayu/ui/boxes/recognition_models_box.cpp

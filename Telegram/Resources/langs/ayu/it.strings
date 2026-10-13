@@ -361,6 +361,10 @@
 "ayu_DeleteOwnMessagesNumber" = "Numero";
 "ayu_DeleteOwnMessagesInvalid" = "Controlla i valori inseriti.";
 "ayu_DeleteOwnMessagesConfirmationFiltered" = "Vuoi davvero eliminare i messaggi selezionati che hai inviato in questo gruppo?";
+"ayu_DeleteOwnMessagesScopeAll" = "Tutto il gruppo";
+"ayu_DeleteOwnMessagesScopeTopics" = "Argomenti selezionati";
+"ayu_DeleteOwnMessagesPickTopics" = "Scegli gli argomenti";
+"ayu_DeleteOwnMessagesTopicsCount" = "Argomenti selezionati: {count}";
 "ayu_SuggestGhostModeTitle" = "Modalità fantasma";
 "ayu_SuggestGhostModeStoryText" = "Vuoi attivare la **modalità fantasma** prima di guardare la storia?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Sì";

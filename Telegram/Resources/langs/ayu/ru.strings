@@ -369,6 +369,10 @@
 "ayu_DeleteOwnMessagesNumber" = "Число";
 "ayu_DeleteOwnMessagesInvalid" = "Проверьте введённые значения.";
 "ayu_DeleteOwnMessagesConfirmationFiltered" = "Вы уверены, что хотите удалить выбранные свои сообщения из этой группы?";
+"ayu_DeleteOwnMessagesScopeAll" = "Вся группа";
+"ayu_DeleteOwnMessagesScopeTopics" = "Выбранные темы";
+"ayu_DeleteOwnMessagesPickTopics" = "Выбрать темы";
+"ayu_DeleteOwnMessagesTopicsCount" = "Выбрано тем: {count}";
 "ayu_SuggestGhostModeTitle" = "Режим призрака";
 "ayu_SuggestGhostModeStoryText" = "Хотите включить **режим призрака** перед просмотром истории?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Да";

@@ -1,10 +1,12 @@
 // This is the source code of freshGram.
 #include "ayu/ui/boxes/delete_own_messages_box.h"
 
+#include "ayu/ui/boxes/delete_own_topics_box.h"
 #include "base/unixtime.h"
 #include "base/weak_ptr.h"
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
+#include "data/data_forum.h"
 #include "ui/boxes/choose_date_time.h"
 #include "ui/layers/generic_box.h"
 #include "ui/widgets/buttons.h"
@@ -48,8 +50,59 @@ constexpr auto kCountLimit = 9999;
 
 void FillDeleteOwnMessagesBox(
 		not_null<Ui::GenericBox*> box,
+		Data::Forum *forum,
 		Fn<void(DeleteOwnRange, Fn<void()>)> chosen) {
 	box->setTitle(tr::ayu_DeleteOwnMessages());
+
+	const auto scope = std::make_shared<Ui::RadiobuttonGroup>(0);
+	const auto topics = box->lifetime().make_state<std::vector<MsgId>>();
+	if (forum) {
+		box->addRow(
+			object_ptr<Ui::Radiobutton>(
+				box,
+				scope,
+				0,
+				tr::ayu_DeleteOwnMessagesScopeAll(tr::now),
+				st::defaultCheckbox),
+			st::deleteOwnRowPadding);
+		box->addRow(
+			object_ptr<Ui::Radiobutton>(
+				box,
+				scope,
+				1,
+				tr::ayu_DeleteOwnMessagesScopeTopics(tr::now),
+				st::defaultCheckbox),
+			st::deleteOwnRowPadding);
+		const auto topicsWrap = box->addRow(
+			object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+				box,
+				object_ptr<Ui::VerticalLayout>(box)),
+			style::margins(st::deleteOwnNestedSkip, 0, 0, 0));
+		const auto pickButton = topicsWrap->entity()->add(
+			object_ptr<Ui::LinkButton>(
+				topicsWrap,
+				tr::ayu_DeleteOwnMessagesPickTopics(tr::now)),
+			st::deleteOwnRowPadding);
+		pickButton->setClickedCallback([=] {
+			ShowDeleteOwnTopicsBox(
+				forum,
+				box->uiShow(),
+				*topics,
+				[=](std::vector<MsgId> result) {
+					*topics = std::move(result);
+					pickButton->setText(topics->empty()
+						? tr::ayu_DeleteOwnMessagesPickTopics(tr::now)
+						: tr::ayu_DeleteOwnMessagesTopicsCount(
+							tr::now,
+							lt_count,
+							QString::number(topics->size())));
+				});
+		});
+		topicsWrap->toggle(false, anim::type::instant);
+		scope->setChangedCallback([=](int value) {
+			topicsWrap->toggle(value == 1, anim::type::normal);
+		});
+	}
 
 	const auto now = base::unixtime::now();
 	const auto group = std::make_shared<Ui::RadiobuttonGroup>(
@@ -177,6 +230,13 @@ void FillDeleteOwnMessagesBox(
 
 	box->addButton(tr::lng_box_delete(), [=] {
 		auto range = DeleteOwnRange();
+		if (forum && scope->current() == 1) {
+			if (topics->empty()) {
+				box->showToast(tr::ayu_DeleteOwnMessagesInvalid(tr::now));
+				return;
+			}
+			range.topics = *topics;
+		}
 		switch (Mode(group->current())) {
 		case Mode::All:
 			break;

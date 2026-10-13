@@ -345,6 +345,10 @@
 "ayu_DeleteOwnMessagesNumber" = "数量";
 "ayu_DeleteOwnMessagesInvalid" = "请检查输入的值。";
 "ayu_DeleteOwnMessagesConfirmationFiltered" = "确定要删除你在此群组中选定的消息吗？";
+"ayu_DeleteOwnMessagesScopeAll" = "整个群组";
+"ayu_DeleteOwnMessagesScopeTopics" = "选定的话题";
+"ayu_DeleteOwnMessagesPickTopics" = "选择话题";
+"ayu_DeleteOwnMessagesTopicsCount" = "已选话题：{count}";
 "ayu_SuggestGhostModeTitle" = "幽灵模式";
 "ayu_SuggestGhostModeStoryText" = "要在查看故事前启用**幽灵模式**吗？";
 "ayu_SuggestGhostModeStoryActionTextYes" = "是";

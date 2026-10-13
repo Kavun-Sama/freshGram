@@ -9147,6 +9147,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DeleteOwnMessagesNumber" = "Number";
 "ayu_DeleteOwnMessagesInvalid" = "Check the entered values.";
 "ayu_DeleteOwnMessagesConfirmationFiltered" = "Are you sure you want to delete the selected messages of yours from this group?";
+"ayu_DeleteOwnMessagesScopeAll" = "Entire group";
+"ayu_DeleteOwnMessagesScopeTopics" = "Selected topics";
+"ayu_DeleteOwnMessagesPickTopics" = "Choose topics";
+"ayu_DeleteOwnMessagesTopicsCount" = "Topics selected: {count}";
 "ayu_SuggestGhostModeTitle" = "Ghost Mode";
 "ayu_SuggestGhostModeStoryText" = "Do you want to enable **Ghost Mode** before viewing the story?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Yes";
