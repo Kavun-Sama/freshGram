@@ -156,3 +156,7 @@ historyStashArrowClipPosition: point(18px, 28px);
 historyStashArrowClipSize: size(16px, 12px);
 historyStashArrowTravel: 12px;
 historyStashBubbleTravel: 4px;
+
+deleteOwnRowPadding: margins(22px, 4px, 22px, 4px);
+deleteOwnNestedSkip: 36px;
+deleteOwnFieldWidth: 120px;

@@ -16,6 +16,7 @@
 #include "ayu/features/filters/filters_controller.h"
 #include "ayu/features/forward/ayu_forward.h"
 #include "ayu/features/forward/ayu_forward_rich.h"
+#include "ayu/ui/boxes/delete_own_messages_box.h"
 #include "ayu/ui/context_menu/menu_item_subtext.h"
 #include "ayu/ui/message_history/history_section.h"
 #include "ayu/ui/settings/filters/edit_filter.h"
@@ -80,11 +81,13 @@ Fn<void()> ClearDeletedMessagesHandler(not_null<Window::SessionController*> cont
 
 void DeleteMyMessagesAfterConfirm(
 		not_null<PeerData*> peer,
-		MsgId topicRootId) {
+		MsgId topicRootId,
+		DeleteOwnRange range) {
 	const auto session = &peer->session();
 
 	if (const auto channel = peer->asChannel()) {
 		if (!topicRootId
+			&& range.empty()
 			&& channel->isMegagroup()
 			&& channel->canDeleteMessages()) {
 			session->api().deleteAllFromParticipant(channel, session->user());
@@ -184,9 +187,9 @@ void DeleteMyMessagesAfterConfirm(
 			MTP_int(int32(topicRootId.bare)),
 			// top_msg_id
 			MTP_inputMessagesFilterEmpty(),
-			MTP_int(0),
+			MTP_int(range.minDate),
 			// min_date
-			MTP_int(0),
+			MTP_int(range.maxDate),
 			// max_date
 			MTP_int(from.bare),
 			MTP_int(0),
@@ -211,7 +214,10 @@ void DeleteMyMessagesAfterConfirm(
 					++batchCount;
 				}
 				DEBUG_LOG(("Batch found %1 my messages, total %2").arg(batchCount).arg(collected->size()));
-				if (parsed.messageIds.size() == 100 && minId) {
+				if (range.limit && int(collected->size()) >= range.limit) {
+					collected->resize(range.limit);
+					(*removeNext)(0);
+				} else if (parsed.messageIds.size() == 100 && minId) {
 					(*requestNext)(minId - MsgId(1));
 				} else {
 					DEBUG_LOG(("Found %1 my messages in this chat (SEARCH)").arg(collected->size()));
@@ -231,20 +237,28 @@ Fn<void()> DeleteMyMessagesHandler(
 		MsgId topicRootId) {
 	return [=]
 	{
-		if (!controller->showFrozenError()) {
+		if (controller->showFrozenError()) {
+			return;
+		}
+		controller->show(Box(FillDeleteOwnMessagesBox, [=](
+				DeleteOwnRange range,
+				Fn<void()> closeBox) {
 			controller->show(Ui::MakeConfirmBox({
-				.text = tr::ayu_DeleteOwnMessagesConfirmation(tr::now),
+				.text = range.empty()
+					? tr::ayu_DeleteOwnMessagesConfirmation(tr::now)
+					: tr::ayu_DeleteOwnMessagesConfirmationFiltered(tr::now),
 				.confirmed =
 				[=](Fn<void()> &&close)
 				{
-					DeleteMyMessagesAfterConfirm(peer, topicRootId);
+					DeleteMyMessagesAfterConfirm(peer, topicRootId, range);
 					close();
+					closeBox();
 				},
 				.confirmText = tr::lng_box_delete(),
 				.cancelText = tr::lng_cancel(),
 				.confirmStyle = &st::attentionBoxButton,
 			}));
-		}
+		}));
 	};
 }
 

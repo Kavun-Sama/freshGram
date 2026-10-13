@@ -1,0 +1,214 @@
+// This is the source code of freshGram.
+#include "ayu/ui/boxes/delete_own_messages_box.h"
+
+#include "base/unixtime.h"
+#include "base/weak_ptr.h"
+#include "lang/lang_keys.h"
+#include "lang_auto.h"
+#include "ui/boxes/choose_date_time.h"
+#include "ui/layers/generic_box.h"
+#include "ui/widgets/buttons.h"
+#include "ui/widgets/checkbox.h"
+#include "ui/widgets/fields/number_input.h"
+#include "ui/wrap/slide_wrap.h"
+#include "ui/wrap/vertical_layout.h"
+#include "styles/style_ayu_styles.h"
+#include "styles/style_boxes.h"
+#include "styles/style_layers.h"
+#include "styles/style_widgets.h"
+
+namespace AyuUi {
+namespace {
+
+enum class Mode {
+	All,
+	Period,
+	Range,
+	Count,
+};
+
+constexpr auto kHour = TimeId(3600);
+constexpr auto kPeriodLimit = 999;
+constexpr auto kCountLimit = 9999;
+
+[[nodiscard]] TimeId UnitSeconds(int unit) {
+	switch (unit) {
+	case 0: return kHour;
+	case 1: return 24 * kHour;
+	case 2: return 7 * 24 * kHour;
+	}
+	return 30 * 24 * kHour;
+}
+
+[[nodiscard]] QString DateText(TimeId value) {
+	return langDateTime(base::unixtime::parse(value));
+}
+
+} // namespace
+
+void FillDeleteOwnMessagesBox(
+		not_null<Ui::GenericBox*> box,
+		Fn<void(DeleteOwnRange, Fn<void()>)> chosen) {
+	box->setTitle(tr::ayu_DeleteOwnMessages());
+
+	const auto now = base::unixtime::now();
+	const auto group = std::make_shared<Ui::RadiobuttonGroup>(
+		int(Mode::All));
+	const auto from = box->lifetime().make_state<TimeId>(now - 24 * kHour);
+	const auto till = box->lifetime().make_state<TimeId>(now);
+	const auto unit = std::make_shared<Ui::RadiobuttonGroup>(1);
+
+	const auto addMode = [&](Mode mode, const QString &text) {
+		box->addRow(
+			object_ptr<Ui::Radiobutton>(
+				box,
+				group,
+				int(mode),
+				text,
+				st::defaultCheckbox),
+			st::deleteOwnRowPadding);
+	};
+
+	addMode(Mode::All, tr::ayu_DeleteOwnMessagesAll(tr::now));
+
+	addMode(Mode::Period, tr::ayu_DeleteOwnMessagesPeriod(tr::now));
+	const auto periodWrap = box->addRow(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			box,
+			object_ptr<Ui::VerticalLayout>(box)),
+		style::margins(st::deleteOwnNestedSkip, 0, 0, 0));
+	const auto periodInput = periodWrap->entity()->add(
+		object_ptr<Ui::NumberInput>(
+			periodWrap,
+			st::defaultInputField,
+			tr::ayu_DeleteOwnMessagesNumber(),
+			u"24"_q,
+			kPeriodLimit),
+		style::margins(
+			st::deleteOwnRowPadding.left(),
+			0,
+			st::deleteOwnRowPadding.right(),
+			0));
+	periodInput->setMaximumWidth(st::deleteOwnFieldWidth);
+	const auto units = std::array{
+		tr::ayu_DeleteOwnMessagesHours(tr::now),
+		tr::ayu_DeleteOwnMessagesDays(tr::now),
+		tr::ayu_DeleteOwnMessagesWeeks(tr::now),
+		tr::ayu_DeleteOwnMessagesMonths(tr::now),
+	};
+	auto index = 0;
+	for (const auto &text : units) {
+		periodWrap->entity()->add(
+			object_ptr<Ui::Radiobutton>(
+				periodWrap,
+				unit,
+				index++,
+				text,
+				st::defaultCheckbox),
+			st::deleteOwnRowPadding);
+	}
+	periodWrap->toggle(false, anim::type::instant);
+
+	addMode(Mode::Range, tr::ayu_DeleteOwnMessagesRange(tr::now));
+	const auto rangeWrap = box->addRow(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			box,
+			object_ptr<Ui::VerticalLayout>(box)),
+		style::margins(st::deleteOwnNestedSkip, 0, 0, 0));
+	const auto fromButton = rangeWrap->entity()->add(
+		object_ptr<Ui::LinkButton>(rangeWrap, DateText(*from)),
+		st::deleteOwnRowPadding);
+	const auto tillButton = rangeWrap->entity()->add(
+		object_ptr<Ui::LinkButton>(rangeWrap, DateText(*till)),
+		st::deleteOwnRowPadding);
+	const auto pick = [=](
+			rpl::producer<QString> title,
+			not_null<TimeId*> value,
+			not_null<Ui::LinkButton*> button) {
+		box->uiShow()->showBox(Box([=](not_null<Ui::GenericBox*> inner) {
+			Ui::ChooseDateTimeBox(inner, {
+				.title = title,
+				.submit = tr::lng_settings_save(),
+				.done = [=](TimeId result) {
+					*value = result;
+					button->setText(DateText(result));
+					inner->closeBox();
+				},
+				.min = [] { return TimeId(1); },
+				.time = *value,
+				.max = [] { return base::unixtime::now(); },
+			});
+		}));
+	};
+	fromButton->setClickedCallback([=] {
+		pick(tr::ayu_DeleteOwnMessagesFrom(), from, fromButton);
+	});
+	tillButton->setClickedCallback([=] {
+		pick(tr::ayu_DeleteOwnMessagesTo(), till, tillButton);
+	});
+	rangeWrap->toggle(false, anim::type::instant);
+
+	addMode(Mode::Count, tr::ayu_DeleteOwnMessagesLastCount(tr::now));
+	const auto countWrap = box->addRow(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			box,
+			object_ptr<Ui::VerticalLayout>(box)),
+		style::margins(st::deleteOwnNestedSkip, 0, 0, 0));
+	const auto countInput = countWrap->entity()->add(
+		object_ptr<Ui::NumberInput>(
+			countWrap,
+			st::defaultInputField,
+			tr::ayu_DeleteOwnMessagesNumber(),
+			u"100"_q,
+			kCountLimit),
+		style::margins(
+			st::deleteOwnRowPadding.left(),
+			0,
+			st::deleteOwnRowPadding.right(),
+			0));
+	countInput->setMaximumWidth(st::deleteOwnFieldWidth);
+	countWrap->toggle(false, anim::type::instant);
+
+	group->setChangedCallback([=](int value) {
+		periodWrap->toggle(value == int(Mode::Period), anim::type::normal);
+		rangeWrap->toggle(value == int(Mode::Range), anim::type::normal);
+		countWrap->toggle(value == int(Mode::Count), anim::type::normal);
+	});
+
+	box->addButton(tr::lng_box_delete(), [=] {
+		auto range = DeleteOwnRange();
+		switch (Mode(group->current())) {
+		case Mode::All:
+			break;
+		case Mode::Period: {
+			const auto count = periodInput->getLastText().toInt();
+			if (count < 1) {
+				box->showToast(tr::ayu_DeleteOwnMessagesInvalid(tr::now));
+				return;
+			}
+			const auto current = base::unixtime::now();
+			range.minDate = current - count * UnitSeconds(unit->current());
+			range.maxDate = current;
+		} break;
+		case Mode::Range:
+			if (*from >= *till) {
+				box->showToast(tr::ayu_DeleteOwnMessagesInvalid(tr::now));
+				return;
+			}
+			range.minDate = *from;
+			range.maxDate = *till;
+			break;
+		case Mode::Count:
+			range.limit = countInput->getLastText().toInt();
+			if (range.limit < 1) {
+				box->showToast(tr::ayu_DeleteOwnMessagesInvalid(tr::now));
+				return;
+			}
+			break;
+		}
+		chosen(range, crl::guard(box, [=] { box->closeBox(); }));
+	}, st::attentionBoxButton);
+	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+}
+
+} // namespace AyuUi
