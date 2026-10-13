@@ -9309,6 +9309,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DeletedMediaMaxSize" = "Max size of saved deleted media";
 "ayu_DeletedMediaDecrypting" = "Preparing the saved file...";
 "ayu_DeletedMediaDecryptFailed" = "Could not read the saved file.";
+"ayu_ShortcutStash" = "Stash or restore message";
+"ayu_StashRestore" = "Restore stashed message";
+"ayu_StashFilesLimit" = "Too many or too large files to stash.";
+"ayu_StashHint" = "Press {shortcut} to stash this draft.";
 "ayu_KeepDeletedDays" = "Keep deleted messages and edits for";
 "ayu_BackupKeepCount" = "Database backups to keep";
 "ayu_BackupInterval" = "Database backup every";

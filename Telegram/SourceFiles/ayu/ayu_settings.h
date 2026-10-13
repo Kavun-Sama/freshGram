@@ -395,6 +395,8 @@ public:
 	[[nodiscard]] bool showDeletedChatIcon() const { return _showDeletedChatIcon.current(); }
 	[[nodiscard]] bool localPinnedChats() const { return _localPinnedChats.current(); }
 	[[nodiscard]] bool keepDraftsLocal() const { return _keepDraftsLocal.current(); }
+	[[nodiscard]] int stashHintShown() const { return _stashHintShown.current(); }
+	[[nodiscard]] bool stashHintUsed() const { return _stashHintUsed.current(); }
 	[[nodiscard]] bool reduceNetworkTracking() const { return _reduceNetworkTracking.current(); }
 	[[nodiscard]] bool enableDebugLogging() const { return _enableDebugLogging.current(); }
 	[[nodiscard]] bool markOldMessagesDeleted() const { return _markOldMessagesDeleted.current(); }
@@ -514,6 +516,8 @@ public:
 	void setShowDeletedChatIcon(bool val);
 	void setLocalPinnedChats(bool val);
 	void setKeepDraftsLocal(bool val);
+	void setStashHintShown(int val);
+	void setStashHintUsed(bool val);
 	void setReduceNetworkTracking(bool val);
 	void setEnableDebugLogging(bool val);
 	void setMarkOldMessagesDeleted(bool val);
@@ -830,6 +834,8 @@ private:
 	rpl::variable<bool> _showDeletedChatIcon = true;
 	rpl::variable<bool> _localPinnedChats = true;
 	rpl::variable<bool> _keepDraftsLocal = false;
+	rpl::variable<int> _stashHintShown = 0;
+	rpl::variable<bool> _stashHintUsed = false;
 	rpl::variable<bool> _reduceNetworkTracking = false;
 	rpl::variable<bool> _enableDebugLogging = false;
 	rpl::variable<bool> _markOldMessagesDeleted = true;

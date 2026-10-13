@@ -1261,6 +1261,18 @@ void AyuSettings::setKeepDraftsLocal(bool val) {
 	save();
 }
 
+void AyuSettings::setStashHintShown(int val) {
+	if (_stashHintShown.current() == val) return;
+	_stashHintShown = val;
+	save();
+}
+
+void AyuSettings::setStashHintUsed(bool val) {
+	if (_stashHintUsed.current() == val) return;
+	_stashHintUsed = val;
+	save();
+}
+
 void AyuSettings::setReduceNetworkTracking(bool val) {
 	if (_reduceNetworkTracking.current() == val) return;
 	_reduceNetworkTracking = val;
@@ -1519,6 +1531,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showDeletedChatIcon", s._showDeletedChatIcon.current()},
 		{"localPinnedChats", s._localPinnedChats.current()},
 		{"keepDraftsLocal", s._keepDraftsLocal.current()},
+		{"stashHintShown", s._stashHintShown.current()},
+		{"stashHintUsed", s._stashHintUsed.current()},
 		{"reduceNetworkTracking", s._reduceNetworkTracking.current()},
 		{"enableDebugLogging", s._enableDebugLogging.current()},
 		{"markOldMessagesDeleted", s._markOldMessagesDeleted.current()},
@@ -1660,6 +1674,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showDeletedChatIcon = j.value("showDeletedChatIcon", defaults._showDeletedChatIcon.current());
 	s._localPinnedChats = j.value("localPinnedChats", defaults._localPinnedChats.current());
 	s._keepDraftsLocal = j.value("keepDraftsLocal", defaults._keepDraftsLocal.current());
+	s._stashHintShown = j.value("stashHintShown", defaults._stashHintShown.current());
+	s._stashHintUsed = j.value("stashHintUsed", defaults._stashHintUsed.current());
 	s._reduceNetworkTracking = j.value("reduceNetworkTracking", defaults._reduceNetworkTracking.current());
 	s._enableDebugLogging = j.value("enableDebugLogging", defaults._enableDebugLogging.current());
 	s._markOldMessagesDeleted = j.value("markOldMessagesDeleted", defaults._markOldMessagesDeleted.current());

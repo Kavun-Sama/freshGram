@@ -506,6 +506,10 @@
 "ayu_DeletedMediaMaxSize" = "保存的已删除媒体大小上限";
 "ayu_DeletedMediaDecrypting" = "正在准备已保存的文件...";
 "ayu_DeletedMediaDecryptFailed" = "无法读取已保存的文件。";
+"ayu_ShortcutStash" = "暂存或恢复消息";
+"ayu_StashRestore" = "恢复暂存的消息";
+"ayu_StashFilesLimit" = "文件过多或过大，无法暂存。";
+"ayu_StashHint" = "按 {shortcut} 暂存此草稿。";
 "ayu_KeepDeletedDays" = "已删除消息和编辑记录保留时长";
 "ayu_BackupKeepCount" = "保留的数据库备份数";
 "ayu_BackupInterval" = "数据库备份间隔";

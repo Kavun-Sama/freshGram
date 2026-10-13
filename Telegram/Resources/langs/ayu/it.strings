@@ -522,6 +522,10 @@
 "ayu_DeletedMediaMaxSize" = "Dimensione massima dei contenuti eliminati salvati";
 "ayu_DeletedMediaDecrypting" = "Preparazione del file salvato...";
 "ayu_DeletedMediaDecryptFailed" = "Impossibile leggere il file salvato.";
+"ayu_ShortcutStash" = "Metti da parte o ripristina il messaggio";
+"ayu_StashRestore" = "Ripristina il messaggio messo da parte";
+"ayu_StashFilesLimit" = "Troppi file o file troppo grandi da mettere da parte.";
+"ayu_StashHint" = "Premi {shortcut} per mettere da parte questa bozza.";
 "ayu_KeepDeletedDays" = "Conserva messaggi eliminati e modifiche per";
 "ayu_BackupKeepCount" = "Backup del database da conservare";
 "ayu_BackupInterval" = "Backup del database ogni";

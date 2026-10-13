@@ -530,6 +530,10 @@
 "ayu_DeletedMediaMaxSize" = "Макс. размер сохраняемых удалённых медиа";
 "ayu_DeletedMediaDecrypting" = "Подготовка сохранённого файла...";
 "ayu_DeletedMediaDecryptFailed" = "Не удалось прочитать сохранённый файл.";
+"ayu_ShortcutStash" = "Спрятать или вернуть сообщение";
+"ayu_StashRestore" = "Вернуть спрятанное сообщение";
+"ayu_StashFilesLimit" = "Слишком много или слишком большие файлы, чтобы их спрятать.";
+"ayu_StashHint" = "Нажмите {shortcut}, чтобы спрятать этот черновик.";
 "ayu_KeepDeletedDays" = "Хранить удалённые сообщения и правки";
 "ayu_BackupKeepCount" = "Резервных копий базы хранить";
 "ayu_BackupInterval" = "Резервная копия базы каждые";
