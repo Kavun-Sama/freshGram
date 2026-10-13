@@ -192,6 +192,7 @@ private:
 	void searchTopics();
 	void searchMore();
 	void searchDeleted();
+	void applyDeletedAll();
 
 	void slideFinished();
 	void searchReceived(
@@ -436,6 +437,7 @@ private:
 	ChatTypeFilter _searchQueryFilter = {};
 	SearchMediaFilter _searchQueryMedia = SearchMediaFilter::All;
 	int _deletedSearchToken = 0;
+	std::vector<not_null<HistoryItem*>> _deletedAll;
 	int _searchClientCount = 0;
 	base::flat_set<SearchMediaFilter> _typeRejectedWithAuthor;
 	int _searchClientEmptyPages = 0;

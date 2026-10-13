@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtWidgets/QApplication>
 #include <QtCore/QMimeData>
+#include <limits>
 #include <unordered_map>
 
 #include "ayu/ui/ayu_userpic.h"
@@ -5026,6 +5027,12 @@ void InnerWidget::addDeletedSearchResults(
 	_searchedCount += added;
 	clearMouseSelection(true);
 	refresh();
+}
+
+TimeId InnerWidget::oldestSearchDate() const {
+	return _searchResults.empty()
+		? std::numeric_limits<TimeId>::max()
+		: _searchResults.back()->item()->date();
 }
 
 void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {

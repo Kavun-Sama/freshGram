@@ -142,6 +142,7 @@ public:
 
 	void addDeletedSearchResults(
 		std::vector<not_null<HistoryItem*>> messages);
+	[[nodiscard]] TimeId oldestSearchDate() const;
 	void searchReceived(
 		std::vector<not_null<HistoryItem*>> result,
 		HistoryItem *inject,
