@@ -131,6 +131,10 @@ set(ayugram_files
         ayu/utils/crash_trace.cpp
         ayu/features/fake_passcode/fake_passcode.cpp
         ayu/features/compose_stash/compose_stash.h
+        ayu/features/compose_stash/compose_stash_hint.cpp
+        ayu/features/compose_stash/compose_stash_hint.h
+        ayu/features/compose_stash/compose_stash_manager.cpp
+        ayu/features/compose_stash/compose_stash_manager.h
         ayu/features/compose_stash/compose_stash_storage.cpp
         ayu/features/compose_stash/compose_stash_storage.h
         ayu/features/fake_passcode/fake_passcode.h

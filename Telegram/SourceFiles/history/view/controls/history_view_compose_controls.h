@@ -47,6 +47,7 @@ class FieldAutocomplete;
 namespace Data {
 struct MessagePosition;
 struct Draft;
+struct ComposeStash;
 class DraftKey;
 class PhotoMedia;
 class GroupCall;
@@ -112,6 +113,7 @@ class TTLButton;
 class WebpageProcessor;
 class CharactersLimitLabel;
 class ComposeAiButton;
+class StashHintManager;
 class ComposeTooltipManager;
 using AiTooltipManager = ComposeTooltipManager;
 } // namespace HistoryView::Controls
@@ -323,6 +325,13 @@ public:
 	void applyCloudDraft();
 	void applyDraft(
 		FieldHistoryAction fieldHistoryAction = FieldHistoryAction::Clear);
+
+	[[nodiscard]] Data::DraftKey composeStashKey() const;
+	[[nodiscard]] bool canUseComposeStash() const;
+	[[nodiscard]] bool hasStashableContent() const;
+	[[nodiscard]] bool canSendTexts() const;
+	[[nodiscard]] std::unique_ptr<Data::ComposeStash> takeComposeStash();
+	void applyComposeStash(Data::ComposeStash &&stash);
 
 	void saveFieldToHistoryLocalDraft(bool save = true);
 
@@ -607,6 +616,7 @@ private:
 	const std::unique_ptr<FieldHeader> _header;
 	const std::unique_ptr<Controls::VoiceRecordBar> _voiceRecordBar;
 	std::unique_ptr<Controls::AiTooltipManager> _aiTooltipManager;
+	std::unique_ptr<Controls::StashHintManager> _stashHintManager;
 	std::unique_ptr<Controls::AiTooltipManager> _sendAsFileTooltipManager;
 	std::shared_ptr<Ui::ChatStyle> _chatStyle;
 

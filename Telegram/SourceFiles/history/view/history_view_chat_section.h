@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 class History;
 class BotKeyboard;
 enum class SendMediaType;
+class SendFilesBox;
 struct SendingAlbum;
 
 namespace SendMenu {
@@ -64,6 +65,7 @@ namespace Data {
 class RepliesList;
 class ForumTopic;
 struct DrawToReplyRequest;
+struct ComposeStash;
 } // namespace Data
 
 namespace Support {
@@ -75,6 +77,7 @@ namespace HistoryView {
 
 namespace Controls {
 struct VoiceToSend;
+class StashManager;
 } // namespace Controls
 
 class Element;
@@ -353,6 +356,7 @@ private:
 
 	void setupDragArea();
 	void setupShortcuts();
+	void setupComposeStash();
 
 	void searchRequested();
 	void searchInTopic();
@@ -598,6 +602,8 @@ private:
 
 	FullMsgId _lastShownAt;
 	HistoryView::CornerButtons _cornerButtons;
+	std::unique_ptr<HistoryView::Controls::StashManager> _stash;
+	QPointer<SendFilesBox> _sendFilesBox;
 	std::unique_ptr<Support::Autocomplete> _supportAutocomplete;
 	rpl::lifetime _topicLifetime;
 	rpl::lifetime _historySponsoredPreloading;

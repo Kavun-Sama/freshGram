@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/sender.h"
 
 enum class SendMediaType;
+class SendFilesBox;
 class MessageLinksParser;
 struct InlineBotQuery;
 
@@ -34,6 +35,7 @@ class ForumTopic;
 class PhotoMedia;
 struct DrawToReplyRequest;
 struct SendError;
+struct ComposeStash;
 } // namespace Data
 
 namespace SendMenu {
@@ -133,6 +135,8 @@ class WebpageProcessor;
 class CharactersLimitLabel;
 class PhotoEditSpoilerManager;
 class ComposeAiButton;
+class StashHintManager;
+class StashManager;
 class ComposeTooltipManager;
 class RichDraftPreview;
 using AiTooltipManager = ComposeTooltipManager;
@@ -624,6 +628,11 @@ private:
 	}
 
 	void setupShortcuts();
+	void setupComposeStash();
+	[[nodiscard]] bool canUseComposeStash() const;
+	[[nodiscard]] bool hasStashableContent() const;
+	[[nodiscard]] std::unique_ptr<Data::ComposeStash> takeComposeStash();
+	void applyComposeStash(Data::ComposeStash &&stash);
 	void setupGiftToChannelButton();
 	void setupDirectMessageButton();
 
@@ -987,6 +996,9 @@ private:
 	object_ptr<InlineBots::Layout::Widget> _inlineResults = { nullptr };
 	std::unique_ptr<TabbedPanel> _tabbedPanel;
 	std::unique_ptr<Ui::DropdownMenu> _attachBotsMenu;
+	std::unique_ptr<HistoryView::Controls::StashManager> _stash;
+	std::unique_ptr<HistoryView::Controls::StashHintManager> _stashHintManager;
+	QPointer<SendFilesBox> _sendFilesBox;
 
 	DragArea::Areas _attachDragAreas;
 
