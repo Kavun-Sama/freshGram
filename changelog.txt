@@ -1,3 +1,14 @@
+7.5.1 beta (13.10.26)
+
+- Open big saved media of deleted messages on click.
+- Keep the tags of the authors of deleted messages.
+- Mark the deleted messages in the search results with the trash icon.
+- Encrypt the AyuGram accounts data and verify the recognition models on every load.
+- Round the joined corners of bubbles, media and stickers with material bubbles.
+- Fix a crash on restoring big saved media.
+- Fix the edit staying open after the message is deleted.
+- Fix the preferences header and the bold fonts.
+
 7.5.0 (12.10.26)
 
 - Add fake passcodes: each can log out accounts, clear the cache and proxies, run a command or wipe all data.
