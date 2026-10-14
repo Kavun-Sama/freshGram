@@ -304,61 +304,11 @@ jobs:
           binary=$(find out/Release -maxdepth 1 -type f -perm -u+x \( -iname 'freshgram' -o -iname 'telegram' \) | head -1)
           test -n "$binary"
           echo "Built $binary ($(stat -c %s "$binary") bytes)"
-          mkdir -p dist
-          tar -C out/install -czf dist/freshGram-linux-x86_64.tar.gz usr
-          (cd dist && sha256sum freshGram-linux-x86_64.tar.gz > SHA256SUMS)
-
-      - name: Arch Linux package
-        run: |
-          set -e
-          version=$(awk '/^AppVersionStr /{print $2}' Telegram/build/version)
-          rm -rf arch
-          mkdir -p arch
-          cp Telegram/build/arch/PKGBUILD arch/PKGBUILD
-          tar -C out/install -cf arch/freshgram-root.tar usr
-          docker run --rm -e FRESHGRAM_VERSION="$version" -v "$PWD/arch:/pkg" archlinux:base-devel bash -c '
-            set -e
-            useradd -m builder
-            chown -R builder /pkg
-            su builder -c "cd /pkg && FRESHGRAM_VERSION=$FRESHGRAM_VERSION makepkg -f --nodeps"
-          '
-          cp arch/freshgram-*.pkg.tar.zst dist/freshGram.pacman
-          (cd dist && sha256sum freshGram-linux-x86_64.tar.gz freshGram.pacman > SHA256SUMS)
-
-      - name: Flatpak bundle
-        continue-on-error: true
-        run: |
-          set -e
-          Telegram/build/flatpak/build.sh out/install/usr dist/freshGram.flatpak
-          (cd dist && sha256sum freshGram-linux-x86_64.tar.gz freshGram.pacman freshGram.flatpak > SHA256SUMS)
-
-      - name: AppImage
-        continue-on-error: true
-        run: |
-          set -e
-          Telegram/build/appimage/build.sh out/install/usr dist/freshGram.AppImage
-
-      - name: Debian package
-        continue-on-error: true
-        run: |
-          set -e
           version=$(awk '/^AppVersionStr /{print $2}' Telegram/build/version)
           if [ "${{ github.ref_type }}" = "tag" ]; then
             version="${GITHUB_REF_NAME#v}"
           fi
-          Telegram/build/deb/build.sh out/install/usr dist/freshGram.deb "$version"
-
-      - name: RPM package
-        continue-on-error: true
-        run: |
-          set -e
-          sudo apt-get update
-          sudo apt-get install -y rpm
-          version=$(awk '/^AppVersionStr /{print $2}' Telegram/build/version)
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            version="${GITHUB_REF_NAME#v}"
-          fi
-          Telegram/build/rpm/build.sh out/install/usr dist/freshGram.rpm "$version"
+          Telegram/build/package_linux.sh out/install/usr dist "" "$version"
 
       - name: Checksums
         run: |
