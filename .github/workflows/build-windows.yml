@@ -242,6 +242,26 @@ jobs:
           fi
           echo "prerelease=$pre" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare the debug input
+        if: steps.release.outputs.tag != ''
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force debug-input | Out-Null
+          Copy-Item dist/freshGram.exe debug-input/freshGram.exe
+          if (Test-Path symbols/freshGram-pdb.7z) {
+            Copy-Item symbols/freshGram-pdb.7z debug-input/freshGram-pdb.7z
+          }
+          Set-Content debug-input/release-tag.txt "${{ steps.release.outputs.tag }}"
+
+      - name: Upload the debug input
+        if: steps.release.outputs.tag != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-debug-input
+          path: debug-input/
+          retention-days: 14
+          compression-level: 0
+
       - name: Publish release
         if: steps.release.outputs.tag != ''
         uses: softprops/action-gh-release@v2
