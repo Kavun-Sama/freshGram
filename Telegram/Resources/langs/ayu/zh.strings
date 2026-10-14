@@ -348,7 +348,7 @@
 "ayu_DeleteOwnMessagesScopeAll" = "整个群组";
 "ayu_DeleteOwnMessagesScopeTopics" = "选定的话题";
 "ayu_DeleteOwnMessagesPickTopics" = "选择话题";
-"ayu_DeleteOwnMessagesTopicsCount" = "已选话题：{count}";
+"ayu_DeleteOwnMessagesTopicsCount" = "已选话题：{amount}";
 "ayu_SuggestGhostModeTitle" = "幽灵模式";
 "ayu_SuggestGhostModeStoryText" = "要在查看故事前启用**幽灵模式**吗？";
 "ayu_SuggestGhostModeStoryActionTextYes" = "是";

@@ -364,7 +364,7 @@
 "ayu_DeleteOwnMessagesScopeAll" = "Tout le groupe";
 "ayu_DeleteOwnMessagesScopeTopics" = "Sujets sélectionnés";
 "ayu_DeleteOwnMessagesPickTopics" = "Choisir des sujets";
-"ayu_DeleteOwnMessagesTopicsCount" = "Sujets sélectionnés : {count}";
+"ayu_DeleteOwnMessagesTopicsCount" = "Sujets sélectionnés : {amount}";
 "ayu_SuggestGhostModeTitle" = "Mode fantôme";
 "ayu_SuggestGhostModeStoryText" = "Voulez-vous activer le **mode fantôme** avant de regarder la story ?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Oui";

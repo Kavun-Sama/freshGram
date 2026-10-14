@@ -94,7 +94,7 @@ void FillDeleteOwnMessagesBox(
 						? tr::ayu_DeleteOwnMessagesPickTopics(tr::now)
 						: tr::ayu_DeleteOwnMessagesTopicsCount(
 							tr::now,
-							lt_count,
+							lt_amount,
 							QString::number(topics->size())));
 				});
 		});

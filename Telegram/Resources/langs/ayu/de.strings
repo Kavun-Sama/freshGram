@@ -356,7 +356,7 @@
 "ayu_DeleteOwnMessagesScopeAll" = "Ganze Gruppe";
 "ayu_DeleteOwnMessagesScopeTopics" = "Ausgewählte Themen";
 "ayu_DeleteOwnMessagesPickTopics" = "Themen auswählen";
-"ayu_DeleteOwnMessagesTopicsCount" = "Ausgewählte Themen: {count}";
+"ayu_DeleteOwnMessagesTopicsCount" = "Ausgewählte Themen: {amount}";
 "ayu_SuggestGhostModeTitle" = "Geistermodus";
 "ayu_SuggestGhostModeStoryText" = "Möchtest du den **Geistermodus** aktivieren, bevor du die Story ansiehst?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Ja";

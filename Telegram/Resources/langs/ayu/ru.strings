@@ -372,7 +372,7 @@
 "ayu_DeleteOwnMessagesScopeAll" = "Вся группа";
 "ayu_DeleteOwnMessagesScopeTopics" = "Выбранные темы";
 "ayu_DeleteOwnMessagesPickTopics" = "Выбрать темы";
-"ayu_DeleteOwnMessagesTopicsCount" = "Выбрано тем: {count}";
+"ayu_DeleteOwnMessagesTopicsCount" = "Выбрано тем: {amount}";
 "ayu_SuggestGhostModeTitle" = "Режим призрака";
 "ayu_SuggestGhostModeStoryText" = "Хотите включить **режим призрака** перед просмотром истории?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Да";

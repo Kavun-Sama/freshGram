@@ -9150,7 +9150,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DeleteOwnMessagesScopeAll" = "Entire group";
 "ayu_DeleteOwnMessagesScopeTopics" = "Selected topics";
 "ayu_DeleteOwnMessagesPickTopics" = "Choose topics";
-"ayu_DeleteOwnMessagesTopicsCount" = "Topics selected: {count}";
+"ayu_DeleteOwnMessagesTopicsCount" = "Topics selected: {amount}";
 "ayu_SuggestGhostModeTitle" = "Ghost Mode";
 "ayu_SuggestGhostModeStoryText" = "Do you want to enable **Ghost Mode** before viewing the story?";
 "ayu_SuggestGhostModeStoryActionTextYes" = "Yes";
