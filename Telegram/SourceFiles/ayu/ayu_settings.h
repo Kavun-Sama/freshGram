@@ -739,7 +739,7 @@ private:
 	[[nodiscard]] uint64 getOverriddenGhostUserId(uint64 userId) const { return _useGlobalGhostMode.current() ? 0 : userId; }
 
 	rpl::variable<bool> _saveDeletedMessages = true;
-	rpl::variable<bool> _saveLocallyDeletedMessages = false;
+	rpl::variable<bool> _saveLocallyDeletedMessages = true;
 	rpl::variable<bool> _secretChatsEnabled = false;
 	rpl::variable<bool> _saveMessagesHistory = true;
 	rpl::variable<bool> _saveForBots = false;
