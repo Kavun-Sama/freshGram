@@ -1,0 +1,205 @@
+name: Build debug
+
+on:
+  workflow_run:
+    workflows: ['Build', 'Build Windows', 'Build macOS']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Run of Build, Build Windows or Build macOS to take the debug input from
+        type: string
+        required: true
+      platform:
+        description: Which platform that run belongs to
+        type: choice
+        options:
+          - linux
+          - windows
+          - macos
+        required: true
+
+concurrency:
+  group: build-debug-${{ github.event.workflow_run.id || github.event.inputs.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  RUN_ID: ${{ github.event.workflow_run.id || github.event.inputs.run_id }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  linux:
+    name: Linux debug packages
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'linux')
+      || (github.event.workflow_run.name == 'Build' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Look for the unstripped build
+        id: input
+        run: |
+          found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name == "linux-debug-input" and (.expired | not))] | length')
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          if [ "$found" = "0" ]; then
+            echo "This run has no debug input (it did not publish a release), nothing to do."
+          fi
+
+      - name: Clone
+        if: steps.input.outputs.found != '0'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Download the unstripped build
+        if: steps.input.outputs.found != '0'
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-debug-input
+          path: input
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Build the debug packages
+        if: steps.input.outputs.found != '0'
+        run: |
+          set -e
+          tag=$(cat input/release-tag.txt)
+          test -n "$tag"
+          mkdir -p tree dist
+          zstd -d -c input/linux-install.tar.zst | tar -x -C tree
+          binary=$(find tree/usr/bin -maxdepth 1 -type f -perm -u+x | head -1)
+          echo "Unstripped $binary: $(stat -c %s "$binary") bytes"
+          Telegram/build/package_linux.sh tree/usr dist "-debug" "${tag#v}"
+          cp input/release-tag.txt dist/release-tag.txt
+          ls -la dist
+
+      - name: Upload the debug packages
+        if: steps.input.outputs.found != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-linux
+          path: dist/
+          retention-days: 14
+          compression-level: 0
+
+  windows:
+    name: Windows debug packages
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'windows')
+      || (github.event.workflow_run.name == 'Build Windows' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Look for the debug input
+        id: input
+        run: |
+          found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name == "windows-debug-input" and (.expired | not))] | length')
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          if [ "$found" = "0" ]; then
+            echo "This run has no debug input (it did not publish a release), nothing to do."
+          fi
+
+      - name: Download the debug input
+        if: steps.input.outputs.found != '0'
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-debug-input
+          path: input
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Build the debug packages
+        if: steps.input.outputs.found != '0'
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full zip
+          test -s input/release-tag.txt
+          mkdir -p portable/TelegramForcePortable dist
+          cp input/freshGram.exe portable/freshGram.exe
+          if [ -f input/freshGram-pdb.7z ]; then
+            7z x -y -oportable input/freshGram-pdb.7z
+            cp input/freshGram-pdb.7z dist/freshGram-pdb.7z
+          else
+            echo "::warning::The build has no .pdb files"
+          fi
+          (cd portable && zip -r ../dist/freshGram-windows-portable-debug.zip .)
+          cp input/release-tag.txt dist/release-tag.txt
+          ls -la dist
+
+      - name: Upload the debug packages
+        uses: actions/upload-artifact@v4
+        if: steps.input.outputs.found != '0'
+        with:
+          name: debug-windows
+          path: dist/
+          retention-days: 14
+          compression-level: 0
+
+  macos:
+    name: macOS ${{ matrix.suffix }} debug package
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.platform == 'macos')
+      || (github.event.workflow_run.name == 'Build macOS' && github.event.workflow_run.conclusion == 'success')
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [arm64, x64]
+
+    steps:
+      - name: Look for the unstripped app
+        id: input
+        run: |
+          found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+            --jq '[.artifacts[] | select(.name == "macos-debug-input-${{ matrix.suffix }}" and (.expired | not))] | length')
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          if [ "$found" = "0" ]; then
+            echo "This run has no debug input (it did not publish a release), nothing to do."
+          fi
+
+      - name: Download the unstripped app
+        if: steps.input.outputs.found != '0'
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-debug-input-${{ matrix.suffix }}
+          path: input
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Build the debug package
+        if: steps.input.outputs.found != '0'
+        run: |
+          set -e
+          test -s input/release-tag.txt
+          mkdir -p dist dmg
+          ditto -x -k input/freshGram-${{ matrix.suffix }}.app.zip dmg
+          app=$(find dmg -maxdepth 1 -name '*.app' | head -1)
+          test -n "$app"
+          if [ "$app" != "dmg/freshGram.app" ]; then
+            mv "$app" dmg/freshGram.app
+          fi
+          codesign --force --deep --sign - dmg/freshGram.app
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname freshGram -srcfolder dmg -ov -format UDZO dist/freshGram-${{ matrix.suffix }}-debug.dmg
+          cp input/release-tag.txt dist/release-tag.txt
+          ls -la dist
+
+      - name: Upload the debug package
+        if: steps.input.outputs.found != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-macos-${{ matrix.suffix }}
+          path: dist/
+          retention-days: 14
+          compression-level: 0

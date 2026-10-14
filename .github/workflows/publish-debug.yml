@@ -1,0 +1,119 @@
+name: Publish debug
+
+on:
+  workflow_run:
+    workflows: ['Build debug']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit whose debug packages should be collected
+        type: string
+        required: true
+
+concurrency:
+  group: publish-debug-${{ github.event.workflow_run.head_sha || github.event.inputs.sha }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.event.inputs.sha }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  publish:
+    name: freshGram.debug.7z
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Find the debug sets of the commit
+        id: find
+        run: |
+          set -e
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build-debug.yml/runs?head_sha=$SHA&status=success&per_page=50" \
+            --jq '.workflow_runs[].id' > runs.txt
+          echo "Build debug runs for $SHA:" && cat runs.txt
+          : > sets.txt
+          missing=0
+          for name in debug-linux debug-windows debug-macos-arm64 debug-macos-x64; do
+            found=""
+            for run in $(cat runs.txt); do
+              id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/artifacts" \
+                --jq "[.artifacts[] | select(.name == \"$name\" and (.expired | not))][0].id // empty")
+              if [ -n "$id" ]; then
+                found="$run"
+                break
+              fi
+            done
+            if [ -z "$found" ]; then
+              echo "No $name yet."
+              missing=1
+            else
+              echo "$name $found" >> sets.txt
+            fi
+          done
+          if [ "$missing" = "1" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Not all the debug sets are ready, the next Build debug run will try again."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the debug sets
+        if: steps.find.outputs.ready == 'true'
+        run: |
+          set -e
+          mkdir -p parts
+          while read -r name run; do
+            gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "parts/$name"
+          done < sets.txt
+          du -sh parts/*
+
+      - name: Pack freshGram.debug.7z
+        if: steps.find.outputs.ready == 'true'
+        id: pack
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          tag=""
+          for file in parts/*/release-tag.txt; do
+            value=$(cat "$file")
+            if [ -z "$tag" ]; then
+              tag="$value"
+            elif [ "$tag" != "$value" ]; then
+              echo "::error::The debug sets belong to different releases: $tag and $value."
+              exit 1
+            fi
+          done
+          test -n "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          mkdir -p debug
+          for dir in parts/*; do
+            find "$dir" -type f ! -name release-tag.txt -exec cp {} debug/ \;
+          done
+          ls -la debug
+          mkdir -p out
+          (cd debug && 7z a -mx=1 -v1900m ../out/freshGram.debug.7z .)
+          parts=$(ls out | wc -l)
+          if [ "$parts" = "1" ]; then
+            mv out/freshGram.debug.7z.001 out/freshGram.debug.7z
+          fi
+          (cd out && sha256sum * > SHA256SUMS-debug)
+          ls -la out
+
+      - name: Add the archive to the release
+        if: steps.find.outputs.ready == 'true'
+        run: |
+          set -e
+          tag="${{ steps.pack.outputs.tag }}"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::The release $tag does not exist yet."
+            exit 1
+          fi
+          gh release upload "$tag" out/* --repo "$GITHUB_REPOSITORY" --clobber
