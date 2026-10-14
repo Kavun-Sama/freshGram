@@ -298,6 +298,38 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-linux-${{ github.run_id }}
 
+      - name: Keep the unstripped build and strip the packages
+        id: keep
+        run: |
+          set -e
+          binary=$(find out/install/usr/bin -maxdepth 1 -type f -perm -u+x | head -1)
+          test -n "$binary"
+          tag=""
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            tag="${{ github.ref_name }}"
+          elif [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            tag="${{ github.event.inputs.release_tag }}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          mkdir -p debug-input
+          if [ -n "$tag" ]; then
+            printf '%s\n' "$tag" > debug-input/release-tag.txt
+            tar -C out/install -cf - usr | zstd -T0 -3 -o debug-input/linux-install.tar.zst
+          fi
+          before=$(stat -c %s "$binary")
+          strip --strip-unneeded "$binary"
+          echo "Stripped $binary: $before -> $(stat -c %s "$binary") bytes"
+          ls -la debug-input
+
+      - name: Upload the unstripped build
+        if: steps.keep.outputs.tag != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-debug-input
+          path: debug-input/
+          retention-days: 14
+          compression-level: 0
+
       - name: Package
         run: |
           set -e
