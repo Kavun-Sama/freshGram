@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/settings_common.h"
 
+#include "ayu/ui/fagram/fagram_design.h"
 #include "base/timer.h"
 #include "lottie/lottie_icon.h"
 #include "menu/menu_send_details.h"
@@ -26,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/scroll_area.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/text/text_entity.h"
+#include "styles/style_ayu_styles.h"
 #include "styles/style_edit_peer_members.h"
 #include "styles/style_info.h"
 #include "styles/style_menu_icons.h"
@@ -705,15 +707,23 @@ SliderWithLabel MakeSliderWithLabel(
 		bool ignoreWheel) {
 	auto result = object_ptr<Ui::RpWidget>(parent);
 	const auto raw = result.data();
+	const auto md3 = FA::Ui::Enabled();
+	const auto sliderHeight = md3
+		? st::fagramSliderHeight
+		: sliderSt.seekSize.height();
 	const auto height = std::max(
-		sliderSt.seekSize.height(),
+		sliderHeight,
 		labelSt.style.font->height);
 	raw->resize(sliderSt.seekSize.width(), height);
 	const auto slider = ignoreWheel
 		? Ui::CreateChild<Ui::MediaSliderWheelless>(raw, sliderSt)
 		: Ui::CreateChild<Ui::MediaSlider>(raw, sliderSt);
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(raw, labelSt);
-	slider->resize(slider->width(), sliderSt.seekSize.height());
+	slider->setMd3Style(md3);
+	if (md3) {
+		raw->setProperty("fa_card_row", true);
+	}
+	slider->resize(slider->width(), sliderHeight);
 	rpl::combine(
 		raw->sizeValue(),
 		label->sizeValue()

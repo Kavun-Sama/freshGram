@@ -247,6 +247,9 @@ public:
 	void clearDividers();
 	void setDividerStyle(DividerStyle style);
 
+	// The pill slider of the Fagram design (ported from FAgram Desktop).
+	void setMd3Style(bool md3);
+
 protected:
 	void paintEvent(QPaintEvent *e) override;
 
@@ -259,8 +262,10 @@ private:
 	QSize getSeekDecreaseSize() const override;
 	float64 getOverDuration() const override;
 	void rebuildDividerExclusion();
+	void paintMd3(QPainter &p);
 
 	const style::MediaSlider &_st;
+	bool _md3 = false;
 	bool _alwaysDisplayMarker = false;
 	bool _paintDisabled = false;
 

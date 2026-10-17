@@ -14,10 +14,57 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/platform/base_platform_info.h"
 #include "styles/style_widgets.h"
 
+#include <QtGui/QPainterPath>
+
 namespace Ui {
 namespace {
 
 constexpr auto kByWheelFinishedTimeout = 1000;
+constexpr auto kMd3Track = 16;
+constexpr auto kMd3HandleThickness = 4.;
+constexpr auto kMd3HandleLength = 28.;
+constexpr auto kMd3Gap = 4.;
+constexpr auto kMd3DotRadius = 2.;
+
+[[nodiscard]] QPainterPath Md3TrackPath(
+		const QRectF &r,
+		bool horizontal,
+		float64 startRadius,
+		float64 endRadius) {
+	// The radii belong to the two ends along the slider direction.
+	const auto along = horizontal ? r.width() : r.height();
+	const auto across = horizontal ? r.height() : r.width();
+	if (along <= startRadius + endRadius) {
+		auto path = QPainterPath();
+		const auto radius = std::min(across, along) / 2.;
+		path.addRoundedRect(r, radius, radius);
+		return path;
+	}
+	auto path = QPainterPath();
+	if (horizontal) {
+		path.moveTo(r.left() + startRadius, r.top());
+		path.lineTo(r.right() - endRadius, r.top());
+		path.quadTo(r.right(), r.top(), r.right(), r.top() + endRadius);
+		path.lineTo(r.right(), r.bottom() - endRadius);
+		path.quadTo(r.right(), r.bottom(), r.right() - endRadius, r.bottom());
+		path.lineTo(r.left() + startRadius, r.bottom());
+		path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - startRadius);
+		path.lineTo(r.left(), r.top() + startRadius);
+		path.quadTo(r.left(), r.top(), r.left() + startRadius, r.top());
+	} else {
+		path.moveTo(r.left() + startRadius, r.top());
+		path.lineTo(r.right() - startRadius, r.top());
+		path.quadTo(r.right(), r.top(), r.right(), r.top() + startRadius);
+		path.lineTo(r.right(), r.bottom() - endRadius);
+		path.quadTo(r.right(), r.bottom(), r.right() - endRadius, r.bottom());
+		path.lineTo(r.left() + endRadius, r.bottom());
+		path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - endRadius);
+		path.lineTo(r.left(), r.top() + startRadius);
+		path.quadTo(r.left(), r.top(), r.left() + startRadius, r.top());
+	}
+	path.closeSubpath();
+	return path;
+}
 
 } // namespace
 
@@ -269,11 +316,22 @@ MediaSlider::MediaSlider(QWidget *parent, const style::MediaSlider &st) : Contin
 }
 
 QSize MediaSlider::getSeekDecreaseSize() const {
+	if (_md3) {
+		return _alwaysDisplayMarker ? QSize(kMd3Track, kMd3Track) : QSize();
+	}
 	return _alwaysDisplayMarker ? _st.seekSize : QSize();
 }
 
 float64 MediaSlider::getOverDuration() const {
-	return _st.duration;
+	return _md3 ? 150. : _st.duration;
+}
+
+void MediaSlider::setMd3Style(bool md3) {
+	if (_md3 == md3) {
+		return;
+	}
+	_md3 = md3;
+	update();
 }
 
 void MediaSlider::disablePaint(bool disabled) {
@@ -336,6 +394,123 @@ void MediaSlider::setColorOverrides(ColorOverrides overrides) {
 	update();
 }
 
+void MediaSlider::paintMd3(QPainter &p) {
+	const auto horizontal = isHorizontal();
+	const auto thickness = float64(kMd3Track);
+	const auto radius = thickness / 2.;
+	const auto disabled = isDisabled();
+	const auto over = getCurrentOverFactor();
+	const auto value = horizontal
+		? getCurrentValue()
+		: (1. - getCurrentValue());
+	const auto length = float64(horizontal ? width() : height());
+	const auto across = float64(horizontal ? height() : width());
+	const auto trackStart = (across - thickness) / 2.;
+	const auto seekPadding = _alwaysDisplayMarker ? radius : (radius * over);
+	const auto mid = seekPadding + value * (length - 2. * seekPadding);
+
+	const auto activeFg = disabled
+		? st::windowSubTextFg->c
+		: st::windowActiveTextFg->c;
+	const auto inactiveFg = disabled
+		? st::windowBg->c
+		: st::sliderBgInactive->c;
+	const auto marker = disabled ? 0. : (_alwaysDisplayMarker ? 1. : over);
+	const auto gap = kMd3Gap * marker;
+	const auto handle = kMd3HandleThickness * marker;
+	const auto activeEnd = mid - handle / 2. - gap;
+	const auto inactiveStart = mid + handle / 2. + gap;
+
+	const auto rect = [&](float64 from, float64 to) {
+		return horizontal
+			? QRectF(from, trackStart, to - from, thickness)
+			: QRectF(trackStart, from, thickness, to - from);
+	};
+	const auto fillTrack = [&](
+			const QColor &color,
+			float64 from,
+			float64 to,
+			float64 startRadius,
+			float64 endRadius) {
+		p.setBrush(color);
+		p.drawPath(Md3TrackPath(rect(from, to), horizontal, startRadius, endRadius));
+	};
+	// Horizontal: active first, then inactive. Vertical: inactive first.
+	const auto firstColor = horizontal ? activeFg : inactiveFg;
+	const auto secondColor = horizontal ? inactiveFg : activeFg;
+	if (value <= 0.) {
+		fillTrack(inactiveFg, 0., length, radius, radius);
+	} else if (value >= 1.) {
+		fillTrack(activeFg, 0., length, radius, radius);
+	} else {
+		if (activeEnd > 0.) {
+			fillTrack(
+				firstColor,
+				0.,
+				activeEnd,
+				radius,
+				(inactiveStart >= length) ? radius : 2.);
+		}
+		if (inactiveStart < length) {
+			fillTrack(
+				secondColor,
+				inactiveStart,
+				length,
+				(activeEnd <= 0.) ? radius : 2.,
+				radius);
+		}
+	}
+
+	const auto center = trackStart + radius;
+	const auto dot = [&](float64 at, const QColor &color) {
+		p.setBrush(color);
+		p.drawEllipse(
+			horizontal ? QPointF(at, center) : QPointF(center, at),
+			kMd3DotRadius,
+			kMd3DotRadius);
+	};
+	if (horizontal) {
+		if (value < 0.95 && inactiveStart + 4. < length - radius - kMd3DotRadius) {
+			dot(length - radius, activeFg);
+		}
+		if (value > 0.05 && radius + kMd3DotRadius < activeEnd - 4.) {
+			dot(radius, inactiveFg);
+		}
+	} else {
+		if (value < 0.95 && activeEnd - 4. > radius + kMd3DotRadius) {
+			dot(radius, activeFg);
+		}
+		if (value > 0.05 && length - radius - kMd3DotRadius > inactiveStart + 4.) {
+			dot(length - radius, inactiveFg);
+		}
+	}
+
+	if (marker > 0.) {
+		const auto thick = std::max(handle, 1.);
+		const auto longer = kMd3HandleLength * marker;
+		p.setBrush(activeFg);
+		const auto rounded = thick / 2.;
+		p.drawRoundedRect(
+			horizontal
+				? QRectF(mid - thick / 2., (across - longer) / 2., thick, longer)
+				: QRectF((across - longer) / 2., mid - thick / 2., longer, thick),
+			rounded,
+			rounded);
+	}
+
+	for (const auto &divider : _dividers) {
+		const auto at = horizontal
+			? divider.atValue
+			: (1. - divider.atValue);
+		const auto position = at * length;
+		if (std::abs(position - mid) <= handle / 2. + gap + kMd3DotRadius) {
+			continue;
+		}
+		const auto passed = horizontal ? (at <= value) : (at >= value);
+		dot(position, passed ? inactiveFg : activeFg);
+	}
+}
+
 void MediaSlider::paintEvent(QPaintEvent *e) {
 	if (_paintDisabled) {
 		return;
@@ -345,6 +520,11 @@ void MediaSlider::paintEvent(QPaintEvent *e) {
 
 	p.setPen(Qt::NoPen);
 	p.setOpacity(fadeOpacity());
+
+	if (_md3) {
+		paintMd3(p);
+		return;
+	}
 
 	const auto horizontal = isHorizontal();
 	const auto borderWidth = _st.borderWidth;
