@@ -344,6 +344,10 @@ set(ayugram_files
         ayu/data/ayu_database_backup.h
         ayu/data/ayu_database_report.cpp
         ayu/data/ayu_database_report.h
+        ayu/data/ayu_encrypted_vfs.cpp
+        ayu/data/ayu_encrypted_vfs.h
+        ayu/data/ayu_legacy_copy.cpp
+        ayu/data/ayu_legacy_copy.h
         ayu/data/ayu_migration_v4.cpp
         ayu/data/ayu_migration_v4.h
         ayu/data/message_rows.cpp

@@ -8,7 +8,11 @@
 #include <QtCore/QFile>
 #include <QtCore/QSaveFile>
 
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+
 #include <atomic>
+#include <cstring>
 #include <mutex>
 
 namespace AyuVault {
@@ -36,6 +40,23 @@ void SetKey(MTP::AuthKeyPtr key) {
 
 bool HasKey() {
 	return GetKey() != nullptr;
+}
+
+bool DeriveKey(const char *label, unsigned char *out, size_t size) {
+	const auto key = GetKey();
+	if (!key || size != 32) {
+		return false;
+	}
+	const auto data = key->data();
+	auto length = 0U;
+	return HMAC(
+		EVP_sha256(),
+		data.data(),
+		int(data.size()),
+		reinterpret_cast<const unsigned char*>(label),
+		std::strlen(label),
+		out,
+		&length) != nullptr && length == 32;
 }
 
 bool IsSealed(const QByteArray &bytes) {

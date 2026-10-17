@@ -40,7 +40,13 @@ struct Entry {
 	qint64 rows = 0;
 };
 
+// The database file, its change time tells whether there is a news since the last backup.
 [[nodiscard]] QString MainPath() {
+	return "./tdata/ayudata.sqlite";
+}
+
+// A restored backup is put here and the database is made from it at the start.
+[[nodiscard]] QString RestorePath() {
 	return "./tdata/ayudata.enc";
 }
 
@@ -279,8 +285,8 @@ bool restore(int &index) {
 		if (!Verify(list[i].path)) {
 			continue;
 		}
-		QFile::remove(MainPath());
-		if (QFile::copy(list[i].path, MainPath())) {
+		QFile::remove(RestorePath());
+		if (QFile::copy(list[i].path, RestorePath())) {
 			index = i + 1;
 			LOG(("[AyuGram] Database restored from '%1'.").arg(list[i].path));
 			return true;
