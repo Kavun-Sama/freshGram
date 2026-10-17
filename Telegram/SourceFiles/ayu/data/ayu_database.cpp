@@ -382,6 +382,13 @@ void inTransaction(Callback &&callback) {
 	}
 }
 
+// Gives the free pages of the file back to the disk, a part of them at a time.
+void reclaimSpace() {
+	if (MemoryHandle) {
+		sqlite3_exec(MemoryHandle, "PRAGMA incremental_vacuum(4096)", nullptr, nullptr, nullptr);
+	}
+}
+
 void flushQueuedLater() {
 	crl::on_main([] {
 		if (!QueueTimer) {
@@ -955,6 +962,7 @@ void purgeOlderThan(int days) {
 				storage.remove_all<DeletedRank>(
 					where(column<DeletedRank>(&DeletedRank::entityCreateDate) < cutoff));
 			});
+			reclaimSpace();
 		});
 	});
 }
@@ -1237,6 +1245,7 @@ void clearDeletedMessages(ID userId, ID dialogId, ID topicId) {
 				(column<DeletedMessageRow>(&DeletedMessageRow::topicId) == topicId or topicId == 0)
 			)
 		);
+		reclaimSpace();
 	});
 }
 
@@ -1251,6 +1260,7 @@ void clearAllDeleted() {
 			storage.remove_all<KeptTopic>();
 			storage.remove_all<KeptDialog>();
 		});
+		reclaimSpace();
 	});
 	AyuDatabaseBackup::removeAll();
 }
