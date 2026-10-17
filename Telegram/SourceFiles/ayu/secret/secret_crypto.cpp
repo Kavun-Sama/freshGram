@@ -104,6 +104,20 @@ Bytes KeyVisualHash(const Bytes &key) {
 	return result;
 }
 
+void UpdateKeyVisualHash(Bytes &hash, const Bytes &key, int layer) {
+	if (key.size() != kKeySize || hash.size() == 36) {
+		return;
+	}
+	// PFS rotates working keys, never the saved authentication hash.
+	const auto current = KeyVisualHash(key);
+	if (hash.empty()) {
+		hash.assign(current.begin(), current.begin() + 16);
+	}
+	if (hash.size() == 16 && layer >= 46) {
+		hash.insert(hash.end(), current.begin() + 16, current.end());
+	}
+}
+
 Bytes PadKey(const Bytes &key) {
 	if (key.size() >= kKeySize) {
 		return key;

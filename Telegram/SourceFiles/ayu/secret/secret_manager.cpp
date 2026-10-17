@@ -10,6 +10,8 @@
 #include "ayu/secret/secret_crypto.h"
 #include "ayu/secret/secret_files.h"
 #include "ayu/secret/secret_protocol.h"
+
+#include "ayu/secret/secret_rekey.h"
 #include "ayu/secret/secret_tl.h"
 #include "base/call_delayed.h"
 #include "base/openssl_help.h"
@@ -57,6 +59,15 @@ constexpr auto kTypingSendEvery = crl::time(5000);
 constexpr auto kAutoDownloadLimit = 10 * 1024 * 1024;
 constexpr auto kMaxPending = 2000;
 constexpr auto kMaxEarly = 500;
+// Perfect forward secrecy rotation trigger, see
+// https://core.telegram.org/api/end-to-end/pfs : replace the key once it
+// has been used to encrypt and decrypt more than 100 messages, or once it
+// is older than a week provided it encrypted at least one message.
+constexpr auto kRekeyAfterUsesOut = 100;
+constexpr auto kRekeyAfterUsesIn = 120;
+constexpr auto kRekeyAfterTime = 7 * 86400;
+constexpr auto kPfsOurTimeout = 3600;
+constexpr auto kPfsStateMagic = 0x31534650U;
 constexpr auto kSpecialNote = 1;
 constexpr auto kSpecialHidden = 2;
 constexpr auto kKindHidden = 100;
@@ -132,6 +143,7 @@ struct PendingEntry {
 	Inbound inbound;
 	int date = 0;
 	std::optional<MTPEncryptedFile> file;
+	int64_t keyFingerprint = 0;
 };
 
 struct EarlyEntry {
@@ -176,10 +188,24 @@ struct ReadyPacket {
 struct Chat {
 	SecretChatRow row;
 	Bytes key;
+	Bytes keyHash;
 	Bytes otherKey;
 	int ttl = 0;
 	int64_t pfsExchange = 0;
 	Bytes pfsPending;
+	// Our last answer to the inbound exchange (g_b sent in AcceptKey),
+	// to retransmit it when the peer's RequestKey is duplicated.
+	Bytes pfsAnswerGB;
+	// Exchange initiated by us: id, our secret power, prime in use.
+	// Sealed with extras so a restart can continue the exchange.
+	int64_t pfsOurExchange = 0;
+	Bytes pfsOurSecret;
+	Bytes pfsOurP;
+	int64_t pfsOurStartedAt = 0;
+	// Key usage accounting for rotation triggers.
+	int keyInstalledAt = 0;
+	int keyUsesOut = 0;
+	int keyUsesIn = 0;
 	bool loaded = false;
 	bool locked = false;
 	bool working = false;
@@ -205,6 +231,16 @@ struct Chat {
 	writer.writeInt(chat.ttl);
 	writer.writeLong(chat.pfsExchange);
 	writer.writeBytes(chat.pfsPending.data(), chat.pfsPending.size());
+	writer.writeInt(chat.keyInstalledAt);
+	writer.writeInt(chat.keyUsesOut);
+	writer.writeInt(chat.keyUsesIn);
+	writer.writeBytes(chat.keyHash.data(), chat.keyHash.size());
+	writer.writeUInt(kPfsStateMagic);
+	writer.writeLong(chat.pfsOurExchange);
+	writer.writeBytes(chat.pfsOurSecret.data(), chat.pfsOurSecret.size());
+	writer.writeBytes(chat.pfsOurP.data(), chat.pfsOurP.size());
+	writer.writeLong(chat.pfsOurStartedAt);
+	writer.writeBytes(chat.pfsAnswerGB.data(), chat.pfsAnswerGB.size());
 	return ToChars(writer.data());
 }
 
@@ -393,27 +429,87 @@ enum class RowState {
 	return RowState::Legacy;
 }
 
-void DecodeExtras(Chat &chat) {
+[[nodiscard]] bool DecodeExtras(Chat &chat) {
+	chat.keyInstalledAt = base::unixtime::now();
+	chat.keyUsesOut = 0;
+	chat.keyUsesIn = 0;
 	const auto raw = FromChars(chat.row.keyData);
 	if (raw.size() == kKeySize) {
 		chat.key = raw;
-		return;
+		UpdateKeyVisualHash(chat.keyHash, chat.key, kLayer);
+		return !chat.keyHash.empty();
 	}
 	auto reader = Reader(raw.data(), raw.size());
 	if (reader.readUInt() != kExtrasMagic) {
-		return;
+		return false;
 	}
 	const auto key = reader.readBytes();
 	const auto other = reader.readBytes();
-	chat.ttl = reader.readInt();
-	chat.pfsExchange = reader.readLong();
+	const auto ttl = reader.readInt();
+	const auto exchange = reader.readLong();
 	const auto pending = reader.readBytes();
 	if (reader.failed()) {
-		return;
+		// Truncated rows must never leave a half-set exchange behind:
+		// pfsExchange without pfsPending would block rotation forever.
+		chat.pfsExchange = 0;
+		chat.pfsPending.clear();
+		return false;
 	}
+	chat.ttl = ttl;
+	chat.pfsExchange = exchange;
 	chat.key = Bytes(key.begin(), key.end());
 	chat.otherKey = Bytes(other.begin(), other.end());
 	chat.pfsPending = Bytes(pending.begin(), pending.end());
+	const auto orphaned = (chat.pfsExchange != 0 && chat.pfsPending.empty());
+	if (orphaned) {
+		chat.pfsExchange = 0;
+	}
+	// Rotation accounting, absent in rows written by older versions.
+	const auto installedAt = reader.readInt();
+	const auto usesOut = reader.readInt();
+	const auto usesIn = reader.readInt();
+	if (!reader.failed()) {
+		chat.keyInstalledAt = installedAt;
+		chat.keyUsesOut = usesOut;
+		chat.keyUsesIn = usesIn;
+	}
+	if (reader.failed() || !reader.left()) {
+		// Legacy rows lack the original hash; freeze the previously shown value.
+		UpdateKeyVisualHash(chat.keyHash, chat.key, kLayer);
+		return !chat.keyHash.empty();
+	}
+	const auto hash = reader.readBytes();
+	if (!reader.failed() && (hash.size() == 16 || hash.size() == 36)) {
+		chat.keyHash.assign(hash.begin(), hash.end());
+	} else {
+		return false;
+	}
+	if (!reader.left()) {
+		return orphaned;
+	}
+	if (reader.readUInt() != kPfsStateMagic) {
+		return false;
+	}
+	const auto ourExchange = reader.readLong();
+	const auto ourSecret = reader.readBytes();
+	const auto ourP = reader.readBytes();
+	const auto ourStartedAt = reader.readLong();
+	const auto answer = reader.readBytes();
+	if (reader.failed()) {
+		return false;
+	}
+	if (ourExchange && !ourSecret.empty() && !ourP.empty()) {
+		chat.pfsOurExchange = ourExchange;
+		chat.pfsOurSecret = ourSecret;
+		chat.pfsOurP = ourP;
+		chat.pfsOurStartedAt = ourStartedAt
+			? ourStartedAt
+			: base::unixtime::now();
+	}
+	if (chat.pfsExchange && !chat.pfsPending.empty()) {
+		chat.pfsAnswerGB = answer;
+	}
+	return orphaned;
 }
 
 [[nodiscard]] int EntityTypeFromText(::EntityType type) {
@@ -501,10 +597,11 @@ struct Manager::Impl {
 				chat.row.keyData.clear();
 				chat.row.state = int(ChatState::Discarded);
 			} else {
+				auto needsResave = (result == RowState::Legacy);
 				if (chat.row.state == int(ChatState::Ready)) {
-					DecodeExtras(chat);
+					needsResave = DecodeExtras(chat) || needsResave;
 				}
-				if (result == RowState::Legacy) {
+				if (needsResave) {
 					resave.push_back(chat.row.chatId);
 				}
 			}
@@ -680,7 +777,12 @@ struct Manager::Impl {
 		int date,
 		const QByteArray &bytes,
 		const MTPEncryptedFile *file);
-	void process(Chat &chat, const Inbound &inbound, int date, const MTPEncryptedFile *file);
+	void process(
+		Chat &chat,
+		const Inbound &inbound,
+		int date,
+		const MTPEncryptedFile *file,
+		int64_t keyFingerprint);
 	void processService(Chat &chat, const Inbound &inbound, int date);
 	void drainPending(Chat &chat);
 	void requestResend(Chat &chat, int fromIndex, int tillIndex);
@@ -750,7 +852,13 @@ struct Manager::Impl {
 	void markRead(int chatId);
 
 	void handleRequestKey(Chat &chat, const Inbound &inbound);
+	void handleAcceptKey(Chat &chat, const Inbound &inbound);
+	void handleAbortKey(Chat &chat, const Inbound &inbound);
 	void handleCommitKey(Chat &chat, const Inbound &inbound);
+	void startRekey(Chat &chat);
+	void maybeStartRekey(Chat &chat);
+	void clearOurExchange(Chat &chat);
+	void resetKeyUsage(Chat &chat);
 
 	void expire();
 	void scheduleExpire();
@@ -871,6 +979,10 @@ void Manager::Impl::onDiscarded(int chatId, bool historyDeleted) {
 	chat->row.keyData.clear();
 	chat->key.clear();
 	chat->otherKey.clear();
+	chat->pfsExchange = 0;
+	chat->pfsPending.clear();
+	chat->pfsAnswerGB.clear();
+	clearOurExchange(*chat);
 	if (historyDeleted) {
 		if (AyuSettings::getInstance().saveDeletedMessages()) {
 			loadMessages(*chat);
@@ -900,12 +1012,14 @@ void Manager::Impl::onDiscarded(int chatId, bool historyDeleted) {
 
 void Manager::Impl::becomeReady(Chat &chat, const Bytes &key) {
 	chat.key = key;
+	UpdateKeyVisualHash(chat.keyHash, chat.key, kLayer);
 	chat.row.fingerprint = KeyFingerprint(key);
 	chat.row.state = int(ChatState::Ready);
 	chat.row.myIn = 0;
 	chat.row.myOut = 0;
 	chat.row.hisIn = 0;
 	chat.working = false;
+	resetKeyUsage(chat);
 	saveChat(chat);
 	sendNotifyLayer(chat);
 	notify(chat.row.chatId);
@@ -1054,6 +1168,10 @@ void Manager::Impl::discard(int chatId) {
 	chat->row.keyData.clear();
 	chat->key.clear();
 	chat->otherKey.clear();
+	chat->pfsExchange = 0;
+	chat->pfsPending.clear();
+	chat->pfsAnswerGB.clear();
+	clearOurExchange(*chat);
 	chat->working = false;
 	saveChat(*chat);
 	notify(chatId);
@@ -1212,14 +1330,8 @@ void Manager::Impl::applyPacket(Chat &chat, ReadyPacket &&packet) {
 	if (!packet.decrypted) {
 		return;
 	}
-	if (!chat.otherKey.empty() && packet.bytes.size() >= 8) {
-		auto used = int64_t(0);
-		std::memcpy(&used, packet.bytes.constData(), sizeof(used));
-		if (used == chat.row.fingerprint) {
-			chat.otherKey.clear();
-			saveChat(chat);
-		}
-	}
+	++chat.keyUsesIn;
+	maybeStartRekey(chat);
 	if (!packet.parsed) {
 		sendNotifyLayer(chat);
 		return;
@@ -1238,6 +1350,13 @@ void Manager::Impl::applyPacket(Chat &chat, ReadyPacket &&packet) {
 	if (outIndex < chat.row.myIn) {
 		return;
 	}
+	auto keyFingerprint = int64_t(0);
+	if (packet.bytes.size() >= int(sizeof(keyFingerprint))) {
+		std::memcpy(
+			&keyFingerprint,
+			packet.bytes.constData(),
+			sizeof(keyFingerprint));
+	}
 	if (outIndex > chat.row.myIn) {
 		if (outIndex - chat.row.myIn > kMaxPending
 			|| int(chat.pending.size()) >= kMaxPending) {
@@ -1247,11 +1366,12 @@ void Manager::Impl::applyPacket(Chat &chat, ReadyPacket &&packet) {
 			inbound,
 			packet.date,
 			packet.file,
+			keyFingerprint,
 		});
 		requestResend(chat, chat.row.myIn, chat.pending.begin()->first - 1);
 		return;
 	}
-	process(chat, inbound, packet.date, file);
+	process(chat, inbound, packet.date, file, keyFingerprint);
 	drainPending(chat);
 }
 
@@ -1267,7 +1387,8 @@ void Manager::Impl::drainPending(Chat &chat) {
 			chat,
 			entry.inbound,
 			entry.date,
-			entry.file ? &*entry.file : nullptr);
+			entry.file ? &*entry.file : nullptr,
+			entry.keyFingerprint);
 	}
 }
 
@@ -1329,10 +1450,31 @@ void Manager::Impl::process(
 		Chat &chat,
 		const Inbound &inbound,
 		int date,
-		const MTPEncryptedFile *file) {
+		const MTPEncryptedFile *file,
+		int64_t keyFingerprint) {
+	if (!chat.otherKey.empty() && keyFingerprint == chat.row.fingerprint) {
+		chat.otherKey.clear();
+	}
+	if (!chat.pfsPending.empty()
+		&& keyFingerprint == KeyFingerprint(chat.pfsPending)) {
+		// Spec step 4: any valid new-key packet completes the exchange,
+		// even with a lost CommitKey. Runs in ordered processing, so the
+		// previous key stays for older packets until gaps are filled.
+		chat.otherKey = chat.key;
+		chat.key = chat.pfsPending;
+		chat.row.fingerprint = KeyFingerprint(chat.key);
+		chat.pfsPending.clear();
+		chat.pfsExchange = 0;
+		chat.pfsAnswerGB.clear();
+		resetKeyUsage(chat);
+		saveChat(chat);
+	}
 	chat.row.myIn = inbound.outSeqNo / 2 + 1;
 	chat.row.hisIn = std::max(chat.row.hisIn, inbound.inSeqNo / 2);
 	chat.row.hisLayer = std::max(chat.row.hisLayer, inbound.layer);
+	if (chat.keyHash.size() == 16) {
+		UpdateKeyVisualHash(chat.keyHash, chat.key, chat.row.hisLayer);
+	}
 	const auto chatId = chat.row.chatId;
 	if (inbound.service) {
 		processService(chat, inbound, date);
@@ -1392,6 +1534,9 @@ void Manager::Impl::processService(
 	switch (inbound.action) {
 	case ActionKind::NotifyLayer:
 		chat.row.hisLayer = std::max(chat.row.hisLayer, inbound.actionValue);
+		if (chat.keyHash.size() == 16) {
+			UpdateKeyVisualHash(chat.keyHash, chat.key, chat.row.hisLayer);
+		}
 		break;
 	case ActionKind::Resend:
 		answerResend(chat, inbound.resendStart, inbound.resendEnd);
@@ -1458,6 +1603,12 @@ void Manager::Impl::processService(
 	case ActionKind::RequestKey:
 		handleRequestKey(chat, inbound);
 		break;
+	case ActionKind::AcceptKey:
+		handleAcceptKey(chat, inbound);
+		break;
+	case ActionKind::AbortKey:
+		handleAbortKey(chat, inbound);
+		break;
 	case ActionKind::CommitKey:
 		handleCommitKey(chat, inbound);
 		break;
@@ -1472,17 +1623,103 @@ void Manager::Impl::processService(
 	}
 }
 
+void Manager::Impl::clearOurExchange(Chat &chat) {
+	chat.pfsOurExchange = 0;
+	chat.pfsOurSecret.clear();
+	chat.pfsOurP.clear();
+	chat.pfsOurStartedAt = 0;
+}
+
+void Manager::Impl::resetKeyUsage(Chat &chat) {
+	chat.keyInstalledAt = base::unixtime::now();
+	chat.keyUsesOut = 0;
+	chat.keyUsesIn = 0;
+}
+
 void Manager::Impl::handleRequestKey(Chat &chat, const Inbound &inbound) {
 	const auto chatId = chat.row.chatId;
 	const auto exchangeId = inbound.exchangeId;
+	if (!exchangeId) {
+		return;
+	}
+	if (chat.pfsOurExchange != 0) {
+		// Concurrent re-keying, see DecideConcurrent: our instance wins
+		// (the other side applies the same rule), otherwise abandon ours
+		// and answer the incoming one. On exact match abort both.
+		switch (DecideConcurrent(chat.pfsOurExchange, exchangeId)) {
+		case ConcurrentDecision::AnswerIncoming:
+			clearOurExchange(chat);
+			break;
+		case ConcurrentDecision::AbortBoth:
+			clearOurExchange(chat);
+			return;
+		case ConcurrentDecision::IgnoreIncoming:
+			return;
+		}
+	}
+	if (chat.pfsExchange != 0) {
+		// A duplicate of the answered exchange gets our answer again,
+		// so a lost AcceptKey still completes without waiting for the
+		// seqno resend machinery.
+		if (chat.pfsExchange == exchangeId) {
+			if (!chat.pfsPending.empty() && !chat.pfsAnswerGB.empty()) {
+				sendService(
+					chat,
+					BuildAcceptKey(
+						RandomId(),
+						exchangeId,
+						chat.pfsAnswerGB,
+						KeyFingerprint(chat.pfsPending)));
+			}
+			return;
+		}
+		// A fresh RequestKey supersedes the peer's abandoned exchange.
+		const auto previous = chat.pfsExchange;
+		chat.pfsExchange = 0;
+		chat.pfsPending.clear();
+		chat.pfsAnswerGB.clear();
+		saveChat(chat);
+		sendService(chat, BuildAbortKey(RandomId(), previous));
+	}
+	// Reserve the exchange synchronously: duplicates arriving while the
+	// DH config is in flight are answered or ignored above instead of
+	// spawning parallel exchanges.
+	chat.pfsExchange = exchangeId;
 	const auto gA = inbound.value;
 	requestDh([=](const DhConfig &config) {
 		const auto chat = find(chatId);
 		if (!chat) {
 			return;
 		}
+		if (chat->row.state != int(ChatState::Ready)
+			|| chat->key.empty()
+			|| chat->pfsExchange != exchangeId) {
+			if (chat->pfsExchange == exchangeId) {
+				chat->pfsExchange = 0;
+			}
+			return;
+		}
+		if (chat->pfsOurExchange != 0) {
+			switch (DecideConcurrent(chat->pfsOurExchange, exchangeId)) {
+			case ConcurrentDecision::AnswerIncoming:
+				clearOurExchange(*chat);
+				break;
+			case ConcurrentDecision::AbortBoth:
+				clearOurExchange(*chat);
+				chat->pfsExchange = 0;
+				return;
+			case ConcurrentDecision::IgnoreIncoming:
+				chat->pfsExchange = 0;
+				return;
+			}
+		}
 		const auto prime = openssl::BigNum(Span(config.p));
-		if (!MTP::IsGoodModExpFirst(openssl::BigNum(Span(gA)), prime)) {
+		if (gA.empty()
+			|| gA.size() > kKeySize
+			|| !MTP::IsGoodModExpFirst(
+				openssl::BigNum(Span(gA)),
+				prime)) {
+			chat->pfsExchange = 0;
 			sendService(*chat, BuildAbortKey(RandomId(), exchangeId));
 			return;
 		}
@@ -1495,12 +1732,14 @@ void Manager::Impl::handleRequestKey(Chat &chat, const Inbound &inbound) {
 			first.randomPower,
 			Span(config.p));
 		if (raw.empty()) {
+			chat->pfsExchange = 0;
 			sendService(*chat, BuildAbortKey(RandomId(), exchangeId));
 			return;
 		}
 		const auto key = PadKey(FromBytesVector(raw));
 		chat->pfsExchange = exchangeId;
 		chat->pfsPending = key;
+		chat->pfsAnswerGB = FromBytesVector(first.modexp);
 		saveChat(*chat);
 		sendService(
 			*chat,
@@ -1509,12 +1748,20 @@ void Manager::Impl::handleRequestKey(Chat &chat, const Inbound &inbound) {
 				exchangeId,
 				FromBytesVector(first.modexp),
 				KeyFingerprint(key)));
-	}, [] {
+	}, [=] {
+		const auto chat = find(chatId);
+		if (chat && chat->pfsPending.empty()
+			&& ReleaseIncomingExchange(chat->pfsExchange, exchangeId)) {
+			chat->pfsAnswerGB.clear();
+			saveChat(*chat);
+		}
 	});
 }
 
 void Manager::Impl::handleCommitKey(Chat &chat, const Inbound &inbound) {
-	if (chat.pfsPending.empty()
+	if (chat.row.state != int(ChatState::Ready)
+		|| chat.key.empty()
+		|| chat.pfsPending.empty()
 		|| chat.pfsExchange != inbound.exchangeId
 		|| KeyFingerprint(chat.pfsPending) != inbound.fingerprint) {
 		return;
@@ -1524,7 +1771,159 @@ void Manager::Impl::handleCommitKey(Chat &chat, const Inbound &inbound) {
 	chat.row.fingerprint = KeyFingerprint(chat.key);
 	chat.pfsPending.clear();
 	chat.pfsExchange = 0;
+	chat.pfsAnswerGB.clear();
+	resetKeyUsage(chat);
 	saveChat(chat);
+	// Let the initiator discard its previous key: everything from now on
+	// is encrypted with the new key, and if nothing else is scheduled a
+	// no-op carries the new fingerprint to the other side.
+	sendService(chat, BuildNoop(RandomId()));
+}
+
+void Manager::Impl::handleAcceptKey(Chat &chat, const Inbound &inbound) {
+	if (chat.row.state != int(ChatState::Ready) || chat.key.empty()) {
+		return;
+	}
+	const auto exchangeId = inbound.exchangeId;
+	if (chat.pfsOurExchange == 0 || chat.pfsOurExchange != exchangeId) {
+		// An answer to an exchange we did not initiate (stale after a
+		// restart, duplicate, or forged): never commit to it.
+		return;
+	}
+	const auto gB = inbound.value;
+	const auto secret = chat.pfsOurSecret;
+	const auto p = chat.pfsOurP;
+	const auto prime = openssl::BigNum(Span(p));
+	if (gB.empty()
+		|| gB.size() > kKeySize
+		|| !MTP::IsGoodModExpFirst(
+			openssl::BigNum(Span(gB)),
+			prime)) {
+		clearOurExchange(chat);
+		sendService(chat, BuildAbortKey(RandomId(), exchangeId));
+		return;
+	}
+	const auto raw = MTP::CreateAuthKey(
+		Span(gB),
+		Span(secret),
+		Span(p));
+	if (raw.empty()) {
+		clearOurExchange(chat);
+		sendService(chat, BuildAbortKey(RandomId(), exchangeId));
+		return;
+	}
+	const auto key = PadKey(FromBytesVector(raw));
+	const auto fingerprint = KeyFingerprint(key);
+	if (fingerprint != inbound.fingerprint) {
+		clearOurExchange(chat);
+		sendService(chat, BuildAbortKey(RandomId(), exchangeId));
+		return;
+	}
+	sendService(chat, BuildCommitKey(RandomId(), exchangeId, fingerprint));
+	chat.otherKey = chat.key;
+	chat.key = key;
+	chat.row.fingerprint = fingerprint;
+	clearOurExchange(chat);
+	resetKeyUsage(chat);
+	saveChat(chat);
+	sendService(chat, BuildNoop(RandomId()));
+}
+
+void Manager::Impl::handleAbortKey(Chat &chat, const Inbound &inbound) {
+	if (chat.row.state != int(ChatState::Ready) || chat.key.empty()) {
+		return;
+	}
+	const auto exchangeId = inbound.exchangeId;
+	if (!exchangeId) {
+		return;
+	}
+	if (chat.pfsOurExchange == exchangeId) {
+		clearOurExchange(chat);
+	} else if (chat.pfsExchange == exchangeId) {
+		chat.pfsExchange = 0;
+		chat.pfsPending.clear();
+		chat.pfsAnswerGB.clear();
+		saveChat(chat);
+	}
+}
+
+void Manager::Impl::maybeStartRekey(Chat &chat) {
+	if (chat.row.state != int(ChatState::Ready)
+		|| chat.key.empty()
+		|| !SupportsRekey(chat.row.hisLayer)) {
+		return;
+	}
+	if (chat.pfsOurExchange
+		&& chat.pfsOurStartedAt
+		&& (base::unixtime::now() - chat.pfsOurStartedAt) > kPfsOurTimeout) {
+		clearOurExchange(chat);
+		saveChat(chat);
+	}
+	if (chat.pfsExchange != 0
+		|| !chat.pfsPending.empty()
+		|| chat.pfsOurExchange != 0) {
+		// Never start a new instance while one is uncompleted.
+		return;
+	}
+	const auto due = ShouldRekey(
+		chat.keyUsesOut,
+		chat.keyUsesIn,
+		chat.keyInstalledAt,
+		base::unixtime::now(),
+		kRekeyAfterUsesOut,
+		kRekeyAfterUsesIn,
+		kRekeyAfterTime);
+	if (!due) {
+		return;
+	}
+	startRekey(chat);
+}
+
+void Manager::Impl::startRekey(Chat &chat) {
+	if (chat.row.state != int(ChatState::Ready)
+		|| chat.key.empty()
+		|| !SupportsRekey(chat.row.hisLayer)) {
+		return;
+	}
+	if (chat.pfsExchange != 0
+		|| !chat.pfsPending.empty()
+		|| chat.pfsOurExchange != 0) {
+		return;
+	}
+	const auto chatId = chat.row.chatId;
+	const auto exchangeId = RandomId();
+	requestDh([=](const DhConfig &config) {
+		const auto chat = find(chatId);
+		if (!chat
+			|| chat->row.state != int(ChatState::Ready)
+			|| chat->key.empty()
+			|| !SupportsRekey(chat->row.hisLayer)) {
+			return;
+		}
+		if (chat->pfsExchange != 0
+			|| !chat->pfsPending.empty()
+			|| chat->pfsOurExchange != 0) {
+			return;
+		}
+		const auto first = MTP::CreateModExp(
+			config.g,
+			Span(config.p),
+			Span(config.random));
+		if (first.modexp.empty() || first.randomPower.empty()) {
+			return;
+		}
+		chat->pfsOurExchange = exchangeId;
+		chat->pfsOurSecret = FromBytesVector(first.randomPower);
+		chat->pfsOurP = config.p;
+		chat->pfsOurStartedAt = base::unixtime::now();
+		sendService(
+			*chat,
+			BuildRequestKey(
+				RandomId(),
+				exchangeId,
+				FromBytesVector(first.modexp)));
+	}, [] {
+	});
 }
 
 void Manager::Impl::loadMessages(Chat &chat) {
@@ -1776,6 +2175,8 @@ void Manager::Impl::sendEncrypted(
 		const MTPInputEncryptedFile *existing,
 		Fn<void(const MTPEncryptedFile*, int)> done,
 		Fn<void()> failed) {
+	++chat.keyUsesOut;
+	maybeStartRekey(chat);
 	const auto data = ToArray(EncryptPacket(
 		chat.key,
 		creator(chat),
@@ -1787,6 +2188,11 @@ void Manager::Impl::sendEncrypted(
 			if (const auto chat = find(chatId)) {
 				chat->row.state = int(ChatState::Discarded);
 				chat->key.clear();
+				chat->otherKey.clear();
+				chat->pfsExchange = 0;
+				chat->pfsPending.clear();
+				chat->pfsAnswerGB.clear();
+				clearOurExchange(*chat);
 				chat->row.keyData.clear();
 				saveChat(*chat);
 				notify(chatId);
@@ -2632,7 +3038,7 @@ ChatInfo Manager::Impl::makeInfo(const Chat &chat, bool withKey) const {
 	info.typing = (chat.typingUntil > crl::now());
 	info.fingerprint = chat.row.fingerprint;
 	if (withKey && !chat.key.empty()) {
-		info.keyHash = KeyVisualHash(chat.key);
+		info.keyHash = chat.keyHash;
 	}
 	info.title = title(chat);
 	return info;

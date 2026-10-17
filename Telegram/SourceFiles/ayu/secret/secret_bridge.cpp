@@ -530,6 +530,7 @@ void Bridge::promptRequest(int chatId) {
 		},
 		.confirmText = tr::ayu_SecretChatAccept(),
 		.cancelText = tr::ayu_SecretChatDecline(),
+		.strictCancel = true,
 	});
 	box->boxClosing(
 	) | rpl::on_next([=] {
@@ -995,7 +996,11 @@ void WatchActiveChat(not_null<Window::SessionController*> controller) {
 		auto &manager = Get(session);
 		manager.setOpenChat(chatId);
 		if (chatId) {
-			manager.bridge().promptRequest(chatId);
+			crl::on_main(controller, [=] {
+				if (ChatIdOfPeer(controller->activeChatCurrent().peer()) == chatId) {
+					Get(session).bridge().promptRequest(chatId);
+				}
+			});
 		}
 	}, controller->lifetime());
 }
