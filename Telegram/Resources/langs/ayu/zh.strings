@@ -619,3 +619,6 @@
 "ayu_ModelsLoadFailed" = "无法加载模型列表。请检查网络连接后重新打开此窗口。";
 "ayu_FakePasscodeTooShort" = "会解锁应用的伪装密码至少需要 6 个字符。";
 "ayu_FakePasscodeConfirm" = "此密码不会显示任何内容：输入后会执行所选操作，且无法撤销。要保存吗？";
+"ayu_SecretTranslateWarning" = "这些消息的文本将发送到{provider}进行翻译。要继续吗？";
+"ayu_SecretTranslateCustomServer" = "你自定义的服务器";
+"ayu_SecretTranslateSystem" = "系统翻译器";

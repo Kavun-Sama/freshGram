@@ -632,3 +632,6 @@
 "ayu_ModelsLoadFailed" = "Die Modellliste konnte nicht geladen werden. Prüfe die Verbindung und öffne das Fenster erneut.";
 "ayu_FakePasscodeTooShort" = "Ein falscher Sperrcode, der die App entsperrt, muss mindestens 6 Zeichen lang sein.";
 "ayu_FakePasscodeConfirm" = "Dieser Code zeigt nichts an: Bei der Eingabe werden die gewählten Aktionen ausgeführt und lassen sich nicht rückgängig machen. Speichern?";
+"ayu_SecretTranslateWarning" = "Der Text dieser Nachrichten wird zur Übersetzung an {provider} gesendet. Fortfahren?";
+"ayu_SecretTranslateCustomServer" = "deinen eigenen Server";
+"ayu_SecretTranslateSystem" = "den System-Übersetzer";

@@ -9174,6 +9174,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_MessageShotTopBarText" = "Shot";
 "ayu_MessageShotPreview" = "Preview";
 "ayu_SecretTranslateWarning" = "The text of these messages will be sent to {provider} for translation. Continue?";
+"ayu_SecretTranslateCustomServer" = "your custom server";
+"ayu_SecretTranslateSystem" = "the system translator";
 "ayu_PeekButton" = "Peek last seen";
 "ayu_PeekLabel" = "Last seen (peeked)";
 "ayu_PeekChecking" = "Checking the last seen...";

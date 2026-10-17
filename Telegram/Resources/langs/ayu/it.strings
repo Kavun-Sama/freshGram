@@ -640,3 +640,6 @@
 "ayu_ModelsLoadFailed" = "Impossibile caricare l'elenco dei modelli. Controlla la connessione e riapri questa finestra.";
 "ayu_FakePasscodeTooShort" = "Un codice falso che sblocca l'app deve avere almeno 6 caratteri.";
 "ayu_FakePasscodeConfirm" = "Questo codice non mostrerà nulla: quando viene inserito, le azioni scelte vengono eseguite e non si possono annullare. Salvare?";
+"ayu_SecretTranslateWarning" = "Il testo di questi messaggi verrà inviato verso {provider} per la traduzione. Continuare?";
+"ayu_SecretTranslateCustomServer" = "il tuo server personalizzato";
+"ayu_SecretTranslateSystem" = "il traduttore di sistema";

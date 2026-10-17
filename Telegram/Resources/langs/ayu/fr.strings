@@ -640,3 +640,6 @@
 "ayu_ModelsLoadFailed" = "Impossible de charger la liste des modèles. Vérifie la connexion et rouvre cette fenêtre.";
 "ayu_FakePasscodeTooShort" = "Un faux code qui déverrouille l'application doit comporter au moins 6 caractères.";
 "ayu_FakePasscodeConfirm" = "Ce code n'affichera rien : lorsqu'il est saisi, les actions choisies s'exécutent et sont irréversibles. Enregistrer ?";
+"ayu_SecretTranslateWarning" = "Le texte de ces messages sera envoyé vers {provider} pour être traduit. Continuer ?";
+"ayu_SecretTranslateCustomServer" = "ton serveur personnalisé";
+"ayu_SecretTranslateSystem" = "le traducteur du système";

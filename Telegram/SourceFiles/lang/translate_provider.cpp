@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer.h"
 #include "data/data_session.h"
 #include "history/history_item.h"
+#include "lang/lang_keys.h"
 #include "lang/translate_mtproto_provider.h"
 #include "lang/translate_url_provider.h"
 #include "platform/platform_translate_provider.h"
@@ -92,7 +93,7 @@ QString TranslateProviderIdentity() {
 QString TranslateProviderName() {
 	const auto urlTemplate = OptionTranslateUrlTemplate.value();
 	if (!urlTemplate.isEmpty() && urlTemplate.contains(u"%q"_q)) {
-		return u"custom server"_q;
+		return tr::ayu_SecretTranslateCustomServer(tr::now);
 	}
 	switch (ResolveTranslateProvider()) {
 	case TranslationProvider::Google:
@@ -103,7 +104,7 @@ QString TranslateProviderName() {
 		if (!Platform::IsTranslateProviderAvailable()) {
 			return u"Telegram"_q;
 		}
-		return u"system translator"_q;
+		return tr::ayu_SecretTranslateSystem(tr::now);
 	case TranslationProvider::Telegram:
 		return u"Telegram"_q;
 	}
