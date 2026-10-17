@@ -344,6 +344,12 @@ set(ayugram_files
         ayu/data/ayu_database_backup.h
         ayu/data/ayu_database_report.cpp
         ayu/data/ayu_database_report.h
+        ayu/data/ayu_migration_v4.cpp
+        ayu/data/ayu_migration_v4.h
+        ayu/data/message_rows.cpp
+        ayu/data/message_rows.h
+        ayu/data/message_schema.h
+        ayu/data/message_types.h
 
         info/profile/info_profile_music_button.cpp
         info/profile/info_profile_music_button.h
