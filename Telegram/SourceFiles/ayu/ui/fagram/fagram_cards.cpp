@@ -134,9 +134,10 @@ void Collect(
 class Backdrop final : public ::Ui::RpWidget {
 public:
 	Backdrop(
+		QWidget *parent,
 		not_null<::Ui::VerticalLayout*> container,
 		int inset)
-	: RpWidget(container)
+	: RpWidget(parent)
 	, _container(container)
 	, _inset(inset) {
 		setAttribute(Qt::WA_TransparentForMouseEvents);
