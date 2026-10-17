@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/ui/dialogs_stories_content.h"
 
+#include "lang_auto.h"
+#include "ayu/features/stories/story_entry.h"
 #include "base/unixtime.h"
 #include "data/data_changes.h"
 #include "data/data_document.h"
@@ -223,6 +225,9 @@ void FillSourceMenu(
 	const auto peer = owner->peer(PeerId(request.id));
 	const auto &add = request.callback;
 	if (peer->isSelf()) {
+		add(tr::ayu_StoryAdd(tr::now), [=] {
+			AyuStories::StartPosting(controller, peer);
+		}, &st::menuIconAdd);
 		add(tr::lng_stories_archive_button(tr::now), [=] {
 			controller->showSection(Info::Stories::Make(
 				peer,

@@ -98,6 +98,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QSvgRenderer>
 
 #include "ayu/ayu_settings.h"
+#include "lang_auto.h"
+#include "ayu/features/stories/story_entry.h"
 
 
 namespace InlineBots {
@@ -3077,6 +3079,9 @@ std::unique_ptr<Ui::DropdownMenu> MakeAttachBotsMenu(
 			ChooseAndSendLocation(controller, config, actionFactory());
 		}, &st::menuIconAddress);
 	}
+	raw->addAction(tr::ayu_StoryAdd(tr::now), [=] {
+		AyuStories::StartPosting(controller, controller->session().user());
+	}, &st::menuIconAdd);
 	if (Data::CanSend(peer, ChatRestriction::SendMusic, false)) {
 		++minimal;
 		raw->addAction(tr::lng_all_music(tr::now), [=] {
