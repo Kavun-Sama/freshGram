@@ -1,3 +1,17 @@
+7.5.5 beta (18.10.26)
+
+- Add a button to translate the text of the message field.
+- Add posting of stories with a preview window.
+- Add the cards, sliders and switches of the Fagram design.
+- Save the history of inline buttons and choose which edits to keep.
+- Stash message drafts and files from the chats.
+- Delete own messages for a period, the last ones or by topics.
+- Show the deleted messages in the chat search.
+- Keep the database in an encrypted file with a smaller size and memory use.
+- Confirm before translating secret chat text and rotate the secret chat keys.
+- Keep a lost chat in the list at the time it was lost.
+- Fix the application icon on macOS.
+
 7.5.1 beta (13.10.26)
 
 - Open big saved media of deleted messages on click.
