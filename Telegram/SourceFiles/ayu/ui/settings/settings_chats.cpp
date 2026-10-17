@@ -17,6 +17,7 @@
 #include "settings/settings_common.h"
 #include "spellcheck/spellcheck_types.h"
 #include "ui/boxes/choose_language_box.h"
+#include "ui/layers/generic_box.h"
 #include "styles/style_ayu_icons.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"

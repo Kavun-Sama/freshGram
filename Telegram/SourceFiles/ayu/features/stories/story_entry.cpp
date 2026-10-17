@@ -53,7 +53,7 @@ void ChooseFile(
 			std::move(list->files.front()));
 	});
 	FileDialog::GetOpenPath(
-		QPointer<QWidget>(controller->widget().get()),
+		controller->content().get(),
 		tr::ayu_StoryChoose(tr::now),
 		FileDialog::PhotoVideoFilesFilter(),
 		callback);
