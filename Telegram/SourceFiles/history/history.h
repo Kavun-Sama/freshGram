@@ -112,6 +112,9 @@ public:
 	void checkLocalMessages();
 	[[nodiscard]] bool ayuKept() const;
 	void setAyuKept(bool kept);
+	// The place in the chats list of a kept chat, zero follows the last message.
+	[[nodiscard]] TimeId ayuKeptTime() const;
+	void setAyuKeptTime(TimeId time);
 	void restoreAyuKept();
 	void ayuRestoreMarkStale();
 	void ayuRestoreThread(MsgId rootId);
@@ -700,6 +703,7 @@ private:
 	bool _loadedAtTop = false;
 	bool _loadedAtBottom = true;
 	bool _ayuKept = false;
+	TimeId _ayuKeptTime = 0;
 
 	std::optional<Data::Folder*> _folder;
 	Data::CommunityInfo *_communityInfo = nullptr;

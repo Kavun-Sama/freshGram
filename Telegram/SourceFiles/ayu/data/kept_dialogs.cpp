@@ -118,7 +118,9 @@ std::set<PeerData*> Leaving;
 		row.accessHash = ID(channel->accessHash());
 	}
 	row.folderId = history->folder() ? history->folder()->id() : 0;
-	row.lastMessageDate = history->chatListTimeId();
+	row.lastMessageDate = history->ayuKeptTime()
+		? history->ayuKeptTime()
+		: history->chatListTimeId();
 	row.lost = lost ? 1 : 0;
 	return row;
 }
@@ -440,6 +442,7 @@ void Restore(
 			RestoreTopics(peer, i->second);
 		}
 	}
+	history->setAyuKeptTime(row.lastMessageDate);
 	history->setAyuKept(true);
 	if (!history->folderKnown()) {
 		history->clearFolder();
@@ -556,6 +559,8 @@ void markLost(not_null<History*> history) {
 		|| (!history->lastMessage() && !hasKeptTopics(history))) {
 		return;
 	}
+	// The chat stays in the list where it was when it was lost.
+	history->setAyuKeptTime(base::unixtime::now());
 	history->setAyuKept(true);
 	SaveSnapshot(history);
 	AyuDatabase::saveKeptDialog(MakeRow(history, true));

@@ -2642,6 +2642,9 @@ void History::applyPinnedUpdate(const MTPDupdateDialogPinned &data) {
 }
 
 TimeId History::adjustedChatListTimeId() const {
+	if (_ayuKeptTime) {
+		return _ayuKeptTime;
+	}
 	const auto result = chatListTimeId();
 	if (const auto channel = peer->asChannel()) {
 		if (channel->isCommunity()) {
@@ -4344,7 +4347,24 @@ void History::setAyuKept(bool kept) {
 		return;
 	}
 	_ayuKept = kept;
+	if (!kept) {
+		_ayuKeptTime = 0;
+		updateChatListSortPosition();
+	}
 	updateChatListExistence();
+	updateChatListEntryPostponed();
+}
+
+TimeId History::ayuKeptTime() const {
+	return _ayuKeptTime;
+}
+
+void History::setAyuKeptTime(TimeId time) {
+	if (_ayuKeptTime == time) {
+		return;
+	}
+	_ayuKeptTime = time;
+	updateChatListSortPosition();
 	updateChatListEntryPostponed();
 }
 
