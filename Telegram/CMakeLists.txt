@@ -162,6 +162,8 @@ set(ayugram_files
         ayu/ui/boxes/recognition_models_box.h
         ayu/ui/fagram/fagram_nav_drawer.cpp
         ayu/ui/fagram/fagram_nav_drawer.h
+        ayu/ui/fagram/fagram_cards.cpp
+        ayu/ui/fagram/fagram_cards.h
         ayu/ui/fagram/fagram_switch.cpp
         ayu/ui/fagram/fagram_switch.h
         ayu/ui/fagram/fagram_design.h

@@ -17,9 +17,16 @@
 #include <QtCore/QtMath>
 
 #include "ayu/ayu_ui_settings.h"
+#include "ayu/ayu_card_segment.h"
+#include "ui/style/style_core_scale.h"
 
 namespace Ui {
 namespace {
+
+[[nodiscard]] bool Md3Switch() {
+	return AyuUiSettings::designStyle()
+		== AyuUiSettings::DesignStyle::Fagram;
+}
 
 int SwitchShift(not_null<const style::Toggle *> st) {
 	return AyuUiSettings::isMaterialSwitches() ? st->shift : st::defaultToggleShift;
@@ -98,6 +105,9 @@ ToggleView::ToggleView(
 }
 
 QSize ToggleView::getSize() const {
+	if (Md3Switch() && !_locked) {
+		return QSize(style::ConvertScale(48), style::ConvertScale(28));
+	}
 	return QSize(2 * _st->border + SwitchDiameter(_st) + _st->width, 2 * _st->border + SwitchDiameter(_st));
 }
 
@@ -106,6 +116,23 @@ void ToggleView::setStyle(const style::Toggle &st) {
 }
 
 void ToggleView::paint(QPainter &p, int left, int top, int outerWidth) {
+	if (Md3Switch() && !_locked) {
+		const auto size = getSize();
+		const auto rect = style::rtlrect(
+			left,
+			top,
+			size.width(),
+			size.height(),
+			outerWidth);
+		AyuUiSettings::PaintMd3Switch(
+			p,
+			rect.x(),
+			rect.y(),
+			currentAnimationValue(),
+			rect.width(),
+			rect.height());
+		return;
+	}
 	left += _st->border;
 	top += _st->border;
 

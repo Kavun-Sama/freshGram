@@ -36,6 +36,15 @@ QMargins VerticalLayout::getMargins() const {
 	return result;
 }
 
+style::margins VerticalLayout::rowMargin(int index) const {
+	Expects(index >= 0 && index < _rows.size());
+
+	auto result = _rows[index].margin;
+	result.setLeft(result.left() - _rowInset);
+	result.setRight(result.right() - _rowInset);
+	return result;
+}
+
 void VerticalLayout::setVerticalShift(int index, int shift) {
 	Expects(index >= 0 && index < _rows.size());
 
@@ -133,11 +142,14 @@ int VerticalLayout::moveChildGetSkip(
 RpWidget *VerticalLayout::insertChild(
 		int atPosition,
 		object_ptr<RpWidget> child,
-		const style::margins &margin,
+		const style::margins &margin_,
 		style::align align) {
 	Expects(atPosition >= 0 && atPosition <= _rows.size());
 	Expects(!_inResize);
 
+	auto margin = margin_;
+	margin.setLeft(margin.left() + _rowInset);
+	margin.setRight(margin.right() + _rowInset);
 	if (const auto weak = AttachParentChild(this, child)) {
 		const auto converted = (align == style::al_justify)
 			? kAlignJustify

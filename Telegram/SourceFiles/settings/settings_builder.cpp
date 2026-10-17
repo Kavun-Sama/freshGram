@@ -22,6 +22,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller.h"
 #include "styles/style_settings.h"
 
+#include "ayu/ui/fagram/fagram_cards.h"
+#include "ayu/ui/fagram/fagram_design.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 
 
@@ -169,6 +171,11 @@ std::vector<SearchEntry> BuildHelper::index(
 
 SectionBuilder::SectionBuilder(BuildContext context)
 : _context(std::move(context)) {
+	if (const auto wctx = std::get_if<WidgetContext>(&_context)) {
+		if (FA::Ui::Enabled()) {
+			FA::Ui::AttachCards(wctx->container);
+		}
+	}
 }
 
 void SectionBuilder::add(FnMut<void(const BuildContext &ctx)> method) {

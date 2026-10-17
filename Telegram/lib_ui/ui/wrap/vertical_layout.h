@@ -76,6 +76,16 @@ public:
 
 	QMargins getMargins() const override;
 
+	// Every row added after this call is narrowed by the inset on both
+	// sides, the margin of the row (without the inset) is rowMargin().
+	void setRowInset(int inset) {
+		_rowInset = inset;
+	}
+	[[nodiscard]] int rowInset() const {
+		return _rowInset;
+	}
+	[[nodiscard]] style::margins rowMargin(int index) const;
+
 	void setVerticalShift(int index, int shift);
 	void reorderRows(int oldIndex, int newIndex);
 
@@ -119,6 +129,7 @@ private:
 		const style::margins &margins) const;
 
 	std::vector<Row> _rows;
+	int _rowInset = 0;
 	bool _inResize = false;
 
 	rpl::lifetime _rowsLifetime;

@@ -211,6 +211,9 @@ void RippleButton::ensureRipple() {
 }
 
 QImage RippleButton::prepareRippleMask() const {
+	if (_cardSegment != AyuUiSettings::CardSegment::None) {
+		return AyuUiSettings::CardSegmentMask(size(), _cardSegment);
+	}
 	return RippleAnimation::RectMask(size());
 }
 
@@ -970,7 +973,9 @@ void SettingsButton::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 
 	const auto paintOver = (isOver() || isDown()) && !isDisabled();
-	paintBg(p, e->rect(), paintOver);
+	if (cardSegment() == AyuUiSettings::CardSegment::None) {
+		paintBg(p, e->rect(), paintOver);
+	}
 
 	paintRipple(p, 0, 0);
 

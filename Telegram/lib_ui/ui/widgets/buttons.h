@@ -11,6 +11,7 @@
 #include "ui/effects/animations.h"
 #include "ui/text/text.h"
 #include "styles/style_widgets.h"
+#include "ayu/ayu_card_segment.h"
 
 #include <cstddef>
 #include <memory>
@@ -87,6 +88,18 @@ public:
 
 	void finishAnimating();
 
+	// A row of a Fagram card: the card paints the background and
+	// the ripple is clipped by the shape of the segment.
+	void setCardSegment(AyuUiSettings::CardSegment segment) {
+		if (_cardSegment != segment) {
+			_cardSegment = segment;
+			update();
+		}
+	}
+	[[nodiscard]] AyuUiSettings::CardSegment cardSegment() const {
+		return _cardSegment;
+	}
+
 	~RippleButton();
 
 protected:
@@ -100,6 +113,7 @@ private:
 
 	const style::RippleAnimation &_st;
 	std::unique_ptr<RippleAnimation> _ripple;
+	AyuUiSettings::CardSegment _cardSegment = AyuUiSettings::CardSegment::None;
 	bool _forceRippled = false;
 	rpl::lifetime _forceRippledSubscription;
 
