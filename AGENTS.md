@@ -179,6 +179,9 @@ user to close that checkout's Telegram/debugger before rebuilding.
 
 ## Debug-Only Code
 
+Never commit screenshots or attach private screenshots to pull requests.
+Keep all runtime captures, profiles and one-off verification artifacts outside Git.
+
 Production translation units stay free of debug machinery. The permanent test
 harness lives in `Telegram/SourceFiles/test/`, and the disposable `-testagent`
 overlay owns per-task instrumentation; production code carries at most a thin

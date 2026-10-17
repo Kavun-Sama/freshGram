@@ -19,7 +19,11 @@ class Session;
 namespace Ui {
 
 [[nodiscard]] std::unique_ptr<TranslateProvider> CreateTranslateProvider(
-	not_null<Main::Session*> session);
+	not_null<Main::Session*> session,
+	const QString &requiredIdentity = {});
+
+[[nodiscard]] QString TranslateProviderName();
+[[nodiscard]] QString TranslateProviderIdentity();
 
 [[nodiscard]] TranslateProviderRequest PrepareTranslateProviderRequest(
 	not_null<TranslateProvider*> provider,

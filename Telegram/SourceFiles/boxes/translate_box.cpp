@@ -9,6 +9,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/translate_box_content.h"
 #include "lang/translate_provider.h"
 
+#include "api/api_text_entities.h"
+#include "ayu/secret/secret_peer.h"
 #include "base/weak_ptr.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
@@ -38,8 +40,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/selecting_scroll.h"
 #include "ui/wrap/fade_wrap.h"
 #include "ui/wrap/slide_wrap.h"
+#include "window/window_session_controller.h"
 #include "ui/basic_click_handlers.h"
+#include "ui/boxes/confirm_box.h"
 #include "ui/integration.h"
+#include "ui/layers/box_content.h"
 #include "ui/power_saving.h"
 #include "ui/vertical_list.h"
 #include "window/window_session_controller.h"
@@ -417,22 +422,27 @@ void SetupRichArticleBody(
 
 } // namespace
 
-void TranslateBox(
+void TranslateBoxImpl(
 		not_null<Ui::GenericBox*> box,
 		not_null<PeerData*> peer,
 		MsgId msgId,
 		TextWithEntities text,
-		bool hasCopyRestriction) {
+		bool hasCopyRestriction,
+		const QString &providerIdentity = {}) {
 	struct State {
-		State(not_null<Main::Session*> session)
-		: provider(CreateTranslateProvider(session)) {
+		State(not_null<Main::Session*> session, const QString &identity)
+		: provider(CreateTranslateProvider(session, identity)) {
 		}
 
 		std::unique_ptr<TranslateProvider> provider;
 		rpl::variable<LanguageId> to;
 	};
-	const auto state = box->lifetime().make_state<State>(&peer->session());
-	if (IsServerMsgId(msgId) && state->provider->supportsMessageId()) {
+	const auto state = box->lifetime().make_state<State>(
+		&peer->session(),
+		providerIdentity);
+	if (state->provider
+		&& IsServerMsgId(msgId)
+		&& state->provider->supportsMessageId()) {
 		if (const auto item = peer->owner().message(peer->id, msgId)) {
 			if (const auto page = item->richPage()) {
 				if (TranslateRichBox(
@@ -449,11 +459,13 @@ void TranslateBox(
 	}
 	state->to = ChooseTranslateTo(peer->owner().history(peer));
 	const auto request = std::make_shared<TranslateProviderRequest>(
-		PrepareTranslateProviderRequest(
-			state->provider.get(),
-			peer,
-			msgId,
-			std::move(text)));
+		state->provider
+			? PrepareTranslateProviderRequest(
+				state->provider.get(),
+				peer,
+				msgId,
+				std::move(text))
+			: TranslateProviderRequest{ .text = std::move(text) });
 
 	TranslateBoxContent(box, {
 		.text = request->text,
@@ -468,6 +480,12 @@ void TranslateBox(
 		.request = [=](
 				LanguageId to,
 				Fn<void(TranslateBoxContentResult)> done) {
+			if (!state->provider) {
+				done(TranslateBoxContentResult{
+					.error = TranslateBoxContentError::Unknown,
+				});
+				return;
+			}
 			state->provider->request(
 				*request,
 				to,
@@ -486,6 +504,63 @@ void TranslateBox(
 				});
 		},
 	});
+}
+
+void TranslateBox(
+		not_null<Ui::GenericBox*> box,
+		not_null<PeerData*> peer,
+		MsgId msgId,
+		TextWithEntities text,
+		bool hasCopyRestriction) {
+	TranslateBoxImpl(box, peer, msgId, std::move(text), hasCopyRestriction);
+}
+
+void ShowTranslateBox(
+		not_null<Window::SessionController*> controller,
+		not_null<PeerData*> peer,
+		MsgId msgId,
+		TextWithEntities text,
+		bool hasCopyRestriction) {
+	if (!AyuSecret::IsSecretPeerId(peer->id)) {
+		controller->show(Box(
+			Ui::TranslateBox,
+			peer,
+			msgId,
+			std::move(text),
+			hasCopyRestriction));
+		return;
+	}
+	// Secret chats: translating sends the text to the provider's
+	// server, so ask before even opening the translate box.
+	const auto providerName = TranslateProviderName();
+	const auto providerIdentity = TranslateProviderIdentity();
+	controller->show(Ui::MakeConfirmBox({
+		.text = tr::ayu_SecretTranslateWarning(
+			tr::now,
+			lt_provider,
+			providerName),
+		.confirmed = crl::guard(controller, [=, text = std::move(text)](
+				Fn<void()> close) mutable {
+			close();
+			if (TranslateProviderIdentity() != providerIdentity) {
+				ShowTranslateBox(
+					controller,
+					peer,
+					msgId,
+					std::move(text),
+					hasCopyRestriction);
+				return;
+			}
+			controller->show(Box(
+				TranslateBoxImpl,
+				peer,
+				msgId,
+				std::move(text),
+				hasCopyRestriction,
+				providerIdentity));
+		}),
+		.confirmText = tr::lng_context_translate(tr::now),
+	}));
 }
 
 bool SkipTranslate(TextWithEntities textWithEntities) {

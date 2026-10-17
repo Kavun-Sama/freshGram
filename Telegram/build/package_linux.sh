@@ -31,6 +31,7 @@ docker run --rm -e FRESHGRAM_VERSION="$pacman_version" -v "$arch:/pkg" archlinux
 	chown -R builder /pkg
 	su builder -c "cd /pkg && FRESHGRAM_VERSION=$FRESHGRAM_VERSION makepkg -f --nodeps"
 ' || exit 1
+sudo chown -R "$(id -u):$(id -g)" "$arch" || exit 1
 cp "$arch"/freshgram-*.pkg.tar.zst "$out/freshGram$suffix.pacman" || exit 1
 
 optional "Flatpak bundle" "$here/flatpak/build.sh" "$usr" "$out/freshGram$suffix.flatpak"

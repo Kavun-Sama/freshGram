@@ -108,6 +108,8 @@ jobs:
           DEBUG= LTO= python3 gen_dockerfile.py > Dockerfile.generated
 
       - name: Build and push image
+        env:
+          IMAGE_REVISION: ${{ hashFiles('Telegram/build/docker/centos_env/Dockerfile', 'Telegram/build/docker/centos_env/gen_dockerfile.py') }}
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
           cache="ghcr.io/$owner/freshgram-build-cache"
@@ -119,6 +121,7 @@ jobs:
           docker buildx build \
             --file Dockerfile.generated \
             $cache_from \
+            --tag "ghcr.io/$owner/freshgram-build-env:deps-$IMAGE_REVISION" \
             --tag "ghcr.io/$owner/freshgram-build-env:latest" \
             --push \
             .

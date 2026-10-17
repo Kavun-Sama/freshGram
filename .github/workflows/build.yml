@@ -36,6 +36,9 @@ permissions:
   contents: write
   packages: read
 
+env:
+  BUILD_CONFIG: ${{ (github.ref_type == 'tag' || github.event.inputs.release_tag != '') && 'Release' || 'Debug' }}
+
 jobs:
   linux:
     name: Linux x86_64
@@ -82,11 +85,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull build environment
+        env:
+          IMAGE_REVISION: ${{ hashFiles('Telegram/build/docker/centos_env/Dockerfile', 'Telegram/build/docker/centos_env/gen_dockerfile.py') }}
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
-          image="ghcr.io/$owner/freshgram-build-env:latest"
+          image="ghcr.io/$owner/freshgram-build-env:deps-$IMAGE_REVISION"
           if ! docker pull "$image"; then
-            echo "::error::Build environment image is missing, run the 'Build environment' workflow first."
+            echo "::error::Build environment deps-$IMAGE_REVISION is missing; run 'Build environment' from this ref."
             exit 1
           fi
           echo "IMAGE=$image" >> "$GITHUB_ENV"
@@ -110,14 +115,16 @@ jobs:
             -u "$(id -u)" \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$CCACHE_DIR:/var/cache/ccache" \
-            -e CONFIG=Release \
+            -e CONFIG="$BUILD_CONFIG" \
             -e KEEP_GOING=1 \
             -e CMAKE_BUILD_PARALLEL_LEVEL=2 \
             -e CCACHE_MAXSIZE=3G \
             -e CCACHE_SLOPPINESS=pch_defines,time_macros \
             "$IMAGE" \
             env -u CCACHE_DISABLE nice -n 10 timeout 55m /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-            -D CMAKE_CONFIGURATION_TYPES=Release \
+            -D CMAKE_CONFIGURATION_TYPES="$BUILD_CONFIG" \
+            -D CMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_INSTALL_PREFIX=/usr \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
@@ -142,14 +149,16 @@ jobs:
             -u "$(id -u)" \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$CCACHE_DIR:/var/cache/ccache" \
-            -e CONFIG=Release \
+            -e CONFIG="$BUILD_CONFIG" \
             -e KEEP_GOING=1 \
             -e CMAKE_BUILD_PARALLEL_LEVEL=2 \
             -e CCACHE_MAXSIZE=3G \
             -e CCACHE_SLOPPINESS=pch_defines,time_macros \
             "$IMAGE" \
             env -u CCACHE_DISABLE nice -n 10 timeout 55m /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-            -D CMAKE_CONFIGURATION_TYPES=Release \
+            -D CMAKE_CONFIGURATION_TYPES="$BUILD_CONFIG" \
+            -D CMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_INSTALL_PREFIX=/usr \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
@@ -174,14 +183,16 @@ jobs:
             -u "$(id -u)" \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$CCACHE_DIR:/var/cache/ccache" \
-            -e CONFIG=Release \
+            -e CONFIG="$BUILD_CONFIG" \
             -e KEEP_GOING=1 \
             -e CMAKE_BUILD_PARALLEL_LEVEL=2 \
             -e CCACHE_MAXSIZE=3G \
             -e CCACHE_SLOPPINESS=pch_defines,time_macros \
             "$IMAGE" \
             env -u CCACHE_DISABLE nice -n 10 timeout 55m /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-            -D CMAKE_CONFIGURATION_TYPES=Release \
+            -D CMAKE_CONFIGURATION_TYPES="$BUILD_CONFIG" \
+            -D CMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_INSTALL_PREFIX=/usr \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
@@ -206,14 +217,16 @@ jobs:
             -u "$(id -u)" \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$CCACHE_DIR:/var/cache/ccache" \
-            -e CONFIG=Release \
+            -e CONFIG="$BUILD_CONFIG" \
             -e KEEP_GOING=1 \
             -e CMAKE_BUILD_PARALLEL_LEVEL=2 \
             -e CCACHE_MAXSIZE=3G \
             -e CCACHE_SLOPPINESS=pch_defines,time_macros \
             "$IMAGE" \
             env -u CCACHE_DISABLE nice -n 10 timeout 55m /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-            -D CMAKE_CONFIGURATION_TYPES=Release \
+            -D CMAKE_CONFIGURATION_TYPES="$BUILD_CONFIG" \
+            -D CMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_INSTALL_PREFIX=/usr \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
@@ -238,14 +251,16 @@ jobs:
             -u "$(id -u)" \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$CCACHE_DIR:/var/cache/ccache" \
-            -e CONFIG=Release \
+            -e CONFIG="$BUILD_CONFIG" \
             -e KEEP_GOING=1 \
             -e CMAKE_BUILD_PARALLEL_LEVEL=2 \
             -e CCACHE_MAXSIZE=3G \
             -e CCACHE_SLOPPINESS=pch_defines,time_macros \
             "$IMAGE" \
             env -u CCACHE_DISABLE nice -n 10 timeout 55m /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-            -D CMAKE_CONFIGURATION_TYPES=Release \
+            -D CMAKE_CONFIGURATION_TYPES="$BUILD_CONFIG" \
+            -D CMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_INSTALL_PREFIX=/usr \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
@@ -270,14 +285,16 @@ jobs:
             -u "$(id -u)" \
             -v "$PWD:/usr/src/tdesktop" \
             -v "$CCACHE_DIR:/var/cache/ccache" \
-            -e CONFIG=Release \
+            -e CONFIG="$BUILD_CONFIG" \
             -e KEEP_GOING=1 \
             -e CMAKE_BUILD_PARALLEL_LEVEL=2 \
             -e CCACHE_MAXSIZE=3G \
             -e CCACHE_SLOPPINESS=pch_defines,time_macros \
             "$IMAGE" \
             env -u CCACHE_DISABLE nice -n 10 /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-            -D CMAKE_CONFIGURATION_TYPES=Release \
+            -D CMAKE_CONFIGURATION_TYPES="$BUILD_CONFIG" \
+            -D CMAKE_BUILD_TYPE="$BUILD_CONFIG" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_INSTALL_PREFIX=/usr \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
             -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
@@ -333,7 +350,7 @@ jobs:
       - name: Package
         run: |
           set -e
-          binary=$(find out/Release -maxdepth 1 -type f -perm -u+x \( -iname 'freshgram' -o -iname 'telegram' \) | head -1)
+          binary=$(find "out/$BUILD_CONFIG" -maxdepth 1 -type f -perm -u+x \( -iname 'freshgram' -o -iname 'telegram' \) | head -1)
           test -n "$binary"
           echo "Built $binary ($(stat -c %s "$binary") bytes)"
           version=$(awk '/^AppVersionStr /{print $2}' Telegram/build/version)

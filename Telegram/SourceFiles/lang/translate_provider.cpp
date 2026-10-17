@@ -40,18 +40,31 @@ base::options::option<QString> OptionTranslateUrlTemplate({
 	return provider;
 }
 
+[[nodiscard]] QString ProviderIdentity(
+		TranslationProvider provider,
+		const QString &urlTemplate) {
+	return (!urlTemplate.isEmpty() && urlTemplate.contains(u"%q"_q))
+		? (u"url:"_q + urlTemplate)
+		: (u"provider:"_q + QString::number(int(provider)));
+}
+
 } // namespace
 
 namespace Ui {
 
 std::unique_ptr<TranslateProvider> CreateTranslateProvider(
-		not_null<Main::Session*> session) {
+		not_null<Main::Session*> session,
+		const QString &requiredIdentity) {
 	const auto urlTemplate = OptionTranslateUrlTemplate.value();
+	const auto provider = ResolveTranslateProvider();
+	if (!requiredIdentity.isEmpty()
+		&& ProviderIdentity(provider, urlTemplate) != requiredIdentity) {
+		return nullptr;
+	}
 	if (!urlTemplate.isEmpty()
 		&& urlTemplate.contains(u"%q"_q)) {
 		return CreateUrlTranslateProvider(urlTemplate);
 	}
-	const auto provider = ResolveTranslateProvider();
 	switch (provider) {
 	case TranslationProvider::Google:
 	case TranslationProvider::Yandex:
@@ -60,11 +73,41 @@ std::unique_ptr<TranslateProvider> CreateTranslateProvider(
 		if (auto native = Platform::CreateTranslateProvider()) {
 			return native;
 		}
+		if (!requiredIdentity.isEmpty()) {
+			return nullptr;
+		}
 		break;
 	case TranslationProvider::Telegram:
 		break;
 	}
 	return CreateMTProtoTranslateProvider(session);
+}
+
+QString TranslateProviderIdentity() {
+	return ProviderIdentity(
+		ResolveTranslateProvider(),
+		OptionTranslateUrlTemplate.value());
+}
+
+QString TranslateProviderName() {
+	const auto urlTemplate = OptionTranslateUrlTemplate.value();
+	if (!urlTemplate.isEmpty() && urlTemplate.contains(u"%q"_q)) {
+		return u"custom server"_q;
+	}
+	switch (ResolveTranslateProvider()) {
+	case TranslationProvider::Google:
+		return u"Google"_q;
+	case TranslationProvider::Yandex:
+		return u"Yandex"_q;
+	case TranslationProvider::Native:
+		if (!Platform::IsTranslateProviderAvailable()) {
+			return u"Telegram"_q;
+		}
+		return u"system translator"_q;
+	case TranslationProvider::Telegram:
+		return u"Telegram"_q;
+	}
+	return u"Telegram"_q;
 }
 
 TranslateProviderRequest PrepareTranslateProviderRequest(

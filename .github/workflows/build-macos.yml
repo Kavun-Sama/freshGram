@@ -33,6 +33,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  BUILD_CONFIG: ${{ (github.ref_type == 'tag' || github.event.inputs.release_tag != '') && 'Release' || 'Debug' }}
+
 jobs:
   libraries:
     name: macOS libraries
@@ -167,6 +170,7 @@ jobs:
           ./configure.sh \
             -D TDESKTOP_API_ID="$API_ID" \
             -D TDESKTOP_API_HASH="$API_HASH" \
+            -D CMAKE_CXX_FLAGS_DEBUG=-g1 \
             -D CMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -D CMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
             -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
@@ -176,7 +180,7 @@ jobs:
         run: |
           cd freshGram
           for attempt in 1 2 3; do
-            if cmake --build out --config Release --target Telegram; then
+            if cmake --build out --config "$BUILD_CONFIG" --target Telegram; then
               exit 0
             fi
             echo "::warning::Build attempt $attempt failed, trying again"
@@ -202,7 +206,7 @@ jobs:
       - name: Package
         run: |
           set -e
-          app=$(find freshGram/out/Release -maxdepth 1 -name '*.app' | head -1)
+          app=$(find "freshGram/out/$BUILD_CONFIG" -maxdepth 1 -name '*.app' | head -1)
           test -n "$app"
           mkdir -p dist dmg
           if [ -n "${{ steps.release.outputs.tag }}" ]; then

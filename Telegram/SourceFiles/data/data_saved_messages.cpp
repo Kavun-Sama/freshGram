@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_saved_messages.h"
 
 #include "apiwrap.h"
+#include "ayu/features/compose_stash/compose_stash.h"
 #include "core/application.h"
 #include "data/components/recent_peers.h"
 #include "data/data_changes.h"

@@ -33,6 +33,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  BUILD_CONFIG: ${{ (github.ref_type == 'tag' || github.event.inputs.release_tag != '') && 'Release' || 'Debug' }}
+
 jobs:
   windows:
     name: Windows x64 portable
@@ -149,7 +152,7 @@ jobs:
         id: build
         continue-on-error: true
         shell: pwsh
-        run: ./ci/.github/scripts/windows-build.ps1
+        run: ./freshGram/.github/scripts/windows-build.ps1 -Configuration $env:BUILD_CONFIG
 
       - name: Add paging space for the link
         id: pagefile
@@ -163,7 +166,7 @@ jobs:
         if: steps.build.outcome == 'failure' && steps.pagefile.outcome == 'success'
         continue-on-error: true
         shell: pwsh
-        run: ./ci/.github/scripts/windows-build.ps1
+        run: ./freshGram/.github/scripts/windows-build.ps1 -Configuration $env:BUILD_CONFIG
 
       - name: Link again with lld-link
         id: lld
@@ -173,7 +176,7 @@ jobs:
         run: |
           $llvm = if ($env:llvmX64) { $env:llvmX64 } else { Join-Path $env:VCINSTALLDIR 'Tools\Llvm\x64\bin' }
           Write-Host "lld-link: $(Test-Path (Join-Path $llvm 'lld-link.exe')) in $llvm"
-          ./ci/.github/scripts/windows-build.ps1 -ExtraArguments @("/p:LinkToolPath=$llvm", '/p:LinkToolExe=lld-link.exe')
+          ./freshGram/.github/scripts/windows-build.ps1 -Configuration $env:BUILD_CONFIG -ExtraArguments @("/p:LinkToolPath=$llvm", '/p:LinkToolExe=lld-link.exe')
 
       - name: Stop when the build failed
         if: steps.build.outcome == 'failure' && steps.relink.outcome != 'success' && steps.lld.outcome != 'success'
@@ -185,7 +188,7 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          $exe = Get-ChildItem freshGram/out/Release -Filter freshGram.exe | Select-Object -First 1
+          $exe = Get-ChildItem "freshGram/out/$env:BUILD_CONFIG" -Filter freshGram.exe | Select-Object -First 1
           if (-not $exe) { throw "freshGram.exe was not built" }
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item $exe.FullName dist/freshGram.exe
@@ -208,12 +211,12 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          $pdb = Get-ChildItem freshGram/out/Release -Filter *.pdb -ErrorAction SilentlyContinue
+          $pdb = Get-ChildItem "freshGram/out/$env:BUILD_CONFIG" -Filter *.pdb -ErrorAction SilentlyContinue
           if ($pdb) {
             New-Item -ItemType Directory -Force symbols | Out-Null
             7z a -mx=3 symbols/freshGram-pdb.7z ($pdb | ForEach-Object { $_.FullName })
           } else {
-            Write-Host "No .pdb files were found in freshGram/out/Release."
+            Write-Host "No .pdb files were found in freshGram/out/$env:BUILD_CONFIG."
           }
 
       - name: Upload symbols

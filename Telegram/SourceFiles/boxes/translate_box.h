@@ -13,6 +13,10 @@ class History;
 class PeerData;
 struct LanguageId;
 
+namespace Window {
+class SessionController;
+} // namespace Window
+
 namespace Ui {
 
 class BoxContent;
@@ -20,6 +24,15 @@ class GenericBox;
 
 void TranslateBox(
 	not_null<GenericBox*> box,
+	not_null<PeerData*> peer,
+	MsgId msgId,
+	TextWithEntities text,
+	bool hasCopyRestriction);
+
+// Shows the translate box, asking first when peer is a secret chat:
+// translation sends the text to the provider's server.
+void ShowTranslateBox(
+	not_null<Window::SessionController*> controller,
 	not_null<PeerData*> peer,
 	MsgId msgId,
 	TextWithEntities text,

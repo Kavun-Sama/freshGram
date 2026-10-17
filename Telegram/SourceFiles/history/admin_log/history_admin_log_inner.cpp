@@ -2263,12 +2263,12 @@ void InnerWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			if (item && !Ui::SkipTranslate(getSelectedText().rich)) {
 				const auto peer = item->history()->peer;
 				_menu->addAction(tr::lng_context_translate_selected({}), [=] {
-					_controller->show(Box(
-						Ui::TranslateBox,
+					Ui::ShowTranslateBox(
+						_controller,
 						peer,
 						MsgId(),
 						getSelectedText().rich,
-						false));
+						false);
 				}, &st::menuIconTranslate);
 			}
 		} else {
@@ -2295,12 +2295,12 @@ void InnerWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 				if (!item->isService() && !Ui::SkipTranslate(item->originalText())) {
 					const auto peer = item->history()->peer;
 					_menu->addAction(tr::lng_context_translate({}), [=] {
-						_controller->show(Box(
-							Ui::TranslateBox,
+						Ui::ShowTranslateBox(
+							_controller,
 							peer,
 							MsgId(),
 							item->originalText(),
-							false));
+							false);
 					}, &st::menuIconTranslate);
 				}
 			}

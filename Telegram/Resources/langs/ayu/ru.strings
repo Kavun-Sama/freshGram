@@ -395,6 +395,7 @@
 "ayu_CustomizeFontTitle" = "Настроить шрифт";
 "ayu_MessageShotTopBarText" = "Снимок";
 "ayu_MessageShotPreview" = "Предпросмотр";
+"ayu_SecretTranslateWarning" = "Текст этих сообщений будет отправлен на {provider} для перевода. Продолжить?";
 "ayu_PeekButton" = "Подсмотреть время визита";
 "ayu_PeekLabel" = "Был(а) в сети (подсмотрено)";
 "ayu_PeekChecking" = "Проверяем время последнего визита...";

@@ -3470,12 +3470,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			if (item && !Ui::SkipTranslate(selectedText.rich)) {
 				const auto peer = item->history()->peer;
 				_menu->addAction(tr::lng_context_translate_selected({}), [=] {
-					_controller->show(Box(
-						Ui::TranslateBox,
+					Ui::ShowTranslateBox(
+						_controller,
 						peer,
 						MsgId(),
 						getSelectedText().rich,
-						hasCopyRestrictionForSelected()));
+						hasCopyRestrictionForSelected());
 				}, &st::menuIconTranslate);
 			}
 		}
@@ -3634,12 +3634,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			if (item && !Ui::SkipTranslate(selectedText.rich)) {
 				const auto peer = item->history()->peer;
 				_menu->addAction(tr::lng_context_translate_selected({}), [=] {
-					_controller->show(Box(
-						Ui::TranslateBox,
+					Ui::ShowTranslateBox(
+						_controller,
 						peer,
 						MsgId(),
 						selectedText.rich,
-						hasCopyRestrictionForSelected()));
+						hasCopyRestrictionForSelected());
 				}, &st::menuIconTranslate);
 			}
 			AyuUi::AddCreateFilterAction(_menu, _controller, item, selectedText.rich.text);
@@ -3763,12 +3763,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 						if (!translate.text.isEmpty()
 							&& !Ui::SkipTranslate(translate)) {
 							_menu->addAction(tr::lng_context_translate(tr::now), [=] {
-								_controller->show(Box(
-									Ui::TranslateBox,
+								Ui::ShowTranslateBox(
+									_controller,
 									peer,
 									byText ? MsgId() : itemId,
 									translate,
-									hasRestriction));
+									hasRestriction);
 							}, &st::menuIconTranslate);
 						}
 					}

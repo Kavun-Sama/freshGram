@@ -1,4 +1,6 @@
 param(
+    [ValidateSet('Debug', 'Release')]
+    [string] $Configuration = 'Debug',
     [string[]] $ExtraArguments = @()
 )
 
@@ -12,7 +14,7 @@ function Show-Resources {
 
 Show-Resources
 $arguments = @(
-    '--build', 'out', '--config', 'Release', '--target', 'Telegram', '--',
+    '--build', 'out', '--config', $Configuration, '--target', 'Telegram', '--',
     '/m:2', '/p:UseMultiToolTask=true', '/p:EnforceProcessCountAcrossBuilds=true', '/p:MultiProcMaxCount=2'
 ) + $ExtraArguments
 $build = Start-Process cmake -WorkingDirectory freshGram -NoNewWindow -PassThru -ArgumentList $arguments

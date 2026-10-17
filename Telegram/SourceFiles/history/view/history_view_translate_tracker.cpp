@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "spellcheck/platform/platform_language.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/secret/secret_peer.h"
 
 
 namespace HistoryView {
@@ -302,6 +303,13 @@ void TranslateTracker::invalidateTranslations() {
 
 void TranslateTracker::requestSome() {
 	if (_requestInProcess || _itemsToRequest.empty()) {
+		return;
+	}
+	if (AyuSecret::IsSecretPeerId(_history->peer->id)) {
+		// Never auto-translate secret chats: translation would send
+		// their text out, and there is no per-chat confirmation here.
+		// Manual per-message translation still asks via TranslateBox.
+		cancelToRequest();
 		return;
 	}
 	const auto to = _history->translatedTo();

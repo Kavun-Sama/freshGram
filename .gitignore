@@ -72,6 +72,14 @@ settings.local.json
 # AI work folder (session-specific, not for version control)
 .ai
 
+# Private verification captures
+*[Ss]creenshot*.png
+*[Ss]creenshot*.jpg
+*[Ss]creenshot*.jpeg
+[Ss]creenshots/
+real-client-validation-*/
+test-artifacts/
+
 # Generated changelog page (built by CI, deployed to GitHub Pages)
 /docs/changelog/
 

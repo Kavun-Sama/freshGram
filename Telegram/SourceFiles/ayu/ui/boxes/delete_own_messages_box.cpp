@@ -12,6 +12,7 @@
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/number_input.h"
+#include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "styles/style_ayu_styles.h"
@@ -32,6 +33,33 @@ enum class Mode {
 constexpr auto kHour = TimeId(3600);
 constexpr auto kPeriodLimit = 999;
 constexpr auto kCountLimit = 9999;
+
+[[nodiscard]] not_null<Ui::NumberInput*> AddNumberInput(
+		not_null<Ui::VerticalLayout*> layout,
+		const QString &value,
+		int limit) {
+	const auto wrap = layout->add(
+		object_ptr<Ui::FixedHeightWidget>(
+			layout,
+			st::defaultInputField.heightMin),
+		style::margins(
+			st::deleteOwnRowPadding.left(),
+			0,
+			st::deleteOwnRowPadding.right(),
+			0));
+	const auto input = Ui::CreateChild<Ui::NumberInput>(
+		wrap,
+		st::defaultInputField,
+		tr::ayu_DeleteOwnMessagesNumber(),
+		value,
+		limit);
+	input->setMaximumWidth(st::deleteOwnFieldWidth);
+	wrap->widthValue() | rpl::on_next([=](int width) {
+		input->resize(width, input->height());
+		wrap->resize(width, input->height());
+	}, wrap->lifetime());
+	return input;
+}
 
 [[nodiscard]] TimeId UnitSeconds(int unit) {
 	switch (unit) {
@@ -130,19 +158,10 @@ void FillDeleteOwnMessagesBox(
 			box,
 			object_ptr<Ui::VerticalLayout>(box)),
 		style::margins(st::deleteOwnNestedSkip, 0, 0, 0));
-	const auto periodInput = periodWrap->entity()->add(
-		object_ptr<Ui::NumberInput>(
-			periodWrap,
-			st::defaultInputField,
-			tr::ayu_DeleteOwnMessagesNumber(),
-			u"24"_q,
-			kPeriodLimit),
-		style::margins(
-			st::deleteOwnRowPadding.left(),
-			0,
-			st::deleteOwnRowPadding.right(),
-			0));
-	periodInput->setMaximumWidth(st::deleteOwnFieldWidth);
+	const auto periodInput = AddNumberInput(
+		periodWrap->entity(),
+		u"24"_q,
+		kPeriodLimit);
 	const auto units = std::array{
 		tr::ayu_DeleteOwnMessagesHours(tr::now),
 		tr::ayu_DeleteOwnMessagesDays(tr::now),
@@ -207,19 +226,10 @@ void FillDeleteOwnMessagesBox(
 			box,
 			object_ptr<Ui::VerticalLayout>(box)),
 		style::margins(st::deleteOwnNestedSkip, 0, 0, 0));
-	const auto countInput = countWrap->entity()->add(
-		object_ptr<Ui::NumberInput>(
-			countWrap,
-			st::defaultInputField,
-			tr::ayu_DeleteOwnMessagesNumber(),
-			u"100"_q,
-			kCountLimit),
-		style::margins(
-			st::deleteOwnRowPadding.left(),
-			0,
-			st::deleteOwnRowPadding.right(),
-			0));
-	countInput->setMaximumWidth(st::deleteOwnFieldWidth);
+	const auto countInput = AddNumberInput(
+		countWrap->entity(),
+		u"100"_q,
+		kCountLimit);
 	countWrap->toggle(false, anim::type::instant);
 
 	group->setChangedCallback([=](int value) {
