@@ -10,12 +10,17 @@
 
 class DocumentData;
 class History;
+struct HistoryMessageEdition;
 
 namespace AyuMessages {
 
 constexpr auto kServiceDocumentType = 2;
 
 void addEditedMessage(not_null<HistoryItem *> item);
+// Tells by the settings and by what has changed whether to keep the old version.
+[[nodiscard]] bool shouldSaveEdit(
+	not_null<HistoryItem*> item,
+	const HistoryMessageEdition &edit);
 bool isBotMessage(not_null<const HistoryItem*> item);
 ID storageUserId(not_null<PeerData*> peer);
 std::vector<AyuMessageBase> loadEditedMessages(ID userId, ID dialogId, ID messageId, ID minId, ID maxId, int totalLimit);

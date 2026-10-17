@@ -678,6 +678,48 @@ void AyuSettings::setSecretChatsEnabled(bool val) {
 	save();
 }
 
+void AyuSettings::setSaveEditedText(bool val) {
+	if (_saveEditedText.current() == val) return;
+	_saveEditedText = val;
+	save();
+}
+
+void AyuSettings::setSaveEditedMedia(bool val) {
+	if (_saveEditedMedia.current() == val) return;
+	_saveEditedMedia = val;
+	save();
+}
+
+void AyuSettings::setSaveEditedMarkup(bool val) {
+	if (_saveEditedMarkup.current() == val) return;
+	_saveEditedMarkup = val;
+	save();
+}
+
+void AyuSettings::setSaveEditedPrivate(bool val) {
+	if (_saveEditedPrivate.current() == val) return;
+	_saveEditedPrivate = val;
+	save();
+}
+
+void AyuSettings::setSaveEditedGroups(bool val) {
+	if (_saveEditedGroups.current() == val) return;
+	_saveEditedGroups = val;
+	save();
+}
+
+void AyuSettings::setSaveEditedChannels(bool val) {
+	if (_saveEditedChannels.current() == val) return;
+	_saveEditedChannels = val;
+	save();
+}
+
+void AyuSettings::setSaveEditedOwn(bool val) {
+	if (_saveEditedOwn.current() == val) return;
+	_saveEditedOwn = val;
+	save();
+}
+
 void AyuSettings::setSaveMessagesHistory(bool val) {
 	if (_saveMessagesHistory.current() == val) return;
 	_saveMessagesHistory = val;
@@ -1443,6 +1485,13 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"saveLocallyDeletedMessages", s._saveLocallyDeletedMessages.current()},
 		{"secretChatsEnabled", s._secretChatsEnabled.current()},
 		{"saveMessagesHistory", s._saveMessagesHistory.current()},
+		{"saveEditedText", s._saveEditedText.current()},
+		{"saveEditedMedia", s._saveEditedMedia.current()},
+		{"saveEditedMarkup", s._saveEditedMarkup.current()},
+		{"saveEditedPrivate", s._saveEditedPrivate.current()},
+		{"saveEditedGroups", s._saveEditedGroups.current()},
+		{"saveEditedChannels", s._saveEditedChannels.current()},
+		{"saveEditedOwn", s._saveEditedOwn.current()},
 		{"saveForBots", s._saveForBots.current()},
 		{"shadowBanIds", s._shadowBanIds},
 		{"filtersEnabled", s._filtersEnabled.current()},
@@ -1583,6 +1632,13 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._saveLocallyDeletedMessages = j.value("saveLocallyDeletedMessages", defaults._saveLocallyDeletedMessages.current());
 	s._secretChatsEnabled = j.value("secretChatsEnabled", defaults._secretChatsEnabled.current());
 	s._saveMessagesHistory = j.value("saveMessagesHistory", defaults._saveMessagesHistory.current());
+	s._saveEditedText = j.value("saveEditedText", defaults._saveEditedText.current());
+	s._saveEditedMedia = j.value("saveEditedMedia", defaults._saveEditedMedia.current());
+	s._saveEditedMarkup = j.value("saveEditedMarkup", defaults._saveEditedMarkup.current());
+	s._saveEditedPrivate = j.value("saveEditedPrivate", defaults._saveEditedPrivate.current());
+	s._saveEditedGroups = j.value("saveEditedGroups", defaults._saveEditedGroups.current());
+	s._saveEditedChannels = j.value("saveEditedChannels", defaults._saveEditedChannels.current());
+	s._saveEditedOwn = j.value("saveEditedOwn", defaults._saveEditedOwn.current());
 	s._saveForBots = j.value("saveForBots", defaults._saveForBots.current());
 	s._shadowBanIds = j.value("shadowBanIds", defaults._shadowBanIds);
 	s._filtersEnabled = j.value("filtersEnabled", defaults._filtersEnabled.current());

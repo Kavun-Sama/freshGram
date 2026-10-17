@@ -660,3 +660,12 @@
 "ayu_StoryVideoFormat" = "Das Video einer Story muss MP4 sein";
 "ayu_StoryLimit" = "Du kannst jetzt keine weiteren Storys veröffentlichen";
 "ayu_StoryChoose" = "Wähle ein Foto oder Video";
+"ayu_SaveEditedContent" = "Änderungen speichern von";
+"ayu_SaveEditedText" = "Text und Beschriftungen";
+"ayu_SaveEditedMedia" = "Fotos, Videos und Dateien";
+"ayu_SaveEditedMarkup" = "Inline-Schaltflächen";
+"ayu_SaveEditedWhere" = "Änderungen speichern in";
+"ayu_SaveEditedPrivate" = "Privaten Chats";
+"ayu_SaveEditedGroups" = "Gruppen";
+"ayu_SaveEditedChannels" = "Kanälen";
+"ayu_SaveEditedOwn" = "Meinen eigenen Nachrichten";

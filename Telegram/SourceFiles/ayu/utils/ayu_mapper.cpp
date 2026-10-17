@@ -135,19 +135,18 @@ MTPMessageReactions deserializeReactions(const std::vector<char> &serialized) {
 	return deserializeObject<MTPMessageReactions>(serialized);
 }
 
-std::vector<char> serializeReplyMarkup(not_null<HistoryItem*> item) {
-	const auto markup = item->inlineReplyMarkup();
-	if (!markup || markup->data.rows.empty()) {
+std::vector<char> serializeReplyMarkup(const HistoryMessageMarkupData &data) {
+	if (!(data.flags & ReplyMarkupFlag::Inline) || data.rows.empty()) {
 		return {};
 	}
 	auto bytes = QByteArray();
 	auto stream = QDataStream(&bytes, QIODevice::WriteOnly);
 	stream.setVersion(QDataStream::Qt_5_15);
 	stream << qint32(1)
-		<< quint32(uint32(markup->data.flags.value()))
-		<< markup->data.placeholder
-		<< qint32(markup->data.rows.size());
-	for (const auto &row : markup->data.rows) {
+		<< quint32(uint32(data.flags.value()))
+		<< data.placeholder
+		<< qint32(data.rows.size());
+	for (const auto &row : data.rows) {
 		stream << qint32(row.size());
 		for (const auto &button : row) {
 			stream << quint8(button.type)
@@ -160,6 +159,11 @@ std::vector<char> serializeReplyMarkup(not_null<HistoryItem*> item) {
 		}
 	}
 	return std::vector<char>(bytes.constData(), bytes.constData() + bytes.size());
+}
+
+std::vector<char> serializeReplyMarkup(not_null<HistoryItem*> item) {
+	const auto markup = item->inlineReplyMarkup();
+	return markup ? serializeReplyMarkup(markup->data) : std::vector<char>();
 }
 
 HistoryMessageMarkupData deserializeReplyMarkup(const std::vector<char> &serialized) {

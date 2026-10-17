@@ -9345,6 +9345,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_StoryVideoFormat" = "The video of a story must be MP4";
 "ayu_StoryLimit" = "You cannot post more stories now";
 "ayu_StoryChoose" = "Choose a photo or a video";
+"ayu_SaveEditedContent" = "Save changes of";
+"ayu_SaveEditedText" = "Text and captions";
+"ayu_SaveEditedMedia" = "Photos, videos and files";
+"ayu_SaveEditedMarkup" = "Inline buttons";
+"ayu_SaveEditedWhere" = "Save changes in";
+"ayu_SaveEditedPrivate" = "Private chats";
+"ayu_SaveEditedGroups" = "Groups";
+"ayu_SaveEditedChannels" = "Channels";
+"ayu_SaveEditedOwn" = "My own messages";
 
 "ayu_MarkOldMessagesDeleted" = "Mark old messages deleted when a chat is deleted";
 "ayu_DeletedChatsDescription" = "A deleted topic stays in the list marked as deleted, with its loaded messages. Turning an option off does not delete saved data; it is applied again when you turn it on. Changes in the kept chats apply after a restart. If deleted messages are not shown in chats, they are still saved and available in \"View deleted messages\".";

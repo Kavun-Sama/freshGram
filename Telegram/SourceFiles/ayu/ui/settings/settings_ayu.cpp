@@ -645,6 +645,55 @@ void BuildSpyEssentials(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.getter = &AyuSettings::saveMessagesHistory,
 		.setter = &AyuSettings::setSaveMessagesHistory,
 	});
+	ayu.addCollapsibleToggle({
+		.id = u"ayu/saveEditedContent"_q,
+		.title = tr::ayu_SaveEditedContent(),
+		.checkboxes = {
+			NestedEntry{
+				tr::ayu_SaveEditedText(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedText(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedText(v); }
+			},
+			NestedEntry{
+				tr::ayu_SaveEditedMedia(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedMedia(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedMedia(v); }
+			},
+			NestedEntry{
+				tr::ayu_SaveEditedMarkup(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedMarkup(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedMarkup(v); }
+			},
+		},
+		.toggledWhenAll = false,
+	});
+	ayu.addCollapsibleToggle({
+		.id = u"ayu/saveEditedWhere"_q,
+		.title = tr::ayu_SaveEditedWhere(),
+		.checkboxes = {
+			NestedEntry{
+				tr::ayu_SaveEditedPrivate(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedPrivate(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedPrivate(v); }
+			},
+			NestedEntry{
+				tr::ayu_SaveEditedGroups(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedGroups(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedGroups(v); }
+			},
+			NestedEntry{
+				tr::ayu_SaveEditedChannels(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedChannels(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedChannels(v); }
+			},
+			NestedEntry{
+				tr::ayu_SaveEditedOwn(tr::now),
+				[] { return AyuSettings::getInstance().saveEditedOwn(); },
+				[](bool v) { AyuSettings::getInstance().setSaveEditedOwn(v); }
+			},
+		},
+		.toggledWhenAll = false,
+	});
 
 	ayu.addSectionDivider();
 

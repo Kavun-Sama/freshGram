@@ -647,3 +647,12 @@
 "ayu_StoryVideoFormat" = "动态的视频必须是 MP4";
 "ayu_StoryLimit" = "现在不能再发布动态";
 "ayu_StoryChoose" = "选择照片或视频";
+"ayu_SaveEditedContent" = "保存以下内容的修改";
+"ayu_SaveEditedText" = "文字和说明";
+"ayu_SaveEditedMedia" = "照片、视频和文件";
+"ayu_SaveEditedMarkup" = "内联按钮";
+"ayu_SaveEditedWhere" = "保存以下位置的修改";
+"ayu_SaveEditedPrivate" = "私聊";
+"ayu_SaveEditedGroups" = "群组";
+"ayu_SaveEditedChannels" = "频道";
+"ayu_SaveEditedOwn" = "我自己的消息";

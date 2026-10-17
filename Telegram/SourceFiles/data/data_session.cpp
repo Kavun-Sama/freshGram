@@ -3147,11 +3147,7 @@ void Session::updateEditedMessage(const MTPMessage &data) {
 	if (settings.saveMessagesHistory()
 		&& !existing->isLocal()
 		&& (!edit.isEditHide || AyuMessages::isBotMessage(existing))) {
-		const auto &msg = existing->originalText();
-		const auto unchanged = edit.richPage
-			? (Iv::FlattenRichPageSummary(edit.richPage) == msg)
-			: (edit.textWithEntities == msg);
-		if (unchanged || msg.empty()) {
+		if (!AyuMessages::shouldSaveEdit(existing, edit)) {
 			goto proceed;
 		}
 

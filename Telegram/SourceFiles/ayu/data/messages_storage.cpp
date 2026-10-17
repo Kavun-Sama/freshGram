@@ -32,6 +32,8 @@
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/history_item_components.h"
+#include "history/history_item_edition.h"
+#include "iv/iv_rich_page.h"
 #include "history/history_item_reply_markup.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
@@ -338,14 +340,88 @@ bool isBotMessage(not_null<const HistoryItem*> item) {
 	return isBot(item->history()->peer) || isBot(item->from()) || item->viaBot();
 }
 
+namespace {
+
+[[nodiscard]] bool MediaChanged(
+		not_null<HistoryItem*> item,
+		const MTPMessageMedia *media) {
+	const auto old = item->media();
+	const auto oldPhoto = old ? old->photo() : nullptr;
+	const auto oldDocument = old ? old->document() : nullptr;
+	auto newPhotoId = uint64(0);
+	auto newDocumentId = uint64(0);
+	if (media) {
+		media->match([&](const MTPDmessageMediaPhoto &data) {
+			if (const auto photo = data.vphoto()) {
+				photo->match([&](const MTPDphoto &data) {
+					newPhotoId = uint64(data.vid().v);
+				}, [](const auto &) {
+				});
+			}
+		}, [&](const MTPDmessageMediaDocument &data) {
+			if (const auto document = data.vdocument()) {
+				document->match([&](const MTPDdocument &data) {
+					newDocumentId = uint64(data.vid().v);
+				}, [](const auto &) {
+				});
+			}
+		}, [](const auto &) {
+		});
+	}
+	return (oldPhoto ? uint64(oldPhoto->id) : uint64(0)) != newPhotoId
+		|| (oldDocument ? uint64(oldDocument->id) : uint64(0)) != newDocumentId;
+}
+
+} // namespace
+
+bool shouldSaveEdit(
+		not_null<HistoryItem*> item,
+		const HistoryMessageEdition &edit) {
+	const auto &settings = AyuSettings::getInstance();
+	const auto peer = item->history()->peer;
+	if (item->out() && !settings.saveEditedOwn()) {
+		return false;
+	} else if (peer->isUser() && !settings.saveEditedPrivate()) {
+		return false;
+	} else if ((peer->isChat() || peer->isMegagroup())
+		&& !settings.saveEditedGroups()) {
+		return false;
+	} else if (peer->isChannel()
+		&& !peer->isMegagroup()
+		&& !settings.saveEditedChannels()) {
+		return false;
+	}
+	if (settings.saveEditedText()) {
+		const auto &was = item->originalText();
+		const auto same = edit.richPage
+			? (Iv::FlattenRichPageSummary(edit.richPage) == was)
+			: (edit.textWithEntities == was);
+		if (!same && !was.empty()) {
+			return true;
+		}
+	}
+	if (settings.saveEditedMarkup()
+		&& !edit.useSameMarkup
+		&& (AyuMapper::serializeReplyMarkup(item)
+			!= AyuMapper::serializeReplyMarkup(edit.replyMarkup))) {
+		return true;
+	}
+	return settings.saveEditedMedia() && MediaChanged(item, edit.mtpMedia);
+}
+
 void addEditedMessage(not_null<HistoryItem *> item) {
 	if (AyuSecret::IsSecretPeer(item->history()->peer)) {
 		return;
 	}
 	EditedMessage message;
 	map(item, message);
+	if (AyuSettings::getInstance().saveEditedMarkup()) {
+		message.replyMarkupSerialized = AyuMapper::serializeReplyMarkup(item);
+	}
 
-	if (message.text.empty()) {
+	if (message.text.empty()
+		&& message.documentSerialized.empty()
+		&& message.replyMarkupSerialized.empty()) {
 		return;
 	}
 

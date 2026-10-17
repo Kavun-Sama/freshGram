@@ -289,6 +289,13 @@ public:
 	[[nodiscard]] bool secretChatsEnabled() const { return _secretChatsEnabled.current(); }
 	[[nodiscard]] rpl::producer<bool> secretChatsEnabledValue() const { return _secretChatsEnabled.value(); }
 	[[nodiscard]] bool saveMessagesHistory() const { return _saveMessagesHistory.current(); }
+	[[nodiscard]] bool saveEditedText() const { return _saveEditedText.current(); }
+	[[nodiscard]] bool saveEditedMedia() const { return _saveEditedMedia.current(); }
+	[[nodiscard]] bool saveEditedMarkup() const { return _saveEditedMarkup.current(); }
+	[[nodiscard]] bool saveEditedPrivate() const { return _saveEditedPrivate.current(); }
+	[[nodiscard]] bool saveEditedGroups() const { return _saveEditedGroups.current(); }
+	[[nodiscard]] bool saveEditedChannels() const { return _saveEditedChannels.current(); }
+	[[nodiscard]] bool saveEditedOwn() const { return _saveEditedOwn.current(); }
 	[[nodiscard]] bool saveForBots() const { return _saveForBots.current(); }
 	[[nodiscard]] bool filtersEnabled() const { return _filtersEnabled.current(); }
 	[[nodiscard]] bool filtersEnabledInChats() const { return _filtersEnabledInChats.current(); }
@@ -424,6 +431,13 @@ public:
 	void setSaveLocallyDeletedMessages(bool val);
 	void setSecretChatsEnabled(bool val);
 	void setSaveMessagesHistory(bool val);
+	void setSaveEditedText(bool val);
+	void setSaveEditedMedia(bool val);
+	void setSaveEditedMarkup(bool val);
+	void setSaveEditedPrivate(bool val);
+	void setSaveEditedGroups(bool val);
+	void setSaveEditedChannels(bool val);
+	void setSaveEditedOwn(bool val);
 	void setSaveForBots(bool val);
 	void setFiltersEnabled(bool val);
 	void setFiltersEnabledInChats(bool val);
@@ -743,6 +757,13 @@ private:
 	rpl::variable<bool> _saveLocallyDeletedMessages = true;
 	rpl::variable<bool> _secretChatsEnabled = false;
 	rpl::variable<bool> _saveMessagesHistory = true;
+	rpl::variable<bool> _saveEditedText = true;
+	rpl::variable<bool> _saveEditedMedia = true;
+	rpl::variable<bool> _saveEditedMarkup = true;
+	rpl::variable<bool> _saveEditedPrivate = true;
+	rpl::variable<bool> _saveEditedGroups = true;
+	rpl::variable<bool> _saveEditedChannels = true;
+	rpl::variable<bool> _saveEditedOwn = true;
 	rpl::variable<bool> _saveForBots = false;
 	std::unordered_set<int64> _shadowBanIds;
 	bool _accountsVaulted = false;

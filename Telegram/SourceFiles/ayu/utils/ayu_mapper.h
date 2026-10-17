@@ -19,6 +19,8 @@ template<typename MTPObject>
 [[nodiscard]] std::vector<char> serializeReactions(not_null<HistoryItem*> item);
 [[nodiscard]] MTPMessageReactions deserializeReactions(const std::vector<char> &serialized);
 [[nodiscard]] std::vector<char> serializeReplyMarkup(not_null<HistoryItem*> item);
+// Empty when the data has no inline buttons.
+[[nodiscard]] std::vector<char> serializeReplyMarkup(const HistoryMessageMarkupData &data);
 [[nodiscard]] HistoryMessageMarkupData deserializeReplyMarkup(const std::vector<char> &serialized);
 std::pair<std::string, std::vector<char>> serializeTextWithEntities(not_null<HistoryItem*> item);
 [[nodiscard]] MTPVector<MTPMessageEntity> deserializeTextWithEntities(std::vector<char> serialized);

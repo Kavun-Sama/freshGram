@@ -686,3 +686,12 @@
 "ayu_StoryVideoFormat" = "Видео для истории должно быть в формате MP4";
 "ayu_StoryLimit" = "Сейчас нельзя опубликовать ещё историю";
 "ayu_StoryChoose" = "Выберите фото или видео";
+"ayu_SaveEditedContent" = "Сохранять изменения";
+"ayu_SaveEditedText" = "Текста и подписей";
+"ayu_SaveEditedMedia" = "Фото, видео и файлов";
+"ayu_SaveEditedMarkup" = "Инлайн кнопок";
+"ayu_SaveEditedWhere" = "Сохранять изменения в";
+"ayu_SaveEditedPrivate" = "Личных чатах";
+"ayu_SaveEditedGroups" = "Группах";
+"ayu_SaveEditedChannels" = "Каналах";
+"ayu_SaveEditedOwn" = "Моих сообщениях";

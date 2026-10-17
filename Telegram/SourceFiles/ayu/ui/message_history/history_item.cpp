@@ -76,6 +76,7 @@ void GenerateItems(
 		from = history->owner().chatLoaded(message.fromId);
 	}
 	const auto date = message.entityCreateDate;
+	const auto markup = AyuMapper::deserializeReplyMarkup(message.replyMarkupSerialized);
 	const auto addPart = [&](
 		not_null<HistoryItem*> item,
 		TimeId sentDate = 0,
@@ -109,6 +110,7 @@ void GenerateItems(
 														  : from
 																? QString()
 																: QString("unknown user: %1").arg(message.fromId),
+										.markup = markup,
 									},
 									std::move(text),
 									media);
