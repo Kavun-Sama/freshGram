@@ -185,6 +185,14 @@ void AddPlan(std::string &out, sqlite3 *db, const char *name, const std::string 
 	return true;
 }
 
+// The compact tables replace the wide ones after the migration.
+[[nodiscard]] std::string TableName(sqlite3 *db, const std::string &base) {
+	const auto compact = base + "V2";
+	return (Scalar(db, "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '" + compact + "'") > 0)
+		? compact
+		: base;
+}
+
 void AddOverview(std::string &out, sqlite3 *db) {
 	const auto pageSize = Scalar(db, "PRAGMA page_size");
 	const auto pageCount = Scalar(db, "PRAGMA page_count");
@@ -348,11 +356,12 @@ void AddDerived(std::string &out, sqlite3 *db) {
 				std::atof(r[5].c_str()));
 		}
 	}
-	if (HasColumns(db, "EditedMessage", {"userId", "dialogId", "messageId"})) {
+	const auto edited = TableName(db, "EditedMessage");
+	if (HasColumns(db, edited, {"userId", "dialogId", "messageId"})) {
 		const auto rows = Query(
 			db,
 			"SELECT count(*), max(c), avg(c), sum(c >= 10), sum(c >= 100) FROM ("
-			"SELECT count(*) AS c FROM EditedMessage "
+			"SELECT count(*) AS c FROM " + edited + " "
 			"GROUP BY userId, dialogId, messageId)");
 		if (rows && !rows->empty()) {
 			const auto &r = rows->front();
@@ -366,11 +375,11 @@ void AddDerived(std::string &out, sqlite3 *db) {
 				r[4].c_str());
 		}
 	}
-	if (HasColumns(db, "EditedMessage", {"userId", "dialogId", "messageId", "text"})) {
+	if (HasColumns(db, edited, {"userId", "dialogId", "messageId", "text"})) {
 		const auto rows = Query(
 			db,
 			"SELECT count(*), count(*) - count(DISTINCT userId || '/' || dialogId || '/' "
-			"|| messageId || '/' || text) FROM EditedMessage");
+			"|| messageId || '/' || text) FROM " + edited);
 		if (rows && !rows->empty()) {
 			out += Format(
 				"  EditedMessage: %s rows, %s repeat an earlier text of the same message\n",
@@ -388,14 +397,14 @@ struct Probe {
 	int64_t dialogRows = 0;
 };
 
-[[nodiscard]] std::optional<Probe> FindProbe(sqlite3 *db) {
-	if (!HasColumns(db, "DeletedMessage", {"userId", "dialogId", "messageId", "text", "date"})) {
+[[nodiscard]] std::optional<Probe> FindProbe(sqlite3 *db, const std::string &table) {
+	if (!HasColumns(db, table, {"userId", "dialogId", "messageId", "text", "date"})) {
 		return std::nullopt;
 	}
 	const auto top = Query(
 		db,
-		"SELECT userId, dialogId, count(*) AS c FROM DeletedMessage "
-		"GROUP BY userId, dialogId ORDER BY c DESC LIMIT 1");
+		"SELECT userId, dialogId, count(*) AS c FROM " + table +
+		" GROUP BY userId, dialogId ORDER BY c DESC LIMIT 1");
 	if (!top || top->empty()) {
 		return std::nullopt;
 	}
@@ -406,8 +415,8 @@ struct Probe {
 	probe.messageId = Scalar(
 		db,
 		Format(
-			"SELECT messageId FROM DeletedMessage WHERE userId = %lld AND dialogId = %lld "
-			"ORDER BY messageId LIMIT 1 OFFSET %lld",
+			("SELECT messageId FROM " + table + " WHERE userId = %lld AND dialogId = %lld "
+			"ORDER BY messageId LIMIT 1 OFFSET %lld").c_str(),
 			(long long)probe.userId,
 			(long long)probe.dialogId,
 			(long long)(probe.dialogRows / 2)));
@@ -415,7 +424,9 @@ struct Probe {
 }
 
 void AddPlansAndTimings(std::string &out, sqlite3 *db) {
-	const auto probe = FindProbe(db);
+	const auto deleted = TableName(db, "DeletedMessage");
+	const auto edited = TableName(db, "EditedMessage");
+	const auto probe = FindProbe(db, deleted);
 	if (!probe) {
 		out += "== Queries ==\n  no DeletedMessage table\n\n";
 		return;
@@ -423,22 +434,22 @@ void AddPlansAndTimings(std::string &out, sqlite3 *db) {
 	const auto user = std::to_string(probe->userId);
 	const auto dialog = std::to_string(probe->dialogId);
 	const auto message = std::to_string(probe->messageId);
-	const auto window = "SELECT * FROM DeletedMessage WHERE userId = " + user
+	const auto window = "SELECT * FROM " + deleted + " WHERE userId = " + user
 		+ " AND dialogId = " + dialog
 		+ " AND messageId > " + message
 		+ " ORDER BY messageId DESC LIMIT 50";
-	const auto lookup = "SELECT * FROM DeletedMessage WHERE userId = " + user
+	const auto lookup = "SELECT * FROM " + deleted + " WHERE userId = " + user
 		+ " AND dialogId = " + dialog
 		+ " AND messageId = " + message + " LIMIT 1";
-	const auto dialogs = "SELECT DISTINCT dialogId FROM DeletedMessage WHERE userId = " + user;
-	const auto searchRare = "SELECT * FROM DeletedMessage WHERE userId = " + user
+	const auto dialogs = "SELECT DISTINCT dialogId FROM " + deleted + " WHERE userId = " + user;
+	const auto searchRare = "SELECT * FROM " + deleted + " WHERE userId = " + user
 		+ " AND text LIKE '%zzqqxx%' ESCAPE '\\' ORDER BY date DESC LIMIT 100";
-	const auto searchCommon = "SELECT * FROM DeletedMessage WHERE userId = " + user
+	const auto searchCommon = "SELECT * FROM " + deleted + " WHERE userId = " + user
 		+ " AND text LIKE '%e%' ESCAPE '\\' ORDER BY date DESC LIMIT 100";
-	const auto searchDialog = "SELECT * FROM DeletedMessage WHERE userId = " + user
+	const auto searchDialog = "SELECT * FROM " + deleted + " WHERE userId = " + user
 		+ " AND dialogId = " + dialog
 		+ " AND text LIKE '%zzqqxx%' ESCAPE '\\' ORDER BY date DESC LIMIT 100";
-	const auto edits = "SELECT * FROM EditedMessage WHERE userId = " + user
+	const auto edits = "SELECT * FROM " + edited + " WHERE userId = " + user
 		+ " AND dialogId = " + dialog
 		+ " AND messageId = " + message;
 
@@ -448,7 +459,7 @@ void AddPlansAndTimings(std::string &out, sqlite3 *db) {
 	AddPlan(out, db, "dialog list", dialogs);
 	AddPlan(out, db, "search everywhere", searchRare);
 	AddPlan(out, db, "search in a dialog", searchDialog);
-	if (HasColumns(db, "EditedMessage", {"userId", "dialogId", "messageId"})) {
+	if (HasColumns(db, edited, {"userId", "dialogId", "messageId"})) {
 		AddPlan(out, db, "message revisions", edits);
 	}
 	out += Format("  (the biggest dialog has %lld rows)\n\n", (long long)probe->dialogRows);
@@ -460,7 +471,7 @@ void AddPlansAndTimings(std::string &out, sqlite3 *db) {
 	AddTiming(out, db, "search in the biggest dialog", searchDialog, 3);
 	AddTiming(out, db, "search everywhere, no matches", searchRare, 3);
 	AddTiming(out, db, "search everywhere, common letter", searchCommon, 3);
-	if (HasColumns(db, "EditedMessage", {"userId", "dialogId", "messageId"})) {
+	if (HasColumns(db, edited, {"userId", "dialogId", "messageId"})) {
 		AddTiming(out, db, "message revisions", edits, 2000);
 	}
 	out += "\n";

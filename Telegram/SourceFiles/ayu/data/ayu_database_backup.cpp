@@ -136,12 +136,16 @@ struct Handle {
 	}
 	auto total = qint64(0);
 	for (const auto &table : { "EditedMessage", "DeletedMessage" }) {
-		if (!TableExists(handle.db, table)) {
+		const auto compact = QString(table) + "V2";
+		const auto name = TableExists(handle.db, compact)
+			? compact
+			: QString(table);
+		if (!TableExists(handle.db, name)) {
 			return false;
 		}
 		total += std::max<qint64>(
 			0,
-			ScalarInt(handle.db, QString("SELECT count(*) FROM %1").arg(table)));
+			ScalarInt(handle.db, QString("SELECT count(*) FROM %1").arg(name)));
 	}
 	if (rows) {
 		*rows = total;
@@ -300,7 +304,7 @@ void removeAll() {
 void purgeUser(long long userId) {
 	static const auto kTables = {
 		"DeletedExtra", "DeletedMarkup", "DeletedRank", "DeletedMessage",
-		"EditedMessage",
+		"EditedMessage", "DeletedMessageV2", "EditedMessageV2",
 		"DeletedDialog", "KeptTopic", "KeptDialog", "KnownUser", "LocalPin",
 		"SecretChat", "SecretMessage", "SecretState", "PeekedStatus",
 		"PeekRestore", "SpyMessageRead", "SpyMessageContentsRead",
