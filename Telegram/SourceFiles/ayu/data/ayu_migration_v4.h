@@ -16,8 +16,10 @@ struct Result {
 	std::string error;
 };
 
-// Copies the old wide message tables into the compact ones and drops them.
+// Copies the wide message tables of the schema into the compact ones of the
+// main database. The tables of the main schema are dropped after the copy,
+// the other ones (an attached old database) are left as they are.
 // The compact tables must exist already, the caller owns the transaction.
-[[nodiscard]] Result Run(sqlite3 *db);
+[[nodiscard]] Result Run(sqlite3 *db, const char *schema = "main");
 
 } // namespace AyuMigrationV4

@@ -72,19 +72,24 @@ private:
 	return sqlite3_column_int64(statement.get(), 0);
 }
 
-[[nodiscard]] bool TableExists(sqlite3 *db, const std::string &name) {
+[[nodiscard]] bool TableExists(sqlite3 *db, const std::string &schema, const std::string &name) {
 	auto error = std::string();
 	return Scalar(
 		db,
-		"SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '" + name + "'",
+		"SELECT count(*) FROM " + schema + ".sqlite_master WHERE type = 'table' AND name = '" + name + "'",
 		error) == 1;
 }
 
 class Columns
 {
 public:
-	Columns(sqlite3 *db, const std::string &table) {
-		const auto statement = Statement(db, "PRAGMA table_info(" + Quote(table) + ")");
+	Columns(
+		sqlite3 *db,
+		const std::string &schema,
+		const std::string &table,
+		const std::string &prefix = std::string())
+	: _prefix(prefix) {
+		const auto statement = Statement(db, "PRAGMA " + schema + ".table_info(" + Quote(table) + ")");
 		while (statement.ok() && sqlite3_step(statement.get()) == SQLITE_ROW) {
 			_names.insert(reinterpret_cast<const char*>(
 				sqlite3_column_text(statement.get(), 1)));
@@ -95,16 +100,17 @@ public:
 		return _names.contains(name);
 	}
 	[[nodiscard]] std::string number(const std::string &name) const {
-		return has(name) ? "COALESCE(" + Quote(name) + ", 0)" : "0";
+		return has(name) ? "COALESCE(" + _prefix + Quote(name) + ", 0)" : "0";
 	}
 	[[nodiscard]] std::string text(const std::string &name) const {
-		return has(name) ? "COALESCE(" + Quote(name) + ", '')" : "''";
+		return has(name) ? "COALESCE(" + _prefix + Quote(name) + ", '')" : "''";
 	}
 	[[nodiscard]] std::string blob(const std::string &name) const {
-		return has(name) ? "COALESCE(" + Quote(name) + ", X'')" : "X''";
+		return has(name) ? "COALESCE(" + _prefix + Quote(name) + ", X'')" : "X''";
 	}
 
 private:
+	std::string _prefix;
 	std::set<std::string> _names;
 };
 
@@ -267,24 +273,40 @@ constexpr auto kCommonTarget =
 	return true;
 }
 
-[[nodiscard]] bool MigrateDeleted(sqlite3 *db, long long &count, std::string &error) {
-	const auto c = Columns(db, "DeletedMessage");
+// Writes the rare columns of the rows into extra, the rows come from the select.
+[[nodiscard]] std::string Source(const std::string &schema, const std::string &table) {
+	return schema + "." + Quote(table);
+}
+
+[[nodiscard]] bool MigrateDeleted(
+		sqlite3 *db,
+		const std::string &schema,
+		long long &count,
+		std::string &error) {
+	const auto c = Columns(db, schema, "DeletedMessage", "d.");
+	const auto source = Source(schema, "DeletedMessage");
+	// The last copy of every message and its place in the order of the key.
 	if (!Exec(
 		db,
-		"CREATE INDEX IF NOT EXISTS idx_ayu_migration_deleted ON DeletedMessage "
-		"(userId, dialogId, messageId)",
-		error)) {
+		"CREATE TEMP TABLE ayu_keep_deleted (userId INTEGER, dialogId INTEGER, messageId INTEGER, "
+		"fid INTEGER, PRIMARY KEY (userId, dialogId, messageId)) WITHOUT ROWID",
+		error)
+		|| !Exec(
+			db,
+			"INSERT INTO ayu_keep_deleted SELECT " + c.number("userId") + ", " + c.number("dialogId")
+				+ ", " + c.number("messageId") + ", max(d.fakeId) FROM " + source
+				+ " d GROUP BY 1, 2, 3",
+			error)) {
 		return false;
 	}
 	if (!Exec(
 		db,
-		std::string("INSERT INTO DeletedMessageV2 (userId, dialogId, messageId, ")
+		std::string("INSERT INTO main.DeletedMessageV2 (userId, dialogId, messageId, ")
 			+ kCommonTarget + ") SELECT "
 			+ c.number("userId") + ", " + c.number("dialogId") + ", " + c.number("messageId")
 			+ ", " + CommonSelect(c)
-			+ " FROM DeletedMessage d WHERE NOT EXISTS (SELECT 1 FROM DeletedMessage x "
-			"WHERE x.userId = d.userId AND x.dialogId = d.dialogId AND x.messageId = d.messageId "
-			"AND x.fakeId > d.fakeId) ORDER BY d.userId, d.dialogId, d.messageId",
+			+ " FROM temp.ayu_keep_deleted k JOIN " + source + " d ON d.fakeId = k.fid"
+			+ " ORDER BY k.userId, k.dialogId, k.messageId",
 		error)) {
 		return false;
 	}
@@ -292,23 +314,22 @@ constexpr auto kCommonTarget =
 	if (condition != "0") {
 		const auto select = "SELECT d.userId, d.dialogId, d.messageId, 0, "
 			+ RareSelect(c)
-			+ " FROM DeletedMessage d WHERE " + condition
-			+ " AND NOT EXISTS (SELECT 1 FROM DeletedMessage d2 WHERE d2.userId = d.userId "
-			"AND d2.dialogId = d.dialogId AND d2.messageId = d.messageId AND d2.fakeId > d.fakeId)";
+			+ " FROM " + source + " d WHERE " + condition
+			+ " AND d.fakeId IN (SELECT fid FROM temp.ayu_keep_deleted)";
 		if (!WriteExtras(
 			db,
 			select,
-			"UPDATE DeletedMessageV2 SET extra = ?1 WHERE userId = ?2 AND dialogId = ?3 AND messageId = ?4",
+			"UPDATE main.DeletedMessageV2 SET extra = ?1 WHERE userId = ?2 AND dialogId = ?3 AND messageId = ?4",
 			false,
 			error)) {
 			return false;
 		}
 	}
-	const auto expected = Scalar(
-		db,
-		"SELECT count(*) FROM (SELECT 1 FROM DeletedMessage GROUP BY userId, dialogId, messageId)",
-		error);
-	count = Scalar(db, "SELECT count(*) FROM DeletedMessageV2", error);
+	const auto expected = Scalar(db, "SELECT count(*) FROM temp.ayu_keep_deleted", error);
+	count = Scalar(db, "SELECT count(*) FROM main.DeletedMessageV2", error);
+	if (!Exec(db, "DROP TABLE temp.ayu_keep_deleted", error)) {
+		return false;
+	}
 	if (expected < 0 || count != expected) {
 		error = "The deleted messages do not match: " + std::to_string(count)
 			+ " of " + std::to_string(expected);
@@ -317,28 +338,42 @@ constexpr auto kCommonTarget =
 	return true;
 }
 
-[[nodiscard]] bool MigrateEdited(sqlite3 *db, long long &count, std::string &error) {
-	const auto c = Columns(db, "EditedMessage");
+[[nodiscard]] bool MigrateEdited(
+		sqlite3 *db,
+		const std::string &schema,
+		long long &count,
+		std::string &error) {
+	const auto c = Columns(db, schema, "EditedMessage");
+	const auto d = Columns(db, schema, "EditedMessage", "d.");
+	const auto source = Source(schema, "EditedMessage");
+	// The revisions in the order of the message and of the old identifier.
 	if (!Exec(
 		db,
-		"CREATE INDEX IF NOT EXISTS idx_ayu_migration_edited ON EditedMessage "
-		"(userId, dialogId, messageId)",
-		error)) {
+		"CREATE TEMP TABLE ayu_keep_edited (userId INTEGER, dialogId INTEGER, messageId INTEGER, "
+		"fid INTEGER, PRIMARY KEY (userId, dialogId, messageId, fid)) WITHOUT ROWID",
+		error)
+		|| !Exec(
+			db,
+			"INSERT INTO ayu_keep_edited SELECT " + d.number("userId") + ", " + d.number("dialogId")
+				+ ", " + d.number("messageId") + ", d.fakeId FROM " + source + " d",
+			error)) {
 		return false;
 	}
-	const auto revision = std::string("row_number() OVER (PARTITION BY userId, dialogId, messageId ORDER BY fakeId)");
 	if (!Exec(
 		db,
-		std::string("INSERT INTO EditedMessageV2 (userId, dialogId, messageId, ")
+		std::string("INSERT INTO main.EditedMessageV2 (userId, dialogId, messageId, ")
 			+ kCommonTarget + ") SELECT "
-			+ c.number("userId") + ", " + c.number("dialogId") + ", " + c.number("messageId")
-			+ ", " + CommonSelect(c)
-			+ " FROM EditedMessage ORDER BY userId, dialogId, messageId, fakeId",
+			+ d.number("userId") + ", " + d.number("dialogId") + ", " + d.number("messageId")
+			+ ", " + CommonSelect(d)
+			+ " FROM temp.ayu_keep_edited k JOIN " + source + " d ON d.fakeId = k.fid"
+			+ " ORDER BY k.userId, k.dialogId, k.messageId, k.fid",
 		error)) {
 		return false;
 	}
 	const auto condition = RareCondition(c);
 	if (condition != "0") {
+		const auto revision = std::string(
+			"row_number() OVER (PARTITION BY userId, dialogId, messageId ORDER BY fakeId)");
 		const auto select = "SELECT userId, dialogId, messageId, revision, "
 			"peerId, fwdFlags, fwdFromId, fwdName, fwdDate, fwdPostAuthor, replyFlags, "
 			"replyPeerId, replySerialized, replyMarkupSerialized, hqThumbPath, "
@@ -353,19 +388,22 @@ constexpr auto kCommonTarget =
 			+ c.blob("replyMarkupSerialized") + " AS replyMarkupSerialized, "
 			+ c.text("hqThumbPath") + " AS hqThumbPath, " + c.blob("thumbsSerialized") + " AS thumbsSerialized, "
 			+ c.blob("documentAttributesSerialized") + " AS documentAttributesSerialized, "
-			+ c.text("mimeType") + " AS mimeType, " + condition + " AS rare FROM EditedMessage) WHERE rare = 1";
+			+ c.text("mimeType") + " AS mimeType, " + condition + " AS rare FROM " + source + ") WHERE rare = 1";
 		if (!WriteExtras(
 			db,
 			select,
-			"UPDATE EditedMessageV2 SET extra = ?1 WHERE fakeId = (SELECT fakeId FROM EditedMessageV2 "
+			"UPDATE main.EditedMessageV2 SET extra = ?1 WHERE fakeId = (SELECT fakeId FROM main.EditedMessageV2 "
 			"WHERE userId = ?2 AND dialogId = ?3 AND messageId = ?4 ORDER BY fakeId LIMIT 1 OFFSET ?5)",
 			true,
 			error)) {
 			return false;
 		}
 	}
-	const auto expected = Scalar(db, "SELECT count(*) FROM EditedMessage", error);
-	count = Scalar(db, "SELECT count(*) FROM EditedMessageV2", error);
+	const auto expected = Scalar(db, "SELECT count(*) FROM temp.ayu_keep_edited", error);
+	count = Scalar(db, "SELECT count(*) FROM main.EditedMessageV2", error);
+	if (!Exec(db, "DROP TABLE temp.ayu_keep_edited", error)) {
+		return false;
+	}
 	if (expected < 0 || count != expected) {
 		error = "The edited messages do not match: " + std::to_string(count)
 			+ " of " + std::to_string(expected);
@@ -376,26 +414,29 @@ constexpr auto kCommonTarget =
 
 } // namespace
 
-Result Run(sqlite3 *db) {
+Result Run(sqlite3 *db, const char *schemaName) {
 	const auto started = Clock::now();
+	const auto schema = std::string(schemaName ? schemaName : "main");
 	auto result = Result();
-	const auto hasDeleted = TableExists(db, "DeletedMessage");
-	const auto hasEdited = TableExists(db, "EditedMessage");
+	const auto hasDeleted = TableExists(db, schema, "DeletedMessage");
+	const auto hasEdited = TableExists(db, schema, "EditedMessage");
 	if (!hasDeleted && !hasEdited) {
 		result.ok = true;
 		return result;
 	}
-	if (hasDeleted && !MigrateDeleted(db, result.deleted, result.error)) {
+	if (hasDeleted && !MigrateDeleted(db, schema, result.deleted, result.error)) {
 		return result;
 	}
-	if (hasEdited && !MigrateEdited(db, result.edited, result.error)) {
+	if (hasEdited && !MigrateEdited(db, schema, result.edited, result.error)) {
 		return result;
 	}
-	if (hasDeleted && !Exec(db, "DROP TABLE DeletedMessage", result.error)) {
-		return result;
-	}
-	if (hasEdited && !Exec(db, "DROP TABLE EditedMessage", result.error)) {
-		return result;
+	if (schema == "main") {
+		if (hasDeleted && !Exec(db, "DROP TABLE main.DeletedMessage", result.error)) {
+			return result;
+		}
+		if (hasEdited && !Exec(db, "DROP TABLE main.EditedMessage", result.error)) {
+			return result;
+		}
 	}
 	result.ok = true;
 	result.migrated = true;
