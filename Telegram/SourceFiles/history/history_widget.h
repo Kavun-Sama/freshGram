@@ -30,6 +30,10 @@ namespace MTP {
 class Error;
 } // namespace MTP
 
+namespace Ayu {
+class ComposeTranslator;
+} // namespace Ayu
+
 namespace Data {
 class ForumTopic;
 class PhotoMedia;
@@ -588,6 +592,8 @@ private:
 	void updateExpandButtonGeometry();
 	[[nodiscard]] bool canShowRichEditor() const;
 	void showRichEditor();
+	void initTranslateButton();
+	void translateField();
 	void initDiscardRichDraftButton();
 	void updateDiscardRichDraftVisibility();
 	void updateDiscardRichDraftGeometry();
@@ -930,6 +936,8 @@ private:
 	Ui::IconButton * const _sendAsFile = nullptr;
 	Ui::IconButton * const _expand = nullptr;
 	Ui::IconButton * const _discardRichDraft = nullptr;
+	Ui::IconButton * const _translate = nullptr;
+	const std::unique_ptr<Ayu::ComposeTranslator> _translator;
 	object_ptr<Ui::FlatButton> _unblock;
 	object_ptr<Ui::FlatButton> _botStart;
 	object_ptr<Ui::FlatButton> _joinChannel;

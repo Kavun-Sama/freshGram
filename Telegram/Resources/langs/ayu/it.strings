@@ -643,6 +643,9 @@
 "ayu_SecretTranslateWarning" = "Il testo di questi messaggi verrà inviato verso {provider} per la traduzione. Continuare?";
 "ayu_SecretTranslateCustomServer" = "il tuo server personalizzato";
 "ayu_SecretTranslateSystem" = "il traduttore di sistema";
+"ayu_MessageFieldElementTranslate" = "Traduci";
+"ayu_TranslateComposeTo" = "Traduci il testo digitato in";
+"ayu_TranslateComposeFailed" = "Impossibile tradurre il testo.";
 "ayu_DatabaseReport" = "Rapporto sul database";
 "ayu_DatabaseReportStarted" = "Creazione del rapporto sul database...";
 "ayu_DatabaseReportSaved" = "Il rapporto è salvato in tdata/ayu_db_report.txt";

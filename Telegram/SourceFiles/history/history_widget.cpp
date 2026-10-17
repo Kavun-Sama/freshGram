@@ -216,6 +216,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat.h"
 #include "styles/style_window.h"
 #include "styles/style_chat_helpers.h"
+#include "styles/style_ayu_styles.h"
 #include "styles/style_info.h"
 #include "styles/style_iv.h"
 #include "styles/style_layers.h"
@@ -224,6 +225,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QMimeData>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/translator/compose_translate.h"
 #include "ayu/features/filters/filters_cache_controller.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "ayu/features/message_shot/message_shot.h"
@@ -321,6 +323,10 @@ HistoryWidget::HistoryWidget(
 , _discardRichDraft(Ui::CreateChild<Ui::IconButton>(
 	this,
 	st::historyDiscardRichDraftButton))
+, _translate(Ui::CreateChild<Ui::IconButton>(
+	this,
+	st::historyTranslateButton))
+, _translator(std::make_unique<Ayu::ComposeTranslator>())
 , _unblock(
 	this,
 	tr::lng_unblock_button(tr::now),
@@ -612,6 +618,7 @@ HistoryWidget::HistoryWidget(
 	initSendAsFileButton();
 	initExpandButton();
 	initDiscardRichDraftButton();
+	initTranslateButton();
 
 	_fieldCharsCountManager.limitExceeds(
 	) | rpl::on_next([=] {
@@ -957,6 +964,7 @@ HistoryWidget::HistoryWidget(
 		AyuSettings::getInstance().showMicrophoneButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAutoDeleteButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showGiftButtonInMessageFieldChanges() | rpl::to_empty,
+		AyuSettings::getInstance().showTranslateButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAiEditorButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAttachPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showEmojiPopupChanges() | rpl::to_empty,
@@ -2292,6 +2300,7 @@ void HistoryWidget::orderWidgets() {
 	_expand->raise();
 	_richDraftPreview->raise();
 	_discardRichDraft->raise();
+	_translate->raise();
 	_topBars->raise();
 	if (_businessBotStatus) {
 		_businessBotStatus->bar().raise();
@@ -4481,6 +4490,7 @@ void HistoryWidget::updateControlsVisibility() {
 		if (_giftToUser) {
 			_giftToUser->hide();
 		}
+		_translate->hide();
 		if (_ttlInfo) {
 			_ttlInfo->hide();
 		}
@@ -4612,6 +4622,16 @@ void HistoryWidget::updateControlsVisibility() {
 					rightButtonsChanged = true;
 				}
 			}
+			{
+				const auto was = !_translate->isHidden();
+				const auto now = (_canSendTexts || _editMsgId)
+					&& !_field->isHidden()
+					&& settings.showTranslateButtonInMessageField();
+				if (was != now) {
+					_translate->setVisible(now);
+					rightButtonsChanged = true;
+				}
+			}
 			if (_giftToUser) {
 				const auto was = _giftToUser->isVisible();
 				const auto now = (!_editMsgId)
@@ -4682,6 +4702,7 @@ void HistoryWidget::updateControlsVisibility() {
 		if (_giftToUser) {
 			_giftToUser->hide();
 		}
+		_translate->hide();
 		if (_ttlInfo) {
 			_ttlInfo->hide();
 		}
@@ -7695,6 +7716,35 @@ void HistoryWidget::updateExpandButtonGeometry() {
 	_expand->move(QPoint(x, _field->y()) + st::historyAiComposeButtonPosition);
 }
 
+void HistoryWidget::initTranslateButton() {
+	_translate->hide();
+	_translate->setAccessibleName(
+		tr::ayu_MessageFieldElementTranslate(tr::now));
+	_translate->setClickedCallback([=] {
+		translateField();
+	});
+}
+
+void HistoryWidget::translateField() {
+	if (!_peer || _translator->busy()) {
+		return;
+	}
+	const auto original = prepareTextForEditMsg();
+	if (original.text.trimmed().isEmpty()) {
+		return;
+	}
+	_translator->start(controller()->uiShow(), _peer, original, crl::guard(this, [=](
+			std::optional<TextWithEntities> result) {
+		if (!result || prepareTextForEditMsg() != original) {
+			return;
+		}
+		setFieldText({
+			result->text,
+			TextUtilities::ConvertEntitiesToTextTags(result->entities),
+		}, TextUpdateEvent::SaveDraft, Ui::InputField::HistoryAction::NewEntry);
+	}));
+}
+
 void HistoryWidget::initDiscardRichDraftButton() {
 	_discardRichDraft->hide();
 	_richDraftPreview->shownValue(
@@ -7846,6 +7896,10 @@ void HistoryWidget::moveFieldControls() {
 	if (kbShowShown || (_cmdStartShown && settings.showCommandsButtonInMessageField()) || _silent) {
 		right += _botCommandStart->width();
 	}
+	if (!_translate->isHidden()) {
+		_translate->moveToRight(right, buttonsBottom);
+		right += _translate->width();
+	}
 	if (_toggleSuggestPost) {
 		_toggleSuggestPost->moveToRight(right, buttonsBottom);
 		right += _toggleSuggestPost->width();
@@ -7920,6 +7974,9 @@ void HistoryWidget::updateFieldSize() {
 	}
 	if (_silent && !_silent->isHidden()) {
 		fieldWidth -= _silent->width();
+	}
+	if (!_translate->isHidden()) {
+		fieldWidth -= _translate->width();
 	}
 	if (_toggleSuggestPost && !_toggleSuggestPost->isHidden()) {
 		fieldWidth -= _toggleSuggestPost->width();

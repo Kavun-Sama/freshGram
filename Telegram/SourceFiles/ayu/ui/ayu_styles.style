@@ -162,3 +162,8 @@ deleteOwnNestedSkip: 36px;
 deleteOwnFieldWidth: 120px;
 storyPreviewHeight: 320px;
 storyRowPadding: margins(22px, 4px, 22px, 4px);
+
+historyTranslateButton: IconButton(historyAttach) {
+	icon: icon {{ "menu/translate", historyComposeIconFg }};
+	iconOver: icon {{ "menu/translate", historyComposeIconFgOver }};
+}

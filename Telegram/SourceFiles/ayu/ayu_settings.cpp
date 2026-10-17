@@ -632,6 +632,11 @@ void AyuSettings::validate() {
 		modified = true;
 	}
 
+	if (_translateComposeTo.current().size() != 2) {
+		_translateComposeTo = defaults._translateComposeTo.current();
+		modified = true;
+	}
+
 	validateRange(_messageBubbleRadius, 0, 16, defaults._messageBubbleRadius);
 	validateRange(_maxEditRevisions, 0, 100000, defaults._maxEditRevisions);
 	validateRange(_deletedRestoreLimit, 0, 1000000, defaults._deletedRestoreLimit);
@@ -1087,6 +1092,18 @@ void AyuSettings::setShowAutoDeleteButtonInMessageField(bool val) {
 void AyuSettings::setShowGiftButtonInMessageField(bool val) {
 	if (_showGiftButtonInMessageField.current() == val) return;
 	_showGiftButtonInMessageField = val;
+	save();
+}
+
+void AyuSettings::setShowTranslateButtonInMessageField(bool val) {
+	if (_showTranslateButtonInMessageField.current() == val) return;
+	_showTranslateButtonInMessageField = val;
+	save();
+}
+
+void AyuSettings::setTranslateComposeTo(const QString &val) {
+	if (_translateComposeTo.current() == val) return;
+	_translateComposeTo = val;
 	save();
 }
 
@@ -1552,6 +1569,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showMicrophoneButtonInMessageField", s._showMicrophoneButtonInMessageField.current()},
 		{"showAutoDeleteButtonInMessageField", s._showAutoDeleteButtonInMessageField.current()},
 		{"showGiftButtonInMessageField", s._showGiftButtonInMessageField.current()},
+		{"showTranslateButtonInMessageField", s._showTranslateButtonInMessageField.current()},
+		{"translateComposeTo", s._translateComposeTo.current()},
 		{"showAiEditorButtonInMessageField", s._showAiEditorButtonInMessageField.current()},
 		{"showAttachPopup", s._showAttachPopup.current()},
 		{"showEmojiPopup", s._showEmojiPopup.current()},
@@ -1703,6 +1722,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showMicrophoneButtonInMessageField = j.value("showMicrophoneButtonInMessageField", defaults._showMicrophoneButtonInMessageField.current());
 	s._showAutoDeleteButtonInMessageField = j.value("showAutoDeleteButtonInMessageField", defaults._showAutoDeleteButtonInMessageField.current());
 	s._showGiftButtonInMessageField = j.value("showGiftButtonInMessageField", defaults._showGiftButtonInMessageField.current());
+	s._showTranslateButtonInMessageField = j.value("showTranslateButtonInMessageField", defaults._showTranslateButtonInMessageField.current());
+	s._translateComposeTo = j.value("translateComposeTo", defaults._translateComposeTo.current());
 	s._showAiEditorButtonInMessageField = j.value("showAiEditorButtonInMessageField", defaults._showAiEditorButtonInMessageField.current());
 	s._showAttachPopup = j.value("showAttachPopup", defaults._showAttachPopup.current());
 	s._showEmojiPopup = j.value("showEmojiPopup", defaults._showEmojiPopup.current());

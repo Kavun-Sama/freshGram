@@ -15,6 +15,8 @@
 #include "ayu/ui/settings/settings_main.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
+#include "spellcheck/spellcheck_types.h"
+#include "ui/boxes/choose_language_box.h"
 #include "styles/style_ayu_icons.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
@@ -466,6 +468,44 @@ void BuildMessageFieldElements(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.getter = &AyuSettings::showGiftButtonInMessageField,
 		.setter = &AyuSettings::setShowGiftButtonInMessageField,
 		.icon = { &st::settingsButtonIconGift },
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/showTranslateButtonInMessageField"_q,
+		.title = tr::ayu_MessageFieldElementTranslate(),
+		.getter = &AyuSettings::showTranslateButtonInMessageField,
+		.setter = &AyuSettings::setShowTranslateButtonInMessageField,
+		.icon = { &st::messageFieldTranslateIcon },
+	});
+	const auto controller = builder.controller();
+	builder.addButton({
+		.id = u"ayu/translateComposeTo"_q,
+		.title = tr::ayu_TranslateComposeTo(),
+		.st = &st::settingsButtonNoIcon,
+		.label = AyuSettings::getInstance().translateComposeToValue()
+			| rpl::map([](const QString &code) {
+				return Ui::LanguageName(LanguageId::FromName(code));
+			}),
+		.onClick = [=] {
+			if (!controller) {
+				return;
+			}
+			const auto current = LanguageId::FromName(
+				AyuSettings::getInstance().translateComposeTo());
+			controller->show(Box(
+				Ui::ChooseLanguageBox,
+				tr::ayu_TranslateComposeTo(),
+				[](std::vector<LanguageId> ids) {
+					if (!ids.empty()) {
+						AyuSettings::getInstance().setTranslateComposeTo(
+							QString(ids.front().twoLetterCode()));
+					}
+				},
+				std::vector<LanguageId>{ current },
+				false,
+				nullptr));
+		},
+		.keywords = { u"translate"_q, u"language"_q },
+		.shown = AyuSettings::getInstance().showTranslateButtonInMessageFieldValue(),
 	});
 	ayu.addSettingToggle({
 		.id = u"ayu/showAiEditorButtonInMessageField"_q,

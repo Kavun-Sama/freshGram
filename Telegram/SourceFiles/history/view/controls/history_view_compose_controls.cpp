@@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_calls.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
+#include "styles/style_ayu_styles.h"
 #include "styles/style_credits.h"
 #include "styles/style_iv.h"
 #include "styles/style_layers.h"
@@ -144,6 +145,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "data/data_ai_compose_tones.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/features/translator/compose_translate.h"
 #include "history/history_item_components.h"
 
 
@@ -1266,6 +1268,12 @@ ComposeControls::ComposeControls(
 , _discardRichDraft(Ui::CreateChild<Ui::IconButton>(
 	_wrap.get(),
 	st::historyDiscardRichDraftButton))
+, _translate(_features.richEditor
+	? Ui::CreateChild<Ui::IconButton>(
+		_wrap.get(),
+		st::historyTranslateButton)
+	: nullptr)
+, _translator(std::make_unique<Ayu::ComposeTranslator>())
 , _like(_features.likes
 	? Ui::CreateChild<Ui::IconButton>(_wrap.get(), _st.like)
 	: nullptr)
@@ -2449,6 +2457,9 @@ void ComposeControls::showFinished() {
 	}
 	_expand->raise();
 	_discardRichDraft->raise();
+	if (_translate) {
+		_translate->raise();
+	}
 	if (_aiTooltipManager) {
 		_aiTooltipManager->raise();
 	}
@@ -2866,6 +2877,7 @@ void ComposeControls::init() {
 	initSendAsFileButton();
 	initExpandButton();
 	initDiscardRichDraftButton();
+	initTranslateButton();
 	initWriteRestriction();
 	initVoiceRecordBar();
 	initKeyHandler();
@@ -3073,6 +3085,7 @@ void ComposeControls::init() {
 		AyuSettings::getInstance().showAutoDeleteButtonInMessageFieldChanges() | rpl::to_empty,
 		session().data().aiComposeTones().updated() | rpl::to_empty,
 		AyuSettings::getInstance().showAiEditorButtonInMessageFieldChanges() | rpl::to_empty,
+		AyuSettings::getInstance().showTranslateButtonInMessageFieldChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showAttachPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().showEmojiPopupChanges() | rpl::to_empty,
 		AyuSettings::getInstance().channelBottomButtonChanges() | rpl::to_empty,
@@ -4690,6 +4703,38 @@ void ComposeControls::initSendAsFileButton() {
 		[=] { return _wrap->width(); });
 }
 
+void ComposeControls::initTranslateButton() {
+	if (!_translate) {
+		return;
+	}
+	_translate->hide();
+	_translate->setAccessibleName(
+		tr::ayu_MessageFieldElementTranslate(tr::now));
+	_translate->setClickedCallback([=] {
+		translateField();
+	});
+}
+
+void ComposeControls::translateField() {
+	if (!_history || _translator->busy()) {
+		return;
+	}
+	const auto original = prepareTextForEditMsg();
+	if (original.text.trimmed().isEmpty()) {
+		return;
+	}
+	_translator->start(_show, _history->peer, original, crl::guard(_wrap.get(), [=](
+			std::optional<TextWithEntities> result) {
+		if (!result || prepareTextForEditMsg() != original) {
+			return;
+		}
+		setFieldText({
+			result->text,
+			TextUtilities::ConvertEntitiesToTextTags(result->entities),
+		}, TextUpdateEvent::SaveDraft, Ui::InputField::HistoryAction::NewEntry);
+	}));
+}
+
 void ComposeControls::initDiscardRichDraftButton() {
 	_discardRichDraft->hide();
 	_richDraftPreview->shownValue(
@@ -5092,6 +5137,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 		&& !_commentsShown->isHidden();
 	const auto giftToUser = _giftToUser
 		&& !_giftToUser->isHidden();
+	const auto translateShown = _translate && !_translate->isHidden();
 	const auto fieldWidth = size.width()
 		- (commentsShown
 			? (_commentsShown->width() + _st.commentsSkip)
@@ -5111,6 +5157,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 			: 0)
 		- (_likeShown ? _like->width() : 0)
 		- (_botCommandShown && settings.showCommandsButtonInMessageField() ? _botCommandStart->width() : 0)
+		- (translateShown ? _translate->width() : 0)
 		- ((_silent && !_silent->isHidden()) ? _silent->width() : 0)
 		- ((_toggleSuggestPost && !_toggleSuggestPost->isHidden())
 			? _toggleSuggestPost->width()
@@ -5220,6 +5267,10 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 			right += _botCommandStart->width();
 		}
 	}
+	if (translateShown) {
+		_translate->moveToRight(right, buttonsTop);
+		right += _translate->width();
+	}
 	if (_silent) {
 		_silent->moveToRight(right, buttonsTop);
 		if (!_silent->isHidden()) {
@@ -5276,6 +5327,10 @@ void ComposeControls::updateControlsVisibility() {
 	}
 	if (_silent) {
 		_silent->setVisible(!hide);
+	}
+	if (_translate) {
+		_translate->setVisible(
+			_history && settings.showTranslateButtonInMessageField());
 	}
 	if (_like) {
 		_like->setVisible(_likeShown);

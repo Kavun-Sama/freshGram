@@ -296,6 +296,8 @@ set(ayugram_files
         ayu/features/translator/ayu_translator.h
         ayu/features/translator/ayu_translate_provider.cpp
         ayu/features/translator/ayu_translate_provider.h
+        ayu/features/translator/compose_translate.cpp
+        ayu/features/translator/compose_translate.h
         ayu/features/translator/html_parser.cpp
         ayu/features/translator/html_parser.h
         ayu/features/translator/implementations/google.cpp

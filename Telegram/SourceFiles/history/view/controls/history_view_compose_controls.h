@@ -44,6 +44,10 @@ enum class PauseReason;
 class FieldAutocomplete;
 } // namespace ChatHelpers
 
+namespace Ayu {
+class ComposeTranslator;
+} // namespace Ayu
+
 namespace Data {
 struct MessagePosition;
 struct Draft;
@@ -407,6 +411,8 @@ private:
 	void showRichEditor();
 	void showRichEditorWithPaste(std::shared_ptr<QMimeData> data);
 	void offerRichPaste(not_null<const QMimeData*> data);
+	void initTranslateButton();
+	void translateField();
 	void initDiscardRichDraftButton();
 	void updateDiscardRichDraftVisibility();
 	void updateDiscardRichDraftGeometry();
@@ -565,6 +571,8 @@ private:
 	Ui::IconButton * const _sendAsFile = nullptr;
 	Ui::IconButton * const _expand = nullptr;
 	Ui::IconButton * const _discardRichDraft = nullptr;
+	Ui::IconButton * const _translate = nullptr;
+	const std::unique_ptr<Ayu::ComposeTranslator> _translator;
 	Ui::IconButton *_editStars = nullptr;
 	Ui::IconButton *_like = nullptr;
 	rpl::variable<int> _minStarsCount;
