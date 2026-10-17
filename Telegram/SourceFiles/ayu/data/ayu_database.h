@@ -10,6 +10,7 @@
 
 #include <functional>
 #include <optional>
+#include <string>
 
 class SchemaVersion
 {
@@ -24,6 +25,8 @@ void initialize();
 void finish();
 void flush();
 bool exportSealed(QByteArray &sealed, qint64 &rows);
+std::string sizeReport();
+void saveSizeReport(std::function<void(bool)> done);
 void clearUserData(ID userId);
 void clearEverything();
 

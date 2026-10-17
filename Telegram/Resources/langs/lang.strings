@@ -9320,6 +9320,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_NetworkPrivacyDescription" = "Unsent drafts stay on this device and are not uploaded to Telegram, so other devices do not see them.\n\nWith reduced network tracking the connection key is renewed every hour instead of every 24 hours, so someone watching the network cannot follow your device by it for long. It means more handshakes and a short reconnect each hour, and it applies to new keys. If the server refuses, longer periods are used.";
 "ayu_EnableDebugLogging" = "Enable debug logging";
 "ayu_DebugLoggingDescription" = "Writes log.txt and crash_trace.txt to the data folder. They help to find bugs but may contain chat names, file paths and other private details, so keep it off unless you need it. Turning it off deletes these files.";
+"ayu_DatabaseReport" = "Database report";
+"ayu_DatabaseReportStarted" = "Building the database report...";
+"ayu_DatabaseReportSaved" = "The report is saved to tdata/ayu_db_report.txt";
+"ayu_DatabaseReportFailed" = "Failed to save the database report";
 
 "ayu_MarkOldMessagesDeleted" = "Mark old messages deleted when a chat is deleted";
 "ayu_DeletedChatsDescription" = "A deleted topic stays in the list marked as deleted, with its loaded messages. Turning an option off does not delete saved data; it is applied again when you turn it on. Changes in the kept chats apply after a restart. If deleted messages are not shown in chats, they are still saved and available in \"View deleted messages\".";

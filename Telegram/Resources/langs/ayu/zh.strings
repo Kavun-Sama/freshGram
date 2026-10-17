@@ -622,3 +622,7 @@
 "ayu_SecretTranslateWarning" = "这些消息的文本将发送到{provider}进行翻译。要继续吗？";
 "ayu_SecretTranslateCustomServer" = "你自定义的服务器";
 "ayu_SecretTranslateSystem" = "系统翻译器";
+"ayu_DatabaseReport" = "数据库报告";
+"ayu_DatabaseReportStarted" = "正在生成数据库报告...";
+"ayu_DatabaseReportSaved" = "报告已保存到 tdata/ayu_db_report.txt";
+"ayu_DatabaseReportFailed" = "无法保存数据库报告";

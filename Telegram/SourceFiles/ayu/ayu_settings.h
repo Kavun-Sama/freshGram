@@ -400,6 +400,7 @@ public:
 	[[nodiscard]] bool stashHintUsed() const { return _stashHintUsed.current(); }
 	[[nodiscard]] bool reduceNetworkTracking() const { return _reduceNetworkTracking.current(); }
 	[[nodiscard]] bool enableDebugLogging() const { return _enableDebugLogging.current(); }
+	[[nodiscard]] rpl::producer<bool> enableDebugLoggingValue() const { return _enableDebugLogging.value(); }
 	[[nodiscard]] bool markOldMessagesDeleted() const { return _markOldMessagesDeleted.current(); }
 	[[nodiscard]] bool showTimeZone() const { return _showTimeZone.current(); }
 	[[nodiscard]] bool showMessageShot() const { return _showMessageShot.current(); }

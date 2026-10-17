@@ -635,3 +635,7 @@
 "ayu_SecretTranslateWarning" = "Der Text dieser Nachrichten wird zur Übersetzung an {provider} gesendet. Fortfahren?";
 "ayu_SecretTranslateCustomServer" = "deinen eigenen Server";
 "ayu_SecretTranslateSystem" = "den System-Übersetzer";
+"ayu_DatabaseReport" = "Datenbankbericht";
+"ayu_DatabaseReportStarted" = "Der Datenbankbericht wird erstellt...";
+"ayu_DatabaseReportSaved" = "Der Bericht wurde in tdata/ayu_db_report.txt gespeichert";
+"ayu_DatabaseReportFailed" = "Der Datenbankbericht konnte nicht gespeichert werden";

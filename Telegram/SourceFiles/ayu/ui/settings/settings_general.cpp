@@ -8,6 +8,7 @@
 
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/data/ayu_database.h"
 #include "ayu/features/recognition/speech_recognition.h"
 #include "ayu/features/recognition/text_recognition.h"
 #include "ayu/ui/boxes/recognition_models_box.h"
@@ -454,6 +455,21 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 
 	builder.addSkip();
 	builder.addDividerText(tr::ayu_DebugLoggingDescription());
+
+	builder.addButton({
+		.id = u"ayu/databaseReport"_q,
+		.title = tr::ayu_DatabaseReport(),
+		.icon = { &st::menuIconStats },
+		.onClick = [] {
+			Ui::Toast::Show(tr::ayu_DatabaseReportStarted(tr::now));
+			AyuDatabase::saveSizeReport([](bool ok) {
+				Ui::Toast::Show(ok
+					? tr::ayu_DatabaseReportSaved(tr::now)
+					: tr::ayu_DatabaseReportFailed(tr::now));
+			});
+		},
+		.shown = AyuSettings::getInstance().enableDebugLoggingValue(),
+	});
 }
 
 const auto kMeta = BuildHelper({

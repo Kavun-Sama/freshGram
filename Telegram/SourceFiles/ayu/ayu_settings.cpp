@@ -1296,6 +1296,7 @@ void AyuSettings::setEnableDebugLogging(bool val) {
 	} else {
 		Logs::removeFiles();
 		AyuCrashTrace::Remove(directory);
+		QFile::remove(directory + u"/ayu_db_report.txt"_q);
 	}
 	save();
 }

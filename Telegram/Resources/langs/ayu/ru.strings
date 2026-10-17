@@ -661,3 +661,7 @@
 "ayu_FakePasscodeConfirm" = "Этот код-пароль ничего не покажет: при вводе выполнятся выбранные действия, и отменить их нельзя. Сохранить?";
 "ayu_SecretTranslateCustomServer" = "ваш собственный сервер";
 "ayu_SecretTranslateSystem" = "системный переводчик";
+"ayu_DatabaseReport" = "Отчёт о базе данных";
+"ayu_DatabaseReportStarted" = "Строится отчёт о базе данных...";
+"ayu_DatabaseReportSaved" = "Отчёт сохранён в tdata/ayu_db_report.txt";
+"ayu_DatabaseReportFailed" = "Не удалось сохранить отчёт о базе данных";

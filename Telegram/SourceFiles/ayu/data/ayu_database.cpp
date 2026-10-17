@@ -7,6 +7,7 @@
 #include "ayu/data/ayu_database.h"
 
 #include "ayu/data/ayu_database_backup.h"
+#include "ayu/data/ayu_database_report.h"
 #include "ayu/data/ayu_vault.h"
 #include "ayu/data/entities.h"
 #include "ayu/libs/sqlite/sqlite3.h"
@@ -431,8 +432,14 @@ void inTransaction(Callback &&callback) {
 	}
 }
 
+[[nodiscard]] double MsSince(std::chrono::steady_clock::time_point from) {
+	return std::chrono::duration<double, std::milli>(
+		std::chrono::steady_clock::now() - from).count();
+}
+
 bool saveSnapshot() {
 	SavePending = false;
+	const auto started = std::chrono::steady_clock::now();
 	auto plain = QByteArray();
 	{
 		std::lock_guard lock(DatabaseMutex);
@@ -450,10 +457,12 @@ bool saveSnapshot() {
 		sqlite3_free(data);
 		SavedChanges = sqlite3_total_changes64(MemoryHandle);
 	}
+	const auto copied = MsSince(started);
 	if (!AyuVault::WriteSealedFile(snapshotPath(), plain)) {
 		SavedChanges = -1;
 		return false;
 	}
+	LOG(("[AyuGram] Database: saved the snapshot, %1 MB, copy %2 ms, seal and write %3 ms.").arg(plain.size() / 1048576.0, 0, 'f', 1).arg(copied, 0, 'f', 0).arg(MsSince(started) - copied, 0, 'f', 0));
 	return true;
 }
 
@@ -517,11 +526,13 @@ void importLegacyDatabase() {
 }
 
 void loadSnapshot(bool &imported) {
+	const auto started = std::chrono::steady_clock::now();
 	if (QFile::exists(snapshotPath())) {
 		const auto plain = AyuVault::ReadFile(snapshotPath(), true);
 		if (!plain || plain->isEmpty()) {
 			throwSqlite(kSqliteNotADatabase);
 		}
+		const auto read = MsSince(started);
 		const auto size = sqlite3_int64(plain->size());
 		const auto buffer = static_cast<unsigned char*>(sqlite3_malloc64(size));
 		if (!buffer) {
@@ -538,9 +549,11 @@ void loadSnapshot(bool &imported) {
 		if (code != SQLITE_OK) {
 			throwSqlite(code);
 		}
+		LOG(("[AyuGram] Database: loaded the snapshot, %1 MB, read and unseal %2 ms, total %3 ms.").arg(size / 1048576.0, 0, 'f', 1).arg(read, 0, 'f', 0).arg(MsSince(started), 0, 'f', 0));
 	} else if (QFile::exists(legacyPath())) {
 		importLegacyDatabase();
 		imported = true;
+		LOG(("[AyuGram] Database: imported the legacy database in %1 ms.").arg(MsSince(started), 0, 'f', 0));
 	}
 }
 
@@ -1206,6 +1219,63 @@ bool exportSealed(QByteArray &sealed, qint64 &rows) {
 	}
 	sealed = AyuVault::Seal(plain);
 	return true;
+}
+
+std::string sizeReport() {
+	auto copy = static_cast<unsigned char*>(nullptr);
+	auto size = sqlite3_int64();
+	auto copied = 0.;
+	{
+		std::lock_guard lock(DatabaseMutex);
+		if (!DatabaseReady || !MemoryHandle) {
+			return "The database is not ready.\n";
+		}
+		const auto started = std::chrono::steady_clock::now();
+		copy = sqlite3_serialize(MemoryHandle, "main", &size, 0);
+		copied = MsSince(started);
+	}
+	if (!copy) {
+		return "The database copy failed.\n";
+	}
+	sqlite3 *report = nullptr;
+	if (sqlite3_open_v2(":memory:", &report, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr) != SQLITE_OK) {
+		sqlite3_close(report);
+		sqlite3_free(copy);
+		return "The report database failed to open.\n";
+	}
+	const auto code = sqlite3_deserialize(
+		report,
+		"main",
+		copy,
+		size,
+		size,
+		SQLITE_DESERIALIZE_FREEONCLOSE | SQLITE_DESERIALIZE_RESIZEABLE);
+	if (code != SQLITE_OK) {
+		sqlite3_close(report);
+		return "The report database failed to load.\n";
+	}
+	auto options = AyuDatabaseReport::Options();
+	options.measureSerialize = false;
+	auto result = AyuDatabaseReport::Build(report, options);
+	sqlite3_close(report);
+	result += "== Snapshot ==\n";
+	result += QString("  sqlite3_serialize copy: %1 MB in %2 ms (the sealing and writing come on top)\n")
+		.arg(size / 1048576.0, 0, 'f', 1)
+		.arg(copied, 0, 'f', 1)
+		.toStdString();
+	return result;
+}
+
+void saveSizeReport(std::function<void(bool)> done) {
+	crl::async([=] {
+		const auto text = sizeReport();
+		auto file = QFile("./tdata/ayu_db_report.txt");
+		const auto ok = file.open(QIODevice::WriteOnly | QIODevice::Truncate)
+			&& file.write(text.data(), qint64(text.size())) == qint64(text.size());
+		crl::on_main([=] {
+			done(ok);
+		});
+	});
 }
 
 void flush() {
