@@ -2569,36 +2569,41 @@ elseif (APPLE)
                     XCODE_EXPLICIT_FILE_TYPE "folder.iconcomposer.icon"
             )
         endforeach()
+    endif()
+
+    # The Icon Composer files above are compiled only by Xcode 26 and newer,
+    # so older Xcode versions would leave the bundle without any icon.
+    # The classic .icns (CFBundleIconFile) is built for every generator.
+    set(icon_path ${icons_path}/Icon.iconset)
+    find_program(ICONUTIL iconutil)
+    find_program(PNG2ICNS png2icns)
+    if (ICONUTIL)
+        add_custom_command(
+            OUTPUT AppIcon-Default.icns
+            COMMAND ${ICONUTIL}
+            ARGS
+                --convert icns
+                --output AppIcon-Default.icns
+                ${icon_path}
+        )
+    elseif (PNG2ICNS)
+        add_custom_command(
+            OUTPUT AppIcon-Default.icns
+            COMMAND ${PNG2ICNS}
+            ARGS
+                AppIcon-Default.icns
+                ${icon_path}/icon_16x16.png
+                ${icon_path}/icon_32x32.png
+                ${icon_path}/icon_128x128.png
+                ${icon_path}/icon_256x256.png
+                ${icon_path}/icon_512x512.png
+        )
+    endif()
+    if (ICONUTIL OR PNG2ICNS)
+        set_source_files_properties(AppIcon-Default.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+        target_add_resource(Telegram AppIcon-Default.icns)
     else()
-        set(icon_path ${icons_path}/Icon.iconset)
-        find_program(ICONUTIL iconutil)
-        find_program(PNG2ICNS png2icns)
-        if (ICONUTIL)
-            add_custom_command(
-                OUTPUT AppIcon-Default.icns
-                COMMAND ${ICONUTIL}
-                ARGS
-                    --convert icns
-                    --output AppIcon-Default.icns
-                    ${icon_path}
-            )
-        elseif (PNG2ICNS)
-            add_custom_command(
-                OUTPUT AppIcon-Default.icns
-                COMMAND ${PNG2ICNS}
-                ARGS
-                    AppIcon-Default.icns
-                    ${icon_path}/icon_16x16.png
-                    ${icon_path}/icon_32x32.png
-                    ${icon_path}/icon_128x128.png
-                    ${icon_path}/icon_256x256.png
-                    ${icon_path}/icon_512x512.png
-            )
-        endif()
-        if (ICONUTIL OR PNG2ICNS)
-            set_source_files_properties(AppIcon-Default.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-            target_add_resource(Telegram AppIcon-Default.icns)
-        endif()
+        message(WARNING "Neither iconutil nor png2icns was found, the application will have no icon.")
     endif()
 
     set(lang_packs

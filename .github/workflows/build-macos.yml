@@ -208,6 +208,11 @@ jobs:
           set -e
           app=$(find "freshGram/out/$BUILD_CONFIG" -maxdepth 1 -name '*.app' | head -1)
           test -n "$app"
+          icon="$app/Contents/Resources/AppIcon-Default.icns"
+          if [ ! -f "$icon" ]; then
+            echo "::error::The application icon is missing from the bundle: $icon"
+            exit 1
+          fi
           mkdir -p dist dmg
           if [ -n "${{ steps.release.outputs.tag }}" ]; then
             mkdir -p debug-input
@@ -222,6 +227,8 @@ jobs:
           echo "Stripped $binary: $before -> $(stat -f %z "$binary") bytes"
           codesign --force --deep --sign - dmg/freshGram.app
           ln -s /Applications dmg/Applications
+          cp "$icon" dmg/.VolumeIcon.icns
+          SetFile -a C dmg || echo "::warning::The volume icon flag was not set"
           hdiutil create -volname freshGram -srcfolder dmg -ov -format UDZO dist/freshGram-${{ matrix.suffix }}.dmg
           (cd dist && shasum -a 256 freshGram-${{ matrix.suffix }}.dmg > SHA256SUMS-macos-${{ matrix.suffix }})
 
