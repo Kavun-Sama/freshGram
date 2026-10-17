@@ -286,6 +286,12 @@ set(ayugram_files
         ayu/features/forward/ayu_forward_rich.h
         ayu/features/forward/ayu_sync.cpp
         ayu/features/forward/ayu_sync.h
+        ayu/features/stories/story_entry.cpp
+        ayu/features/stories/story_entry.h
+        ayu/features/stories/story_poster.cpp
+        ayu/features/stories/story_poster.h
+        ayu/ui/boxes/story_compose_box.cpp
+        ayu/ui/boxes/story_compose_box.h
         ayu/features/translator/ayu_translator.cpp
         ayu/features/translator/ayu_translator.h
         ayu/features/translator/ayu_translate_provider.cpp

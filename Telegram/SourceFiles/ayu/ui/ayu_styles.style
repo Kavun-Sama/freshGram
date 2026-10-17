@@ -160,3 +160,5 @@ historyStashBubbleTravel: 4px;
 deleteOwnRowPadding: margins(22px, 4px, 22px, 4px);
 deleteOwnNestedSkip: 36px;
 deleteOwnFieldWidth: 120px;
+storyPreviewHeight: 320px;
+storyRowPadding: margins(22px, 4px, 22px, 4px);

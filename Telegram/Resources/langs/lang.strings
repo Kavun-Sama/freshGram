@@ -9324,6 +9324,27 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DatabaseReportStarted" = "Building the database report...";
 "ayu_DatabaseReportSaved" = "The report is saved to tdata/ayu_db_report.txt";
 "ayu_DatabaseReportFailed" = "Failed to save the database report";
+"ayu_StoryAdd" = "Add a story";
+"ayu_StoryNew" = "New story";
+"ayu_StoryCaption" = "Add a caption...";
+"ayu_StoryEdit" = "Edit";
+"ayu_StoryAudience" = "Who can see it";
+"ayu_StoryContacts" = "Contacts";
+"ayu_StoryCloseFriends" = "Close friends";
+"ayu_StoryEveryone" = "Everyone";
+"ayu_StoryDuration" = "Visible for";
+"ayu_Story6h" = "6 hours";
+"ayu_Story12h" = "12 hours";
+"ayu_Story24h" = "24 hours";
+"ayu_Story48h" = "48 hours";
+"ayu_StoryKeep" = "Keep on the profile";
+"ayu_StoryProtect" = "Disallow forwarding and screenshots";
+"ayu_StoryPost" = "Post";
+"ayu_StoryPosting" = "Posting...";
+"ayu_StoryPosted" = "The story is posted";
+"ayu_StoryVideoFormat" = "The video of a story must be MP4";
+"ayu_StoryLimit" = "You cannot post more stories now";
+"ayu_StoryChoose" = "Choose a photo or a video";
 
 "ayu_MarkOldMessagesDeleted" = "Mark old messages deleted when a chat is deleted";
 "ayu_DeletedChatsDescription" = "A deleted topic stays in the list marked as deleted, with its loaded messages. Turning an option off does not delete saved data; it is applied again when you turn it on. Changes in the kept chats apply after a restart. If deleted messages are not shown in chats, they are still saved and available in \"View deleted messages\".";
