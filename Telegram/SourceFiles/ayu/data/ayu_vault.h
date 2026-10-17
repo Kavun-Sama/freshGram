@@ -26,6 +26,8 @@ void SetKey(MTP::AuthKeyPtr key);
 
 bool WriteFile(const QString &path, const QByteArray &plain);
 bool WriteSealedFile(const QString &path, const QByteArray &plain);
+// Packs the data by blocks and seals every block, only one block is held at a time.
+bool WriteCompressedFile(const QString &path, const unsigned char *data, qint64 size);
 [[nodiscard]] std::optional<QByteArray> ReadFile(
 	const QString &path,
 	bool requireSealed = false);

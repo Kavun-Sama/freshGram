@@ -26,6 +26,8 @@ namespace AyuDatabaseBackup {
 namespace {
 
 constexpr auto kHour = crl::time(60 * 60 * 1000);
+constexpr auto kBigBackup = qint64(40) * 1024 * 1024;
+constexpr auto kBigBackupCount = 3;
 
 std::atomic<bool> Running = false;
 std::mutex BackupMutex;
@@ -207,9 +209,7 @@ void ScrubSecrets(const QString &path) {
 	auto size = sqlite3_int64();
 	const auto data = sqlite3_serialize(handle.db, "main", &size, 0);
 	if (data) {
-		AyuVault::WriteSealedFile(path, QByteArray(
-			reinterpret_cast<const char*>(data),
-			qsizetype(size)));
+		AyuVault::WriteCompressedFile(path, data, qint64(size));
 		sqlite3_free(data);
 	}
 }
@@ -225,7 +225,12 @@ void Rotate() {
 	if (!Configured) {
 		return;
 	}
-	for (auto i = KeepCount.load(); i < int(list.size()); ++i) {
+	// A big database keeps fewer copies, every one of them takes a lot of the disk.
+	auto keep = KeepCount.load();
+	if (!list.empty() && QFileInfo(list.front().path).size() > kBigBackup) {
+		keep = std::min(keep, kBigBackupCount);
+	}
+	for (auto i = keep; i < int(list.size()); ++i) {
 		if (i != richest) {
 			QFile::remove(list[i].path);
 		} else {
@@ -256,20 +261,19 @@ bool create() {
 	}
 	const auto guard = gsl::finally([] { Running = false; });
 	const auto lock = std::lock_guard(BackupMutex);
-	auto sealed = QByteArray();
+	QDir().mkpath(Directory());
+	const auto temporary = Directory() + "/export.tmp";
 	auto rows = qint64(0);
-	if (!AyuDatabase::exportSealed(sealed, rows)) {
+	if (!AyuDatabase::exportCompressed(temporary, rows)) {
+		QFile::remove(temporary);
 		return false;
 	}
-	QDir().mkpath(Directory());
 	const auto name = QString("%1/ayudata_%2_%3.enc")
 		.arg(Directory())
 		.arg(QDateTime::currentDateTimeUtc().toString("yyyyMMdd_HHmmss"))
 		.arg(rows);
-	auto file = QSaveFile(name);
-	if (!file.open(QIODevice::WriteOnly)
-		|| file.write(sealed) != sealed.size()
-		|| !file.commit()) {
+	if (!QFile::rename(temporary, name)) {
+		QFile::remove(temporary);
 		return false;
 	}
 	QFile::setPermissions(
@@ -339,9 +343,10 @@ void purgeUser(long long userId) {
 			QFile::remove(entry.path);
 			continue;
 		}
-		const auto saved = AyuVault::WriteSealedFile(entry.path, QByteArray(
-			reinterpret_cast<const char*>(data),
-			qsizetype(size)));
+		const auto saved = AyuVault::WriteCompressedFile(
+			entry.path,
+			data,
+			qint64(size));
 		sqlite3_free(data);
 		if (!saved) {
 			QFile::remove(entry.path);

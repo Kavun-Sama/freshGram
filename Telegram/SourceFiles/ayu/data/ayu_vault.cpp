@@ -11,6 +11,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <mutex>
@@ -21,7 +22,9 @@ namespace {
 using namespace Storage::details;
 
 constexpr auto kMagic = "AYV1";
+constexpr auto kCompressedMagic = "AYV2";
 constexpr auto kMagicSize = 4;
+constexpr auto kBlockSize = qint64(1) << 20;
 
 std::mutex KeyMutex;
 MTP::AuthKeyPtr Key;
@@ -120,6 +123,90 @@ bool WriteSealedFile(const QString &path, const QByteArray &plain) {
 	return HasKey() && WriteFile(path, plain);
 }
 
+namespace {
+
+[[nodiscard]] bool IsCompressed(const QByteArray &bytes) {
+	return bytes.size() >= kMagicSize
+		&& !memcmp(bytes.constData(), kCompressedMagic, kMagicSize);
+}
+
+void WriteNumber(QByteArray &to, quint64 value, int size) {
+	for (auto i = size - 1; i >= 0; --i) {
+		to.append(char((value >> (8 * i)) & 0xFF));
+	}
+}
+
+[[nodiscard]] bool ReadNumber(const QByteArray &from, qint64 &position, int size, quint64 &value) {
+	if (from.size() - position < size) {
+		return false;
+	}
+	value = 0;
+	for (auto i = 0; i != size; ++i) {
+		value = (value << 8) | quint8(from[position + i]);
+	}
+	position += size;
+	return true;
+}
+
+[[nodiscard]] bool ReadCompressed(const QByteArray &bytes, QByteArray &plain) {
+	auto position = qint64(kMagicSize);
+	plain.clear();
+	while (true) {
+		auto length = quint64();
+		if (!ReadNumber(bytes, position, 4, length)) {
+			return false;
+		}
+		if (!length) {
+			break;
+		}
+		if (qint64(length) > bytes.size() - position) {
+			return false;
+		}
+		const auto block = QByteArray::fromRawData(
+			bytes.constData() + position,
+			int(length));
+		position += qint64(length);
+		auto packed = QByteArray();
+		if (!Unseal(block, packed, true)) {
+			return false;
+		}
+		const auto unpacked = qUncompress(packed);
+		if (unpacked.isEmpty()) {
+			return false;
+		}
+		plain.append(unpacked);
+	}
+	auto expected = quint64();
+	return ReadNumber(bytes, position, 8, expected)
+		&& qint64(expected) == plain.size();
+}
+
+} // namespace
+
+bool WriteCompressedFile(const QString &path, const unsigned char *data, qint64 size) {
+	if (!HasKey()) {
+		return false;
+	}
+	auto file = QSaveFile(path);
+	if (!file.open(QIODevice::WriteOnly)
+		|| file.write(kCompressedMagic, kMagicSize) != kMagicSize) {
+		return false;
+	}
+	for (auto offset = qint64(0); offset < size; offset += kBlockSize) {
+		const auto length = std::min(kBlockSize, size - offset);
+		const auto sealed = Seal(qCompress(data + offset, int(length), 3));
+		auto head = QByteArray();
+		WriteNumber(head, quint64(sealed.size()), 4);
+		if (file.write(head) != head.size() || file.write(sealed) != sealed.size()) {
+			return false;
+		}
+	}
+	auto tail = QByteArray();
+	WriteNumber(tail, 0, 4);
+	WriteNumber(tail, quint64(size), 8);
+	return file.write(tail) == tail.size() && file.commit();
+}
+
 std::optional<QByteArray> ReadFile(const QString &path, bool requireSealed) {
 	auto file = QFile(path);
 	if (!file.open(QIODevice::ReadOnly)) {
@@ -127,6 +214,12 @@ std::optional<QByteArray> ReadFile(const QString &path, bool requireSealed) {
 	}
 	const auto bytes = file.readAll();
 	auto plain = QByteArray();
+	if (IsCompressed(bytes)) {
+		if (!HasKey() || !ReadCompressed(bytes, plain)) {
+			return std::nullopt;
+		}
+		return plain;
+	}
 	if (!Unseal(bytes, plain, requireSealed)) {
 		return std::nullopt;
 	}

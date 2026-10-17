@@ -1306,26 +1306,19 @@ void clearEverything() {
 	flush();
 }
 
-bool exportSealed(QByteArray &sealed, qint64 &rows) {
+bool exportCompressed(const QString &path, qint64 &rows) {
 	if (!AyuVault::HasKey()) {
 		return false;
 	}
-	auto plain = QByteArray();
+	auto data = static_cast<unsigned char*>(nullptr);
+	auto size = sqlite3_int64();
 	{
 		std::lock_guard lock(DatabaseMutex);
 		if (!DatabaseReady || !MemoryHandle) {
 			return false;
 		}
 		drainQueuedLocked();
-		auto size = sqlite3_int64();
-		const auto data = sqlite3_serialize(MemoryHandle, "main", &size, 0);
-		if (!data) {
-			return false;
-		}
-		plain = QByteArray(
-			reinterpret_cast<const char*>(data),
-			qsizetype(size));
-		sqlite3_free(data);
+		data = sqlite3_serialize(MemoryHandle, "main", &size, 0);
 		rows = 0;
 		try {
 			rows = storage.count<DeletedMessageRow>()
@@ -1333,8 +1326,13 @@ bool exportSealed(QByteArray &sealed, qint64 &rows) {
 		} catch (...) {
 		}
 	}
-	sealed = AyuVault::Seal(plain);
-	return true;
+	if (!data) {
+		return false;
+	}
+	// The copy is packed and sealed by blocks outside of the lock.
+	const auto ok = AyuVault::WriteCompressedFile(path, data, size);
+	sqlite3_free(data);
+	return ok;
 }
 
 std::string sizeReport() {

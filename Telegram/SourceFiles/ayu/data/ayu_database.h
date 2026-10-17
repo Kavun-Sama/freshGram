@@ -24,7 +24,7 @@ namespace AyuDatabase {
 void initialize();
 void finish();
 void flush();
-bool exportSealed(QByteArray &sealed, qint64 &rows);
+bool exportCompressed(const QString &path, qint64 &rows);
 std::string sizeReport();
 void saveSizeReport(std::function<void(bool)> done);
 void clearUserData(ID userId);
