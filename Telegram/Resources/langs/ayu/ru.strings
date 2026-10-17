@@ -129,7 +129,7 @@
 "ayu_DesignStyleTelegram" = "Стандартный дизайн Telegram";
 "ayu_DesignStyleMaterialgram" = "Дизайн Materialgram";
 "ayu_DesignStyleFagram" = "Дизайн FagramDesktop";
-"ayu_DesignStyleDescription" = "Стиль оформления задаёт отступы, размеры и вид элементов интерфейса. Стиль и иконки применяются после перезапуска. Дизайн Fagram пока добавляет верхнюю панель-«пилюлю» и меню-«шторку», остальное использует размеры Telegram и пока не перенесено.";
+"ayu_DesignStyleDescription" = "Стиль оформления задаёт отступы, размеры и вид элементов интерфейса. Стиль и иконки применяются после перезапуска. Дизайн Fagram добавляет верхнюю панель-«пилюлю», меню-«шторку», карточки в настройках и профиле, а также слайдеры и переключатели в стиле Material 3 из FAgram Desktop.";
 "ayu_ManageWhisperModels" = "Модели распознавания речи";
 "ayu_ManageOcrLanguages" = "Языки распознавания текста";
 "ayu_ModelEnabled" = "Включено";

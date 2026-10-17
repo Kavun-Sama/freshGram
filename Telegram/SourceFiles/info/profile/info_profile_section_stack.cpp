@@ -7,14 +7,19 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/info_profile_section_stack.h"
 
+#include "ayu/ui/fagram/fagram_cards.h"
+#include "ayu/ui/fagram/fagram_design.h"
+
 #include "ui/widgets/box_content_divider.h"
 #include "ui/widgets/labels.h"
+#include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/vertical_list.h"
 #include "ui/rect_part.h"
 #include "ui/ui_utility.h"
 
+#include "styles/style_ayu_styles.h"
 #include "styles/style_info.h"
 
 namespace Info::Profile {
@@ -24,10 +29,17 @@ namespace {
 		not_null<Ui::VerticalLayout*> layout) {
 	auto inner = object_ptr<Ui::VerticalLayout>(layout);
 	Ui::AddSkip(inner.data(), st::infoProfileSkip);
-	inner->add(object_ptr<Ui::BoxContentDivider>(
-		inner.data(),
-		st::boxDividerHeight,
-		st::defaultDividerBar));
+	if (FA::Ui::Enabled()) {
+		// Cards are separated by a gap instead of a gray band.
+		inner->add(object_ptr<Ui::FixedHeightWidget>(
+			inner.data(),
+			st::fagramDividerGap));
+	} else {
+		inner->add(object_ptr<Ui::BoxContentDivider>(
+			inner.data(),
+			st::boxDividerHeight,
+			st::defaultDividerBar));
+	}
 	Ui::AddSkip(inner.data(), st::infoProfileSkip);
 	return layout->add(object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 		layout,
@@ -45,12 +57,17 @@ namespace {
 		std::move(text),
 		st::defaultDividerLabel.label);
 	const auto rawLabel = label.data();
-	inner->add(object_ptr<Ui::DividerLabel>(
-		inner.data(),
-		std::move(label),
-		st::defaultBoxDividerLabelPadding,
-		st::defaultDividerLabel.bar,
-		RectPart::Top | RectPart::Bottom));
+	if (FA::Ui::Enabled()) {
+		// A description below a card has no band around it.
+		inner->add(std::move(label), st::fagramDescriptionPadding);
+	} else {
+		inner->add(object_ptr<Ui::DividerLabel>(
+			inner.data(),
+			std::move(label),
+			st::defaultBoxDividerLabelPadding,
+			st::defaultDividerLabel.bar,
+			RectPart::Top | RectPart::Bottom));
+	}
 	Ui::AddSkip(inner.data(), st::infoProfileSkip);
 	const auto wrap = layout->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -181,6 +198,10 @@ void SectionStack::finalize() {
 	_finalized = true;
 
 	Ui::AddSkip(_layout, st::infoProfileSkip);
+	if (FA::Ui::Enabled()) {
+		// The blocks added below are joined into the rounded cards.
+		FA::Ui::AttachCards(_layout);
+	}
 
 	const auto count = int(_rows.size());
 	auto kinds = std::vector<RowType>();
@@ -198,6 +219,9 @@ void SectionStack::finalize() {
 		kinds.push_back(row.type);
 		switch (row.type) {
 		case RowType::Block:
+			if (FA::Ui::Enabled()) {
+				FA::Ui::MarkAsBlock(row.widget.data());
+			}
 			_layout->add(std::move(row.widget));
 			intrinsic.push_back(shownOrTrue(std::move(row.shown)));
 			break;
