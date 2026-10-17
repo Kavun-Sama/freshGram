@@ -342,6 +342,8 @@ set(ayugram_files
         ayu/data/ayu_vault.cpp
         ayu/data/ayu_vault.h
         ayu/data/ayu_database_backup.h
+        ayu/data/ayu_database_report.cpp
+        ayu/data/ayu_database_report.h
 
         info/profile/info_profile_music_button.cpp
         info/profile/info_profile_music_button.h
@@ -2718,6 +2720,12 @@ target_sources(Telegram PRIVATE ${entitlement_sources})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Telegram PREFIX Resources FILES ${entitlement_sources})
 
 target_include_directories(Telegram PRIVATE ${src_loc})
+
+# The database report reads the page usage of every table from dbstat.
+set_source_files_properties(
+    ${src_loc}/ayu/libs/sqlite/sqlite3.c
+    PROPERTIES COMPILE_DEFINITIONS SQLITE_ENABLE_DBSTAT_VTAB
+)
 
 target_compile_definitions(Telegram
 PRIVATE
