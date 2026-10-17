@@ -620,6 +620,16 @@ void BuildHelpSection(SectionBuilder &builder) {
 	});
 
 	builder.addButton({
+		.id = u"freshgram-channel"_q,
+		.title = tr::lng_freshgram_settings_channel(),
+		.icon = { &st::menuIconChannel },
+		.onClick = [=] {
+			UrlClickHandler::Open("https://t.me/freshGramDesktop");
+		},
+		.keywords = { u"freshgram"_q, u"channel"_q, u"news"_q },
+	});
+
+	builder.addButton({
 		.id = u"main/features"_q,
 		.title = tr::lng_settings_features(),
 		.icon = { &st::menuIconEmojiObjects },
