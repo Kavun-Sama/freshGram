@@ -13,12 +13,19 @@
 
 class PeerData;
 
+namespace Window {
+class SessionController;
+} // namespace Window
+
 namespace Ui {
 class Show;
 class TranslateProvider;
 } // namespace Ui
 
 namespace Ayu {
+
+// Opens the settings of the translate button of the message field.
+void OpenTranslateSettings(not_null<Window::SessionController*> controller);
 
 class ComposeTranslator final : public base::has_weak_ptr {
 public:

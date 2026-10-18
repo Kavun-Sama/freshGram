@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="72px" height="72px" viewBox="0 0 72 72" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Input / input_translate</title>
+    <g id="Input-/-input_translate" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12,19.5 L39,19.5"></path>
+        <path d="M25.5,12 L25.5,19.5"></path>
+        <path d="M31.5,21 C30,31.5 22.5,40.5 12,45"></path>
+        <path d="M18,30 C22.5,37.5 30,43.5 39,46.5"></path>
+        <path d="M37.5,60 L49.5,30 L61.5,60"></path>
+        <path d="M42,51 L57,51"></path>
+    </g>
+</svg>

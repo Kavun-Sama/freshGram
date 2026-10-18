@@ -4710,9 +4710,17 @@ void ComposeControls::initTranslateButton() {
 	_translate->hide();
 	_translate->setAccessibleName(
 		tr::ayu_MessageFieldElementTranslate(tr::now));
-	_translate->setClickedCallback([=] {
-		translateField();
-	});
+	_translate->setAcceptBoth(true);
+	_translate->clicks(
+	) | rpl::on_next([=](Qt::MouseButton button) {
+		if (button == Qt::RightButton) {
+			if (_regularWindow) {
+				Ayu::OpenTranslateSettings(_regularWindow);
+			}
+		} else {
+			translateField();
+		}
+	}, _translate->lifetime());
 }
 
 void ComposeControls::translateField() {
@@ -4720,9 +4728,6 @@ void ComposeControls::translateField() {
 		return;
 	}
 	const auto original = prepareTextForEditMsg();
-	if (original.text.trimmed().isEmpty()) {
-		return;
-	}
 	_translator->start(_show, _history->peer, original, crl::guard(_wrap.get(), [=](
 			std::optional<TextWithEntities> result) {
 		if (!result || prepareTextForEditMsg() != original) {

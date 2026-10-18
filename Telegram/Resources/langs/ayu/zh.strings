@@ -624,7 +624,10 @@
 "ayu_SecretTranslateSystem" = "系统翻译器";
 "ayu_MessageFieldElementTranslate" = "翻译";
 "ayu_TranslateComposeTo" = "将输入的文本翻译为";
-"ayu_TranslateComposeFailed" = "无法翻译文本。";
+"ayu_TranslateComposeFailed" = "翻译失败。";
+"ayu_TranslateComposeProgress" = "正在翻译…";
+"ayu_TranslateComposeDone" = "翻译完成。";
+"ayu_TranslateComposeEmpty" = "没有可翻译的内容。请先在输入框中输入文字，然后再次点击翻译按钮。";
 "ayu_DatabaseReport" = "数据库报告";
 "ayu_DatabaseReportStarted" = "正在生成数据库报告...";
 "ayu_DatabaseReportSaved" = "报告已保存到 tdata/ayu_db_report.txt";

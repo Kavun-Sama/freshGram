@@ -663,7 +663,10 @@
 "ayu_SecretTranslateSystem" = "системный переводчик";
 "ayu_MessageFieldElementTranslate" = "Перевод";
 "ayu_TranslateComposeTo" = "Переводить набранный текст на";
-"ayu_TranslateComposeFailed" = "Не удалось перевести текст.";
+"ayu_TranslateComposeFailed" = "Не удалось перевести.";
+"ayu_TranslateComposeProgress" = "Перевод…";
+"ayu_TranslateComposeDone" = "Перевод выполнен.";
+"ayu_TranslateComposeEmpty" = "Нечего переводить. Введите текст в поле ввода и снова нажмите кнопку перевода.";
 "ayu_DatabaseReport" = "Отчёт о базе данных";
 "ayu_DatabaseReportStarted" = "Строится отчёт о базе данных...";
 "ayu_DatabaseReportSaved" = "Отчёт сохранён в tdata/ayu_db_report.txt";

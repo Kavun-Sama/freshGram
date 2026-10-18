@@ -164,8 +164,8 @@ storyPreviewHeight: 320px;
 storyRowPadding: margins(22px, 4px, 22px, 4px);
 
 historyTranslateButton: IconButton(historyAttach) {
-	icon: icon {{ "menu/translate", historyComposeIconFg }};
-	iconOver: icon {{ "menu/translate", historyComposeIconFgOver }};
+	icon: icon {{ "chat/input_translate-24x24", historyComposeIconFg }};
+	iconOver: icon {{ "chat/input_translate-24x24", historyComposeIconFgOver }};
 }
 
 fagramSliderHeight: 32px;

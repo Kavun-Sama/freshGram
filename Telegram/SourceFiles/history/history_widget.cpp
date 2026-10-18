@@ -7720,9 +7720,15 @@ void HistoryWidget::initTranslateButton() {
 	_translate->hide();
 	_translate->setAccessibleName(
 		tr::ayu_MessageFieldElementTranslate(tr::now));
-	_translate->setClickedCallback([=] {
-		translateField();
-	});
+	_translate->setAcceptBoth(true);
+	_translate->clicks(
+	) | rpl::on_next([=](Qt::MouseButton button) {
+		if (button == Qt::RightButton) {
+			Ayu::OpenTranslateSettings(controller());
+		} else {
+			translateField();
+		}
+	}, _translate->lifetime());
 }
 
 void HistoryWidget::translateField() {
@@ -7730,9 +7736,6 @@ void HistoryWidget::translateField() {
 		return;
 	}
 	const auto original = prepareTextForEditMsg();
-	if (original.text.trimmed().isEmpty()) {
-		return;
-	}
 	_translator->start(controller()->uiShow(), _peer, original, crl::guard(this, [=](
 			std::optional<TextWithEntities> result) {
 		if (!result || prepareTextForEditMsg() != original) {

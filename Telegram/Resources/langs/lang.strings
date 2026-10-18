@@ -9178,7 +9178,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SecretTranslateSystem" = "the system translator";
 "ayu_MessageFieldElementTranslate" = "Translate";
 "ayu_TranslateComposeTo" = "Translate typed text to";
-"ayu_TranslateComposeFailed" = "Couldn't translate the text.";
+"ayu_TranslateComposeFailed" = "Translation failed.";
+"ayu_TranslateComposeProgress" = "Translating...";
+"ayu_TranslateComposeDone" = "Translation completed.";
+"ayu_TranslateComposeEmpty" = "Cannot translate nothing. Type something in chatbar, then press translate button again.";
 "ayu_PeekButton" = "Peek last seen";
 "ayu_PeekLabel" = "Last seen (peeked)";
 "ayu_PeekChecking" = "Checking the last seen...";

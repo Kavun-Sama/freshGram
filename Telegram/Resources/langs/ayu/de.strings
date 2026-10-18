@@ -637,7 +637,10 @@
 "ayu_SecretTranslateSystem" = "den System-Übersetzer";
 "ayu_MessageFieldElementTranslate" = "Übersetzen";
 "ayu_TranslateComposeTo" = "Eingegebenen Text übersetzen in";
-"ayu_TranslateComposeFailed" = "Der Text konnte nicht übersetzt werden.";
+"ayu_TranslateComposeFailed" = "Übersetzung fehlgeschlagen.";
+"ayu_TranslateComposeProgress" = "Übersetze …";
+"ayu_TranslateComposeDone" = "Übersetzung abgeschlossen.";
+"ayu_TranslateComposeEmpty" = "Es gibt nichts zu übersetzen. Gib einen Text in das Eingabefeld ein und drücke die Übersetzen-Taste erneut.";
 "ayu_DatabaseReport" = "Datenbankbericht";
 "ayu_DatabaseReportStarted" = "Der Datenbankbericht wird erstellt...";
 "ayu_DatabaseReportSaved" = "Der Bericht wurde in tdata/ayu_db_report.txt gespeichert";

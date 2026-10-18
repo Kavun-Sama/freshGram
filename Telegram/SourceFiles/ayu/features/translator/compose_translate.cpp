@@ -17,12 +17,22 @@
 #include "spellcheck/spellcheck_types.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/layers/show.h"
+#include "ui/toast/toast.h"
+#include "window/window_controller.h"
+#include "window/window_session_controller.h"
+#include "ayu/ui/settings/settings_chats.h"
 
 namespace Ayu {
 
 ComposeTranslator::ComposeTranslator() = default;
 
 ComposeTranslator::~ComposeTranslator() = default;
+
+void OpenTranslateSettings(not_null<Window::SessionController*> controller) {
+	controller->window().setHighlightControlId(
+		u"ayu/showTranslateButtonInMessageField"_q);
+	controller->showSettings(Settings::AyuChatsId());
+}
 
 bool ComposeTranslator::busy() const {
 	return _busy;
@@ -33,7 +43,11 @@ void ComposeTranslator::start(
 		not_null<PeerData*> peer,
 		TextWithEntities text,
 		Fn<void(std::optional<TextWithEntities>)> done) {
-	if (_busy || text.text.trimmed().isEmpty()) {
+	if (_busy) {
+		return;
+	}
+	if (text.text.trimmed().isEmpty()) {
+		show->showToast(tr::ayu_TranslateComposeEmpty(tr::now));
 		return;
 	}
 	if (!AyuSecret::IsSecretPeerId(peer->id)) {
@@ -80,6 +94,12 @@ void ComposeTranslator::request(
 	_busy = true;
 	const auto id = ++_requestId;
 	const auto weak = base::make_weak(this);
+	const auto progress = show->showToast(Ui::Toast::Config{
+		.text = TextWithEntities{
+			tr::ayu_TranslateComposeProgress(tr::now),
+		},
+		.infinite = true,
+	});
 	_provider->request(
 		Ui::TranslateProviderRequest{ .text = std::move(text) },
 		LanguageId::FromName(AyuSettings::getInstance().translateComposeTo()),
@@ -89,17 +109,17 @@ void ComposeTranslator::request(
 				return;
 			}
 			strong->_busy = false;
+			if (const auto toast = progress.get()) {
+				toast->hide();
+			}
 			if (result.error != Ui::TranslateProviderError::None
 				|| !result.text
 				|| result.text->text.trimmed().isEmpty()) {
-				show->showToast((result.error
-					== Ui::TranslateProviderError::LocalLanguagePackMissing)
-					? tr::lng_translate_box_error_language_pack_not_installed(
-						tr::now)
-					: tr::ayu_TranslateComposeFailed(tr::now));
+				show->showToast(tr::ayu_TranslateComposeFailed(tr::now));
 				done(std::nullopt);
 				return;
 			}
+			show->showToast(tr::ayu_TranslateComposeDone(tr::now));
 			done(std::move(result.text));
 		});
 }
