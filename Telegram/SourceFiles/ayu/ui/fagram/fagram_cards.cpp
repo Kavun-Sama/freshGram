@@ -10,9 +10,11 @@ https://github.com/fagramdesktop/fadesktop/blob/dev/LEGAL
 #include "ayu/ayu_card_segment.h"
 #include "ui/painter.h"
 #include "ui/rp_widget.h"
+#include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/wrap/vertical_layout.h"
+#include "base/flat_set.h"
 #include "styles/palette.h"
 #include "styles/style_ayu_styles.h"
 
@@ -33,9 +35,30 @@ struct Item {
 	bool isRow = false;
 };
 
+// A button that lies over a row without being a row of the layout, like the
+// toggle half of a split toggle.
+struct Overlay {
+	::Ui::RippleButton *button = nullptr;
+	int center = 0;
+};
+
+[[nodiscard]] bool IsRowButton(const QWidget *widget) {
+	if (dynamic_cast<const ::Ui::SettingsButton*>(widget)
+		|| dynamic_cast<const ::Ui::Checkbox*>(widget)) {
+		return true;
+	}
+	// Other list rows, the folders or the sessions, span the whole width.
+	const auto button = dynamic_cast<const ::Ui::RippleButton*>(widget);
+	const auto parent = widget->parentWidget();
+	return button
+		&& !dynamic_cast<const ::Ui::RoundButton*>(widget)
+		&& !dynamic_cast<const ::Ui::FlatButton*>(widget)
+		&& parent
+		&& (widget->width() * 10 >= parent->width() * 9);
+}
+
 [[nodiscard]] bool IsRowType(const QWidget *widget) {
-	return dynamic_cast<const ::Ui::SettingsButton*>(widget)
-		|| dynamic_cast<const ::Ui::Checkbox*>(widget)
+	return IsRowButton(widget)
 		|| widget->property(kRowProperty).toBool()
 		|| widget->property(kBlockProperty).toBool();
 }
@@ -82,65 +105,65 @@ void ApplyBlockSegments(not_null<QWidget*> block, Segment position) {
 	}
 }
 
-// A wrapper (slide, fade, padding...) with a single row inside is a row.
-[[nodiscard]] QWidget *FindRowWidget(QWidget *widget) {
-	if (IsRowType(widget)) {
-		return widget;
-	}
-	for (const auto child : widget->children()) {
-		const auto inner = qobject_cast<QWidget*>(child);
-		if (inner
-			&& !inner->isHidden()
-			&& inner->size() == widget->size()
-			&& IsRowType(inner)) {
-			return inner;
+// Follows the wrappers (slide, fade, padding) that hold a single widget.
+[[nodiscard]] QWidget *Unwrap(QWidget *widget) {
+	while (!IsRowType(widget)
+		&& !dynamic_cast<::Ui::VerticalLayout*>(widget)) {
+		auto only = (QWidget*)nullptr;
+		for (const auto child : widget->children()) {
+			const auto inner = qobject_cast<QWidget*>(child);
+			if (!inner || inner->isHidden()) {
+				continue;
+			} else if (only) {
+				return widget;
+			}
+			only = inner;
 		}
-	}
-	return nullptr;
-}
-
-[[nodiscard]] ::Ui::VerticalLayout *FindNestedLayout(QWidget *widget) {
-	if (const auto layout = dynamic_cast<::Ui::VerticalLayout*>(widget)) {
-		return layout;
-	}
-	if (IsRowType(widget)) {
-		return nullptr;
-	}
-	for (const auto child : widget->children()) {
-		const auto layout = dynamic_cast<::Ui::VerticalLayout*>(child);
-		if (layout && !layout->isHidden()) {
-			return layout;
+		if (!only) {
+			return widget;
 		}
+		widget = only;
 	}
-	return nullptr;
+	return widget;
 }
 
 void Collect(
 		not_null<QWidget*> root,
 		not_null<::Ui::VerticalLayout*> layout,
-		std::vector<Item> &items) {
+		std::vector<Item> &items,
+		std::vector<Overlay> &overlays) {
+	auto rows = base::flat_set<QWidget*>();
 	for (auto i = 0, count = layout->count(); i != count; ++i) {
 		const auto widget = layout->widgetAt(i).get();
+		rows.emplace(widget);
 		if (widget->isHidden() || widget->height() <= 0) {
 			continue;
 		}
-		if (const auto row = FindRowWidget(widget)) {
+		const auto y = widget->mapTo(root, QPoint(0, 0)).y();
+		const auto inner = Unwrap(widget);
+		if (IsRowType(inner)) {
 			const auto margin = layout->rowMargin(i);
-			const auto y = widget->mapTo(root, QPoint(0, 0)).y();
 			items.push_back({
-				.row = row,
+				.row = inner,
 				.top = y - margin.top(),
 				.bottom = y + widget->height() + margin.bottom(),
 				.isRow = true,
 			});
-		} else if (const auto nested = FindNestedLayout(widget)) {
-			Collect(root, nested, items);
+		} else if (const auto nested = dynamic_cast<::Ui::VerticalLayout*>(
+				inner)) {
+			Collect(root, nested, items, overlays);
 		} else {
-			const auto y = widget->mapTo(root, QPoint(0, 0)).y();
 			items.push_back({
 				.top = y,
 				.bottom = y + widget->height(),
 			});
+		}
+	}
+	for (const auto child : layout->children()) {
+		const auto button = dynamic_cast<::Ui::SettingsButton*>(child);
+		if (button && !button->isHidden() && !rows.contains(button)) {
+			const auto y = button->mapTo(root, QPoint(0, 0)).y();
+			overlays.push_back({ button, y + button->height() / 2 });
 		}
 	}
 }
@@ -166,7 +189,8 @@ public:
 protected:
 	void paintEvent(QPaintEvent *e) override {
 		auto items = std::vector<Item>();
-		Collect(_container, _container, items);
+		auto overlays = std::vector<Overlay>();
+		Collect(_container, _container, items, overlays);
 
 		auto p = QPainter(this);
 		PainterHighQualityEnabler hq(p);
@@ -217,6 +241,16 @@ protected:
 			}
 			from = till;
 		}
+		for (const auto &overlay : overlays) {
+			const auto inside = ranges::any_of(items, [&](const Item &item) {
+				return item.isRow
+					&& (item.top <= overlay.center)
+					&& (item.bottom > overlay.center);
+			});
+			overlay.button->setCardSegment(inside
+				? Segment::Flat
+				: Segment::None);
+		}
 	}
 
 private:
@@ -242,12 +276,7 @@ void MarkAsBlock(not_null<QWidget*> widget) {
 }
 
 bool InCards(not_null<QWidget*> widget) {
-	for (auto w = widget.get(); w; w = w->parentWidget()) {
-		if (w->property("fa_cards").toBool()) {
-			return true;
-		}
-	}
-	return false;
+	return AyuUiSettings::InCards(widget);
 }
 
 } // namespace FA::Ui

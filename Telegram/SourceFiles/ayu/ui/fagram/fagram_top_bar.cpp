@@ -10,6 +10,7 @@ https://github.com/fagramdesktop/fadesktop/blob/dev/LEGAL
 #include "ayu/ui/fagram/fagram_svg_assets.h"
 #include "ui/painter.h"
 #include "ui/style/style_core_direction.h"
+#include "ui/widgets/buttons.h"
 #include "ui/wrap/fade_wrap.h"
 #include "styles/style_basic.h"
 #include "styles/style_settings.h"
@@ -97,6 +98,29 @@ void PaintMaterialShape(
 	}
 }
 
+// The icon buttons keep the icon position of their own wide style, so the
+// button is moved to put the icon in the middle of its place in the pill.
+void PlaceInSlot(not_null<::Ui::RpWidget*> wrapped) {
+	const auto button = dynamic_cast<::Ui::IconButton*>(wrapped.get());
+	if (!button) {
+		wrapped->setGeometry(0, 0, kButtonWidth, kPillHeight);
+		return;
+	}
+	const auto &st = button->st();
+	const auto position = st.iconPosition;
+	const auto left = (position.x() < 0)
+		? 0
+		: ((kButtonWidth - st.icon.width()) / 2 - position.x());
+	const auto top = (position.y() < 0)
+		? 0
+		: ((kPillHeight - st.icon.height()) / 2 - position.y());
+	wrapped->setGeometry(
+		left,
+		top,
+		kButtonWidth - left,
+		kPillHeight - top);
+}
+
 } // namespace
 
 int TopBarBackPillSkip() {
@@ -128,7 +152,7 @@ int LayoutTopBarBackButton(
 		newWidth);
 	if (const auto wrap = dynamic_cast<::Ui::Wrap<::Ui::RpWidget>*>(backButton)) {
 		if (const auto wrapped = wrap->wrapped()) {
-			wrapped->setGeometry(0, 0, kButtonWidth, kPillHeight);
+			PlaceInSlot(wrapped);
 		}
 	}
 	return TopBarBackPillSkip();
@@ -163,7 +187,7 @@ int LayoutTopBarPillButtons(
 				newWidth);
 			if (const auto wrap = dynamic_cast<::Ui::Wrap<::Ui::RpWidget>*>(button.get())) {
 				if (const auto wrapped = wrap->wrapped()) {
-					wrapped->setGeometry(0, 0, kButtonWidth, kPillHeight);
+					PlaceInSlot(wrapped);
 				}
 			}
 			currentRight += kButtonWidth;

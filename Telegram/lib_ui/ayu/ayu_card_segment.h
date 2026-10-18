@@ -15,6 +15,7 @@
 #include <QtGui/QPainterPath>
 
 class QPainter;
+class QWidget;
 
 namespace AyuUiSettings {
 
@@ -46,6 +47,9 @@ enum class CardSegment : unsigned char {
 [[nodiscard]] QImage CardSegmentMask(
 	const QSize &size,
 	CardSegment position);
+
+// Is the widget inside a layout that shows its rows as the Fagram cards.
+[[nodiscard]] bool InCards(const QWidget *widget);
 
 void PaintMd3Switch(
 	QPainter &p,

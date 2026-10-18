@@ -240,6 +240,10 @@ void SectionStack::finalize() {
 	}
 
 	Ui::AddSkip(_layout, st::infoProfileSkip);
+	if (FA::Ui::Enabled()) {
+		// What the profile adds after the blocks keeps its full width.
+		_layout->setRowInset(0);
+	}
 
 	if (intrinsic.empty()) {
 		return;

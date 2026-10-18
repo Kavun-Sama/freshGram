@@ -119,9 +119,11 @@ void DetailedSettingsButton::onStateChanged(
 void DetailedSettingsButton::paintEvent(QPaintEvent *e) {
 	auto p = Painter(this);
 	const auto over = isOver() || isDown();
-	p.fillRect(
-		e->rect(),
-		over ? _style.button.textBgOver : _style.button.textBg);
+	if (cardSegment() == AyuUiSettings::CardSegment::None) {
+		p.fillRect(
+			e->rect(),
+			over ? _style.button.textBgOver : _style.button.textBg);
+	}
 	paintRipple(p, 0, 0);
 
 	paintIcon(p);

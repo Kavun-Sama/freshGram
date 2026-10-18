@@ -18,6 +18,7 @@
 
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
+#include <QtWidgets/QWidget>
 
 namespace AyuUiSettings {
 
@@ -85,6 +86,15 @@ QImage CardSegmentMask(const QSize &size, CardSegment position) {
 			CardSegmentRect(size, position),
 			position));
 	});
+}
+
+bool InCards(const QWidget *widget) {
+	for (auto w = widget; w; w = w->parentWidget()) {
+		if (w->property("fa_cards").toBool()) {
+			return true;
+		}
+	}
+	return false;
 }
 
 void PaintMd3Switch(

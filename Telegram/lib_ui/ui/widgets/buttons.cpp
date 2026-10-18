@@ -973,8 +973,19 @@ void SettingsButton::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 
 	const auto paintOver = (isOver() || isDown()) && !isDisabled();
-	if (cardSegment() == AyuUiSettings::CardSegment::None) {
+	if (const auto segment = cardSegment()
+			; segment == AyuUiSettings::CardSegment::None) {
 		paintBg(p, e->rect(), paintOver);
+	} else if (paintOver) {
+		// The card paints the background, the row only marks the hover.
+		PainterHighQualityEnabler hq(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(_st.ripple.color);
+		p.setOpacity(0.5);
+		p.drawPath(AyuUiSettings::CardSegmentPath(
+			AyuUiSettings::CardSegmentRect(size(), segment),
+			segment));
+		p.setOpacity(1.);
 	}
 
 	paintRipple(p, 0, 0);

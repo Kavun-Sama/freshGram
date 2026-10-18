@@ -9,6 +9,8 @@
 #include "styles/style_layers.h"
 #include "styles/style_widgets.h"
 #include "styles/palette.h"
+#include "ayu/ayu_card_segment.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include <QtGui/QPainter>
 #include <QtGui/QtEvents>
@@ -27,6 +29,11 @@ BoxContentDivider::BoxContentDivider(
 }
 
 void BoxContentDivider::paintEvent(QPaintEvent *e) {
+	if (AyuUiSettings::designStyle() == AyuUiSettings::DesignStyle::Fagram
+		&& AyuUiSettings::InCards(this)) {
+		// Between the Fagram cards a divider is only an empty gap.
+		return;
+	}
 	QPainter p(this);
 
 	p.fillRect(e->rect(), _st.bg);
