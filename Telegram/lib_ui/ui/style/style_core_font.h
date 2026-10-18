@@ -51,6 +51,7 @@ struct FontResolveResult {
 namespace style::internal {
 
 void StartFonts();
+[[nodiscard]] QString BaseFontFamily();
 
 void DestroyFonts();
 int RegisterFontFamily(const QString &family);

@@ -248,6 +248,33 @@ const auto kTelegramValues = std::map<QString, QString>{
 	{ "historyCallOutIconSelected", "historyCallOutIconSelectedTg" },
 };
 
+// Fagram design values from FAgram Desktop, in the same format as the Telegram ones.
+const auto kFagramValues = std::map<QString, QString>{
+	// info/info.style
+	{ "infoProfileButton.padding", "79px 12px 16px 12px" },
+	{ "infoMainButton.padding", "23px 12px 16px 12px" },
+	{ "infoSharedMediaButtonIconPosition", "20px 7px" },
+	{ "infoGroupMembersIconPosition", "20px 12px" },
+	// info/profile/info_profile_actions.style
+	{ "infoProfileLabeledPadding", "16px 14px 16px 12px" },
+	{ "infoProfileLabeledUsernamePadding", "16px 14px 16px 12px" },
+	{ "infoProfilePersonalChannelPadding", "64px 14px 16px 12px" },
+	{ "infoChannelMembersIconPosition", "20px 7px" },
+	{ "infoEarnCurrencyIconPosition", "20px 5px" },
+	{ "infoPersonalChannelIconPosition", "16px 12px" },
+	{ "infoPersonalChannelDateSkip", "16px" },
+	{ "infoSharedMediaCountButton.iconPosition", "20px 7px" },
+	{ "infoSharedMediaCountButton.labelPosition", "24px 12px" },
+	// settings/settings.style
+	{ "settingsButton.padding", "60px 12px 22px 12px" },
+	{ "settingsButtonLight.padding", "60px 12px 22px 12px" },
+	{ "settingsButtonRightLabelSpoiler.padding", "60px 12px 22px 12px" },
+	{ "settingsChatbotsAdd.padding", "60px 12px 22px 12px" },
+	{ "settingsAttentionButtonWithIcon.padding", "60px 12px 22px 12px" },
+	{ "settingsButtonDisabledWithIcon.padding", "60px 12px 22px 12px" },
+	{ "creditsTopupButton.padding", "60px 12px 22px 12px" },
+};
+
 [[nodiscard]] bool UsesDesignVariants(const QString &name) {
 	const auto prefix = name + '.';
 	for (const auto &entry : kDesignVariants) {
@@ -260,39 +287,58 @@ const auto kTelegramValues = std::map<QString, QString>{
 			return true;
 		}
 	}
+	for (const auto &entry : kFagramValues) {
+		if (entry.first == name || entry.first.startsWith(prefix)) {
+			return true;
+		}
+	}
 	return false;
 }
 
-[[nodiscard]] QString TelegramValueCode(
-		const QString &telegram,
+[[nodiscard]] QString OverrideValueCode(
+		const QString &condition,
+		const QString &value,
 		const QString &type,
 		const QString &material) {
-	auto telegramCode = QString();
-	auto number = false;
-	if (telegram.endsWith("px")) {
-		telegram.chopped(2).toInt(&number);
+	const auto pixels = [](const QString &part, QString *code) {
+		auto number = false;
+		if (part.endsWith("px")) {
+			part.chopped(2).toInt(&number);
+		}
 		if (number) {
-			telegramCode = QString("ConvertScale(%1, scale)").arg(
-				telegram.chopped(2));
+			*code = QString("ConvertScale(%1, scale)").arg(part.chopped(2));
+		}
+		return number;
+	};
+	auto code = QString();
+	auto number = false;
+	if (const auto parts = value.split(' '); parts.size() > 1) {
+		auto codes = QStringList();
+		for (const auto &part : parts) {
+			auto partCode = QString();
+			if (!pixels(part, &partCode)) {
+				return QString();
+			}
+			codes.push_back(partCode);
+		}
+		code = codes.join(", ");
+		number = true;
+	} else if (!pixels(value, &code)) {
+		value.toInt(&number);
+		if (number) {
+			code = value;
 		}
 	} else {
-		telegram.toInt(&number);
-		if (number) {
-			telegramCode = telegram;
-		}
+		number = true;
 	}
 	if (!number) {
-		telegramCode = "st::" + telegram;
+		code = "st::" + value;
 	}
 	const auto wrapped = material.startsWith('{')
 		? (type + material)
 		: QString("%1(%2)").arg(type, material);
-	return QString("(AyuUiSettings::isTelegramDesign() ? %1(%2) : %3)").arg(
-		type,
-		telegramCode,
-		wrapped);
+	return QString("(%1 ? %2(%3) : %4)").arg(condition, type, code, wrapped);
 }
-
 
 [[nodiscard]] QString DesignValueCode(const QString &material, int telegram) {
 	return QString("AyuUiSettings::getDesignValue(%1, ConvertScale(%2, scale))").arg(material).arg(telegram);
@@ -422,7 +468,8 @@ QString paletteColorValue(const structure::data::color &value) {
 
 [[nodiscard]] bool IsVariableInHeader(const Variable &variable) {
 	return IsValueInHeader(variable.value.type())
-		&& !kTelegramValues.contains(variable.name.back());
+		&& !kTelegramValues.contains(variable.name.back())
+		&& !kFagramValues.contains(variable.name.back());
 }
 
 } // namespace
@@ -560,8 +607,27 @@ QString Generator::valueAssignmentCode(
 	if (result.isEmpty() || name.isEmpty()) {
 		return result;
 	}
-	if (const auto i = kTelegramValues.find(name); i != kTelegramValues.end()) {
-		return TelegramValueCode(i->second, typeToString(value.type()), result);
+	const auto type = typeToString(value.type());
+	if (const auto i = kFagramValues.find(name); i != kFagramValues.end()) {
+		auto inner = result;
+		if (const auto j = kTelegramValues.find(name); j != kTelegramValues.end()) {
+			inner = OverrideValueCode(
+				"AyuUiSettings::isTelegramDesign()",
+				j->second,
+				type,
+				result);
+		}
+		return OverrideValueCode(
+			"(AyuUiSettings::designStyle() == AyuUiSettings::DesignStyle::Fagram)",
+			i->second,
+			type,
+			inner);
+	} else if (const auto i = kTelegramValues.find(name); i != kTelegramValues.end()) {
+		return OverrideValueCode(
+			"AyuUiSettings::isTelegramDesign()",
+			i->second,
+			type,
+			result);
 	} else if (!kDesignVariants.contains(name)
 		&& !ignoreCopy
 		&& value.copyOf().isEmpty()

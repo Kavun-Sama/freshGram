@@ -198,15 +198,24 @@ struct Metrics {
 	float64 ascent = 0.;
 	float64 height = 0.;
 };
+[[nodiscard]] bool IsFagramDesign() {
+	return AyuUiSettings::designStyle() == AyuUiSettings::DesignStyle::Fagram;
+}
+
 [[nodiscard]] QString BaseFamily() {
-	return AyuUiSettings::isTelegramDesign()
-		? u"Open Sans"_q
-		: u"Google Sans"_q;
+	return BaseFontFamily();
 }
 
 [[nodiscard]] bool IsBaseFontFile(const QString &name) {
-	return name.startsWith(u"OpenSans-"_q)
-		== AyuUiSettings::isTelegramDesign();
+	if (AyuUiSettings::isTelegramDesign()) {
+		return name.startsWith(u"OpenSans-"_q);
+	} else if (name.startsWith(u"OpenSans-"_q)) {
+		return false;
+	} else if (name.startsWith(u"GoogleSansFlex"_q)) {
+		return IsFagramDesign();
+	}
+	// WHY: Fagram takes the italic faces from the plain Google Sans files.
+	return !IsFagramDesign() || name.contains(u"Italic"_q);
 }
 
 [[nodiscard]] Metrics ComputeMetrics(QFont font, bool adjust) {
@@ -224,7 +233,9 @@ struct Metrics {
 
 	const auto family = font.family();
 	const auto basic = BaseFamily();
-	if (family == basic || !adjust) {
+	if (family == basic
+		|| (IsFagramDesign() && family == u"Google Sans"_q)
+		|| !adjust) {
 		return simple();
 	}
 
@@ -508,6 +519,8 @@ struct BoldFace {
 	} else if (system) {
 	} else if (overriden) {
 		font.setFamily(family);
+	} else if (IsFagramDesign() && (flags & FontFlag::Italic)) {
+		font.setFamily(u"Google Sans"_q);
 	} else {
 		font.setFamily(BaseFamily());
 	}
@@ -540,6 +553,8 @@ struct BoldFace {
 							Qt::CaseInsensitive)) {
 						font.setBold(true);
 					}
+				} else if (IsFagramDesign() && !(flags & FontFlag::Italic)) {
+					font.setWeight(QFont::Medium);
 				} else if (DatabaseFamilies().contains(u"Google Sans Medium"_q)) {
 					font.setFamily(u"Google Sans Medium"_q);
 				} else {
@@ -569,6 +584,16 @@ struct BoldFace {
 }
 
 } // namespace
+
+QString BaseFontFamily() {
+	if (AyuUiSettings::isTelegramDesign()) {
+		return u"Open Sans"_q;
+	} else if (AyuUiSettings::designStyle()
+			== AyuUiSettings::DesignStyle::Fagram) {
+		return u"Google Sans Flex"_q;
+	}
+	return u"Google Sans"_q;
+}
 
 void StartFonts() {
 	if (Started) {
@@ -605,7 +630,12 @@ void StartFonts() {
 #endif //  __has_include(<glib.h>)
 	}
 
-	for (const auto &family : { name, name + u" Medium"_q }) {
+	auto families = QStringList{ name, name + u" Medium"_q };
+	if (IsFagramDesign()) {
+		families.push_back(u"Google Sans"_q);
+		families.push_back(u"Google Sans Medium"_q);
+	}
+	for (const auto &family : families) {
 		QFont::insertSubstitution(family, u"Vazirmatn UI NL"_q);
 
 #ifdef Q_OS_WIN

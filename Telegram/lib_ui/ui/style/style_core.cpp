@@ -63,9 +63,7 @@ void StopShortAnimation() {
 } // namespace internal
 
 void StartManager(int scale) {
-	internal::RegisterFontFamily(AyuUiSettings::isTelegramDesign()
-		? u"Open Sans"_q
-		: u"Google Sans"_q);
+	internal::RegisterFontFamily(internal::BaseFontFamily());
 	internal::StartModules(scale);
 }
 
