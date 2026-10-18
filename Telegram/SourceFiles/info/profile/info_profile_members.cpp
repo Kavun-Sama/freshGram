@@ -30,6 +30,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_channel.h"
 #include "data/data_chat.h"
 #include "data/data_user.h"
+#include "ayu/ui/fagram/fagram_design.h"
+#include "styles/style_ayu_styles.h"
 #include "styles/style_boxes.h"
 #include "styles/style_info.h"
 #include <history/admin_log/history_admin_log_section.h>
@@ -321,8 +323,23 @@ int Members::resizeGetHeight(int newWidth) {
 void Members::updateHeaderControlsGeometry(int newWidth) {
 	_openMembers->setGeometry(0, st::infoProfileSkip, newWidth, st::infoMembersButton.height);
 
+	// The Fagram card takes the sides, so the buttons get narrower and
+	// the title still fits next to them.
+	const auto fagram = FA::Ui::Enabled();
+	const auto buttonWidth = fagram
+		? st::fagramMembersButtonWidth
+		: st::infoMembersButton.width;
+	if (fagram) {
+		for (const auto button : { _addMember, _admins, _logHistory, _search }) {
+			if (button) {
+				button->resize(buttonWidth, button->height());
+			}
+		}
+	}
 	auto availableWidth = newWidth
-		- st::infoMembersButtonPosition.x();
+		- (fagram
+			? st::fagramMembersButtonsRight
+			: st::infoMembersButtonPosition.x());
 
 	//auto cancelLeft = availableWidth - _cancelSearch->width();
 	//_cancelSearch->moveToLeft(
@@ -349,19 +366,19 @@ void Members::updateHeaderControlsGeometry(int newWidth) {
 		st::infoMembersButtonPosition.y(),
 		newWidth);
 	if (!_addMember->isHidden()) {
-		availableWidth -= st::infoMembersAdmins.width;
+		availableWidth -= buttonWidth;
 	}
 	_admins->moveToLeft(
 		availableWidth - _admins->width(),
 		st::infoMembersButtonPosition.y(),
 		newWidth);
-	availableWidth -= st::infoMembersLog.width;
+	availableWidth -= buttonWidth;
 	_logHistory->moveToLeft(
 		availableWidth - _logHistory->width(),
 		st::infoMembersButtonPosition.y(),
 		newWidth);
 	if (!_logHistory->isHidden()) {
-		availableWidth -= st::infoMembersSearch.width;
+		availableWidth -= buttonWidth;
 	}
 	_search->moveToLeft(
 		availableWidth - _search->width(),

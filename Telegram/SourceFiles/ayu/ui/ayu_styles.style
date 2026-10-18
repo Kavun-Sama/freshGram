@@ -172,6 +172,8 @@ fagramSliderHeight: 32px;
 fagramCardInset: 16px;
 fagramProfileCardInset: 8px;
 fagramProfileTopSkip: 11px;
+fagramMembersButtonWidth: 32px;
+fagramMembersButtonsRight: 4px;
 fagramDividerGap: 4px;
 fagramDescriptionPadding: margins(22px, 4px, 22px, 8px);
 fagramProfileCardSkip: 6px;
