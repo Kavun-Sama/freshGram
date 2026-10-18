@@ -95,6 +95,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QWindow>
 
 #include "ayu/ui/settings/settings_main.h"
+#include "ayu/ui/fagram/fagram_design.h"
+#include "ui/painter.h"
 #include "ayu/ui/utils/ayu_profile_values.h"
 #include "ayu/utils/telegram_helpers.h"
 
@@ -118,7 +120,20 @@ public:
 		return _userpic.data();
 	}
 
+protected:
+	void paintEvent(QPaintEvent *e) override;
+
 private:
+	struct FagramCard {
+		int left = 0;
+		int top = 0;
+		int width = 0;
+		int height = 0;
+		int textLeft = 0;
+		int textWidth = 0;
+	};
+	[[nodiscard]] FagramCard fagramCard(int newWidth) const;
+
 	void setupChildGeometry();
 	void initViewers();
 	void updateIdText();
@@ -141,15 +156,29 @@ private:
 
 };
 
+[[nodiscard]] const style::UserpicButton &FagramCoverUserpicStyle() {
+	static const auto result = [] {
+		const auto size = style::ConvertScale(96);
+		auto st = st::infoProfileCover.photo;
+		st.size = QSize(size, size);
+		st.photoSize = size;
+		st.photoPosition = QPoint(-1, -1);
+		return st;
+	}();
+	return result;
+}
+
 Cover::Cover(
 	QWidget *parent,
 	not_null<Window::SessionController*> controller,
 	not_null<UserData*> user)
 : FixedHeightWidget(
 	parent,
-	st::settingsPhotoTop
-		+ st::infoProfileCover.photo.size.height()
-		+ st::settingsPhotoBottom)
+	FA::Ui::Enabled()
+		? style::ConvertScale(112)
+		: (st::settingsPhotoTop
+			+ st::infoProfileCover.photo.size.height()
+			+ st::settingsPhotoBottom))
 , _controller(controller)
 , _user(user)
 , _badge(
@@ -170,7 +199,9 @@ Cover::Cover(
 	_user,
 	Ui::UserpicButton::Role::OpenPhoto,
 	Ui::UserpicButton::Source::PeerPhoto,
-	st::infoProfileCover.photo)
+	FA::Ui::Enabled()
+		? FagramCoverUserpicStyle()
+		: st::infoProfileCover.photo)
 , _name(this, st::infoProfileCover.name)
 , _id(this, st::defaultFlatLabel, st::popupMenuWithIcons)
 , _username(this, st::infoProfileMegagroupCover.status) {
@@ -246,14 +277,74 @@ Cover::Cover(
 
 Cover::~Cover() = default;
 
+auto Cover::fagramCard(int newWidth) const -> FagramCard {
+	const auto margin = style::ConvertScale(16);
+	const auto skip = style::ConvertScale(12);
+	const auto padding = style::ConvertScale(18);
+	const auto height = style::ConvertScale(96);
+	const auto left = margin + _userpic->width() + skip;
+	const auto width = newWidth - margin - left;
+	const auto qrSpace = (_qrButton && !_qrButton->isHidden())
+		? (_qrButton->width() + style::ConvertScale(28))
+		: style::ConvertScale(20);
+	return {
+		.left = left,
+		.top = (this->height() - height) / 2,
+		.width = width,
+		.height = height,
+		.textLeft = left + padding,
+		.textWidth = std::max(width - padding - qrSpace, 0),
+	};
+}
+
+void Cover::paintEvent(QPaintEvent *e) {
+	if (!FA::Ui::Enabled()) {
+		return;
+	}
+	const auto card = fagramCard(width());
+	if (card.width <= 0) {
+		return;
+	}
+	auto p = QPainter(this);
+	auto hq = PainterHighQualityEnabler(p);
+	const auto rect = QRectF(card.left, card.top, card.width, card.height);
+	const auto left = float64(style::ConvertScale(24));
+	const auto right = rect.height() / 2.;
+	auto path = QPainterPath();
+	path.moveTo(rect.left() + left, rect.top());
+	path.lineTo(rect.right() - right, rect.top());
+	path.arcTo(
+		QRectF(rect.right() - 2 * right, rect.top(), 2 * right, rect.height()),
+		90,
+		-180);
+	path.lineTo(rect.left() + left, rect.bottom());
+	path.arcTo(
+		QRectF(rect.left(), rect.bottom() - 2 * left, 2 * left, 2 * left),
+		270,
+		-90);
+	path.lineTo(rect.left(), rect.top() + left);
+	path.arcTo(QRectF(rect.left(), rect.top(), 2 * left, 2 * left), 180, -90);
+	path.closeSubpath();
+	p.setPen(Qt::NoPen);
+	p.setBrush(st::windowBgOver);
+	p.drawPath(path);
+}
+
 void Cover::setupChildGeometry() {
 	using namespace rpl::mappers;
 	widthValue(
 	) | rpl::on_next([=](int newWidth) {
-		_userpic->moveToLeft(
-			st::settingsPhotoLeft,
-			st::settingsPhotoTop,
-			newWidth);
+		if (FA::Ui::Enabled()) {
+			_userpic->moveToLeft(
+				style::ConvertScale(16),
+				(height() - _userpic->height()) / 2,
+				newWidth);
+		} else {
+			_userpic->moveToLeft(
+				st::settingsPhotoLeft,
+				st::settingsPhotoTop,
+				newWidth);
+		}
 		refreshNameGeometry(newWidth);
 		refreshIdGeometry(newWidth);
 		refreshUsernameGeometry(newWidth);
@@ -310,15 +401,21 @@ void Cover::initViewers() {
 }
 
 void Cover::refreshNameGeometry(int newWidth) {
-	const auto nameLeft = st::settingsNameLeft;
-	const auto nameTop = st::settingsNameTop;
+	const auto fagram = FA::Ui::Enabled();
+	const auto card = fagram ? fagramCard(newWidth) : FagramCard();
+	const auto nameLeft = fagram ? card.textLeft : st::settingsNameLeft;
+	const auto nameTop = fagram
+		? (card.top + style::ConvertScale(16))
+		: st::settingsNameTop;
 	const auto qrButtonWidth = (_qrButton && !_qrButton->isHidden())
 		? (_qrButton->width() + st::infoProfileCover.rightSkip)
 		: 0;
-	auto nameWidth = newWidth
-		- nameLeft
-		- st::infoProfileCover.rightSkip
-		- qrButtonWidth;
+	auto nameWidth = fagram
+		? card.textWidth
+		: (newWidth
+			- nameLeft
+			- st::infoProfileCover.rightSkip
+			- qrButtonWidth);
 	if (const auto width = _badge.widget() ? _badge.widget()->width() : 0) {
 		nameWidth -= st::infoVerifiedCheckPosition.x() + width;
 	}
@@ -342,20 +439,32 @@ void Cover::updateIdText() {
 }
 
 void Cover::refreshIdGeometry(int newWidth) {
-	const auto idLeft = st::settingsPhoneLeft;
-	const auto idTop = st::settingsPhoneTop;
-	const auto idWidth = newWidth
-		- idLeft
-		- st::infoProfileCover.rightSkip;
+	const auto fagram = FA::Ui::Enabled();
+	const auto card = fagram ? fagramCard(newWidth) : FagramCard();
+	const auto idLeft = fagram ? card.textLeft : st::settingsPhoneLeft;
+	const auto idTop = fagram
+		? (card.top + style::ConvertScale(40))
+		: st::settingsPhoneTop;
+	const auto idWidth = fagram
+		? card.textWidth
+		: (newWidth - idLeft - st::infoProfileCover.rightSkip);
 	_id->resizeToWidth(idWidth);
 	_id->moveToLeft(idLeft, idTop, newWidth);
 }
 
 void Cover::refreshUsernameGeometry(int newWidth) {
-	const auto usernameLeft = st::settingsUsernameLeft;
-	const auto usernameTop = st::settingsUsernameTop;
+	const auto fagram = FA::Ui::Enabled();
+	const auto card = fagram ? fagramCard(newWidth) : FagramCard();
+	const auto usernameLeft = fagram
+		? card.textLeft
+		: st::settingsUsernameLeft;
+	const auto usernameTop = fagram
+		? (card.top + style::ConvertScale(62))
+		: st::settingsUsernameTop;
 	const auto usernameRight = st::infoProfileCover.rightSkip;
-	const auto usernameWidth = newWidth - usernameLeft - usernameRight;
+	const auto usernameWidth = fagram
+		? card.textWidth
+		: (newWidth - usernameLeft - usernameRight);
 	_username->resizeToWidth(usernameWidth);
 	_username->moveToLeft(usernameLeft, usernameTop, newWidth);
 }
@@ -365,6 +474,10 @@ void Cover::refreshQrButtonGeometry(int newWidth) {
 		return;
 	}
 	const auto buttonTop = (height() - _qrButton->height()) / 2;
+	if (FA::Ui::Enabled()) {
+		_qrButton->moveToRight(style::ConvertScale(36), buttonTop, newWidth);
+		return;
+	}
 	const auto buttonRight = st::infoProfileCover.rightSkip;
 	const auto inset = st::infoProfileLabeledButtonQrInset;
 	_qrButton->moveToRight(buttonRight - inset, buttonTop, newWidth);
