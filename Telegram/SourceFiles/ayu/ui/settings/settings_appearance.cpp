@@ -390,6 +390,13 @@ void BuildDrawerElements(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.icon = { &st::menuIconChannel },
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/showNewStoryInDrawer"_q,
+		.title = tr::ayu_StoryNew(),
+		.getter = &AyuSettings::showNewStoryInDrawer,
+		.setter = &AyuSettings::setShowNewStoryInDrawer,
+		.icon = { &st::ayuNewStoryMenuIcon },
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/showContactsInDrawer"_q,
 		.title = tr::lng_menu_contacts(),
 		.getter = &AyuSettings::showContactsInDrawer,

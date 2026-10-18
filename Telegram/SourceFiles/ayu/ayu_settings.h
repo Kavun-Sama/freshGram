@@ -364,6 +364,7 @@ public:
 	[[nodiscard]] bool showBotsInDrawer() const { return _showBotsInDrawer.current(); }
 	[[nodiscard]] bool showNewGroupInDrawer() const { return _showNewGroupInDrawer.current(); }
 	[[nodiscard]] bool showNewChannelInDrawer() const { return _showNewChannelInDrawer.current(); }
+	[[nodiscard]] bool showNewStoryInDrawer() const { return _showNewStoryInDrawer.current(); }
 	[[nodiscard]] bool showContactsInDrawer() const { return _showContactsInDrawer.current(); }
 	[[nodiscard]] bool showCallsInDrawer() const { return _showCallsInDrawer.current(); }
 	[[nodiscard]] bool showSavedMessagesInDrawer() const { return _showSavedMessagesInDrawer.current(); }
@@ -508,6 +509,7 @@ public:
 	void setShowBotsInDrawer(bool val);
 	void setShowNewGroupInDrawer(bool val);
 	void setShowNewChannelInDrawer(bool val);
+	void setShowNewStoryInDrawer(bool val);
 	void setShowContactsInDrawer(bool val);
 	void setShowCallsInDrawer(bool val);
 	void setShowSavedMessagesInDrawer(bool val);
@@ -679,6 +681,8 @@ public:
 	[[nodiscard]] rpl::producer<bool> showNewGroupInDrawerChanges() const { return _showNewGroupInDrawer.changes(); }
 	[[nodiscard]] rpl::producer<bool> showNewChannelInDrawerValue() const { return _showNewChannelInDrawer.value(); }
 	[[nodiscard]] rpl::producer<bool> showNewChannelInDrawerChanges() const { return _showNewChannelInDrawer.changes(); }
+	[[nodiscard]] rpl::producer<bool> showNewStoryInDrawerValue() const { return _showNewStoryInDrawer.value(); }
+	[[nodiscard]] rpl::producer<bool> showNewStoryInDrawerChanges() const { return _showNewStoryInDrawer.changes(); }
 	[[nodiscard]] rpl::producer<bool> showContactsInDrawerValue() const { return _showContactsInDrawer.value(); }
 	[[nodiscard]] rpl::producer<bool> showContactsInDrawerChanges() const { return _showContactsInDrawer.changes(); }
 	[[nodiscard]] rpl::producer<bool> showCallsInDrawerValue() const { return _showCallsInDrawer.value(); }
@@ -840,6 +844,7 @@ private:
 	rpl::variable<bool> _showBotsInDrawer = true;
 	rpl::variable<bool> _showNewGroupInDrawer = true;
 	rpl::variable<bool> _showNewChannelInDrawer = true;
+	rpl::variable<bool> _showNewStoryInDrawer = true;
 	rpl::variable<bool> _showContactsInDrawer = true;
 	rpl::variable<bool> _showCallsInDrawer = true;
 	rpl::variable<bool> _showSavedMessagesInDrawer = true;

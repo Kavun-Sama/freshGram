@@ -81,6 +81,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/stories/story_entry.h"
 #include "ayu/ui/fagram/fagram_nav_drawer.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "boxes/abstract_box.h"
@@ -698,6 +699,14 @@ void MainMenu::setupMenu() {
 			if (which == Qt::LeftButton) {
 				controller->showNewChannel();
 			}
+		});
+
+		if (settings.showNewStoryInDrawer())
+		addAction(
+			tr::ayu_StoryNew(),
+			{ &st::ayuNewStoryMenuIcon }
+		)->setClickedCallback([=] {
+			AyuStories::StartPosting(controller, controller->session().user());
 		});
 
 		if (settings.showContactsInDrawer())
