@@ -13,6 +13,8 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <random>
 #include <string>
 #include <vector>
@@ -106,9 +108,19 @@ int main(int argc, char **argv) {
 		oldRows, oldKeys, oldEdited, oldTextBytes, Scalar(db, "PRAGMA page_count"));
 
 	from = Clock::now();
+	auto image = std::string();
 	if (importMode) {
-		Exec(db, "ATTACH DATABASE '" + original + "' AS legacy");
-		Exec(db, "BEGIN IMMEDIATE");
+		// The same way the application imports its old snapshot: a read-only
+		// image in memory, attached to the new file.
+		auto file = std::ifstream(original, std::ios::binary);
+		image.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+		Exec(db, "ATTACH DATABASE ':memory:' AS legacy");
+		const auto size = sqlite3_int64(image.size());
+		if (sqlite3_deserialize(db, "legacy", reinterpret_cast<unsigned char*>(image.data()), size, size, SQLITE_DESERIALIZE_READONLY) != SQLITE_OK) {
+			std::printf("deserialize failed: %s\n", sqlite3_errmsg(db));
+			return 2;
+		}
+		Exec(db, "BEGIN");
 		const auto copied = AyuLegacyCopy::Run(db, "legacy");
 		if (!copied.ok) {
 			std::printf("IMPORT FAILED: %s\n", copied.error.c_str());

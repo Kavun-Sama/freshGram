@@ -745,8 +745,10 @@ void execOrThrow(sqlite3 *db, const char *sql) {
 }
 
 // Fills the new file from the attached old database in one transaction.
+// The transaction is deferred: an immediate one locks every attached schema
+// for writing, and the read-only old snapshot refuses that.
 void copyAttached(sqlite3 *db) {
-	execOrThrow(db, "BEGIN IMMEDIATE");
+	execOrThrow(db, "BEGIN");
 	const auto result = AyuLegacyCopy::Run(db, "legacy");
 	if (!result.ok) {
 		sqlite3_exec(db, "ROLLBACK", nullptr, nullptr, nullptr);
@@ -832,6 +834,28 @@ void importLegacyFile() {
 	FinishLegacyMigrationPending = true;
 }
 
+// An import that fails must not leave the database unusable in every session:
+// the old file is kept aside untouched and the new one starts empty. A damaged
+// file is still reported to the caller, which restores a backup.
+template <typename Import>
+void importOrKeepAside(Import &&import, const QString &path) {
+	try {
+		import();
+	} catch (const std::system_error &) {
+		throw;
+	} catch (const std::exception &ex) {
+		const auto aside = QString("./tdata/ayudata_import_failed_%1.%2")
+			.arg(base::unixtime::now())
+			.arg(QFileInfo(path).suffix());
+		LOG(("[AyuGram] Database: failed to import %1, it is kept as %2: %3")
+			.arg(path, aside, QString::fromUtf8(ex.what())));
+		if (!QFile::rename(path, aside)) {
+			throw;
+		}
+		storage.insert(SchemaVersion{1, kLatestVersion});
+	}
+}
+
 void prepareStorage() {
 	registerEncryptedFiles();
 	if (!storage.is_opened()) {
@@ -853,9 +877,9 @@ void prepareStorage() {
 	}
 	if (fresh) {
 		if (QFile::exists(snapshotPath())) {
-			importSnapshot();
+			importOrKeepAside(importSnapshot, snapshotPath());
 		} else if (QFile::exists(legacyPath())) {
-			importLegacyFile();
+			importOrKeepAside(importLegacyFile, legacyPath());
 		} else {
 			storage.insert(SchemaVersion{1, kLatestVersion});
 		}
