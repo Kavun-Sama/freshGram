@@ -476,6 +476,7 @@ void PasscodeLockWidget::setBusy(bool busy) {
 	_busy = busy;
 	_passcode->setDisabled(busy);
 	_submit->setDisabled(busy);
+	_logout->setDisabled(busy);
 	if (!busy) {
 		_passcode->setFocusFast();
 	}
@@ -614,11 +615,24 @@ void PasscodeLockWidget::resizeEvent(QResizeEvent *e) {
 
 void PasscodeLockWidget::updateLayout() {
 	const auto &padding = st::passcodeCardPadding;
+	const auto available = width() - 2 * st::passcodeCardMargin;
+	const auto fieldWidth = std::max(
+		std::min(
+			st::passcodeInputWithButtons.width,
+			available - 2 * st::passcodeCardPaddingMin),
+		0);
+	if (_passcode->width() != fieldWidth) {
+		_passcode->resize(fieldWidth, _passcode->height());
+	}
+	const auto submitWidth = std::min(st::passcodeSubmit.width, fieldWidth);
+	if (_submit->width() != submitWidth) {
+		_submit->setFullWidth(submitWidth);
+	}
 	const auto field = _passcode->size();
 	const auto headerHeight = st::passcodeHeaderFont->height;
-	const auto cardWidth = std::min(
-		field.width() + padding.left() + padding.right(),
-		width());
+	const auto cardWidth = std::max(
+		std::min(field.width() + padding.left() + padding.right(), available),
+		0);
 	const auto cardHeight = padding.top()
 		+ st::passcodeLockSize
 		+ st::passcodeLockSkip

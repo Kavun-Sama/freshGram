@@ -49,6 +49,8 @@ passcodeDateFont: font(16px);
 passcodeClockSkip: 4px;
 passcodeClockBottom: 28px;
 passcodeCardPadding: margins(40px, 28px, 40px, 24px);
+passcodeCardMargin: 12px;
+passcodeCardPaddingMin: 16px;
 passcodeCardRadius: 12px;
 passcodeCardRadiusMaterial: 24px;
 passcodeLockSize: 72px;
