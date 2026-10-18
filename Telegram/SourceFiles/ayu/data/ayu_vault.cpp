@@ -142,7 +142,7 @@ void WriteNumber(QByteArray &to, quint64 value, int size) {
 	}
 	value = 0;
 	for (auto i = 0; i != size; ++i) {
-		value = (value << 8) | quint8(from[position + i]);
+		value = (value << 8) | quint8(from[qsizetype(position + i)]);
 	}
 	position += size;
 	return true;

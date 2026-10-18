@@ -40,6 +40,22 @@ struct Item {
 		|| widget->property(kBlockProperty).toBool();
 }
 
+void CollectButtons(
+		not_null<QWidget*> parent,
+		std::vector<::Ui::SettingsButton*> &buttons) {
+	for (const auto child : parent->children()) {
+		const auto widget = qobject_cast<QWidget*>(child);
+		if (!widget || widget->isHidden()) {
+			continue;
+		}
+		if (const auto button = dynamic_cast<::Ui::SettingsButton*>(widget)) {
+			buttons.push_back(button);
+		} else {
+			CollectButtons(widget, buttons);
+		}
+	}
+}
+
 // The buttons inside a block have no background of their own and are
 // rounded only where they touch the rounded corners of the block.
 void ApplyBlockSegments(not_null<QWidget*> block, Segment position) {
@@ -48,11 +64,9 @@ void ApplyBlockSegments(not_null<QWidget*> block, Segment position) {
 		|| position == Segment::Single);
 	const auto roundBottom = (position == Segment::Bottom
 		|| position == Segment::Single);
-	const auto buttons = block->findChildren<::Ui::SettingsButton*>();
+	auto buttons = std::vector<::Ui::SettingsButton*>();
+	CollectButtons(block, buttons);
 	for (const auto button : buttons) {
-		if (button->isHidden()) {
-			continue;
-		}
 		const auto top = button->mapTo(block, QPoint(0, 0)).y();
 		const auto atTop = roundTop && (top <= 1);
 		const auto atBottom = roundBottom
