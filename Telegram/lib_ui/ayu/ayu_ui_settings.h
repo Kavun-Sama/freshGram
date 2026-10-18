@@ -40,6 +40,7 @@ inline constexpr int kDesignStyleCount = 3;
 
 void setDesignStyle(int val);
 DesignStyle designStyle();
+[[nodiscard]] bool isTelegramDesign();
 int getDesignValue(int material, int telegram);
 
 void setAvatarCorners(int val);

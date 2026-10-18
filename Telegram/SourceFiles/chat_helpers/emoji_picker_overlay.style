@@ -12,6 +12,11 @@ stickersEmojiPickerBg: emojiPanBg;
 stickersEmojiPickerPadding: margins(12px, 8px, 12px, 0px);
 stickersEmojiPickerItemSize: 30px;
 stickersEmojiPickerItemSkip: 4px;
+stickersEmojiPickerStripBubble: icon{
+	{ "chat/reactions_bubble_shadow", windowShadowFg },
+	{ "chat/reactions_bubble", emojiPanBg },
+};
+stickersEmojiPickerStripBubbleRight: 20px;
 stickersEmojiPickerStripHeight: 40px;
 stickersEmojiPickerSearchSkip: 6px;
 stickersEmojiPickerExpandedHeight: 220px;

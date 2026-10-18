@@ -30,6 +30,8 @@ historyRecordLockIconLineWidth: 2px;
 historyRecordLockIconArcHeight: 4px;
 historyRecordStopIconWidth: 12px;
 historyRecordLockMargin: margins(4px, 4px, 4px, 4px);
+historyRecordLockInputTg: icon {{ "voice_lock/input_mic_s", historyToDownFg }};
+historyRecordLockRoundTg: icon {{ "voice_lock/input_round_s", historyToDownFg }};
 historyRecordLockInput: icon {{ "voice_lock/input_mic_s", windowBgActive }};
 historyRecordLockRound: icon {{ "voice_lock/input_round_s", windowBgActive }};
 historyRecordLockRippleMargin: margins(6px, 6px, 6px, 6px);

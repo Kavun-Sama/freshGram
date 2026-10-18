@@ -118,6 +118,136 @@ const auto kDesignVariants = std::map<QString, std::vector<int>>{
 	{ "windowDefaultHeight", { 600 } },
 };
 
+// Telegram design values: "<n>px", a number or a style variable ("...Tg" ones live next to the Materialgram value).
+const auto kTelegramValues = std::map<QString, QString>{
+	// lib_ui/ui/basic.style
+	{ "roundRadiusLarge", "6px" },
+	{ "roundRadiusSmall", "3px" },
+	{ "activeFadeInDuration", "500" },
+	{ "activeFadeOutDuration", "3000" },
+	// lib_ui/ui/layers/layers.style
+	{ "boxDuration", "200" },
+	// lib_ui/ui/widgets/widgets.style
+	{ "defaultActiveButton.radius", "0px" },
+	{ "defaultCheckboxIcon", "defaultCheckboxIconTg" },
+	{ "defaultInnerDropdown.showDuration", "200" },
+	{ "defaultMenu.itemPadding", "defaultMenuItemPaddingTg" },
+	{ "defaultMultiSelect.scroll.width", "8px" },
+	{ "defaultMultiSelect.scroll.round", "1px" },
+	{ "defaultPopupMenu.showDuration", "200" },
+	{ "defaultPopupMenu.radius", "8px" },
+	{ "defaultPanelAnimation.startHeight", "defaultPanelAnimationStartHeightTg" },
+	{ "defaultScrollArea.width", "10px" },
+	{ "defaultScrollArea.round", "2px" },
+	// boxes/peers/edit_peer_members.style
+	{ "rightsToggle.xsize", "8px" },
+	{ "rightsToggle.vsize", "5px" },
+	// calls/calls.style
+	{ "callPanelSignalBars.radius", "1px" },
+	{ "callTitleCloseIcon", "callTitleCloseIconTg" },
+	{ "callTitleCloseIconOver", "callTitleCloseIconOverTg" },
+	{ "callTitleMaximizeIcon", "callTitleMaximizeIconTg" },
+	{ "callTitleMaximizeIconOver", "callTitleMaximizeIconOverTg" },
+	{ "callTitleMinimizeIcon", "callTitleMinimizeIconTg" },
+	{ "callTitleMinimizeIconOver", "callTitleMinimizeIconOverTg" },
+	{ "callTitleRestoreIcon", "callTitleRestoreIconTg" },
+	{ "callTitleRestoreIconOver", "callTitleRestoreIconOverTg" },
+	{ "groupCallMenuCover.radius", "roundRadiusSmall" },
+	// chat_helpers/chat_helpers.style
+	{ "defaultComposeIcons.stripExpandDropdown", "stripExpandDropdownTg" },
+	{ "defaultComposeIcons.stripExpandPanel", "stripExpandPanelTg" },
+	{ "defaultRecordBarLock.fg", "historyToDownFg" },
+	{ "dialogsToUpAbove", "dialogsToUpAboveTg" },
+	{ "dialogsToUpAboveOver", "dialogsToUpAboveOverTg" },
+	{ "emojiScroll.round", "-1px" },
+	{ "historyRecordLockArrow", "historyRecordLockArrowTg" },
+	{ "historyRecordLockBody", "historyRecordLockBodyTg" },
+	{ "historyRecordLockBottom", "historyRecordLockBottomTg" },
+	{ "historyRecordLockTop", "historyRecordLockTopTg" },
+	{ "historyToDown.ripple.color", "historyToDownBgRipple" },
+	{ "historyToDownAbove", "historyToDownAboveTg" },
+	{ "historyToDownAboveOver", "historyToDownAboveOverTg" },
+	{ "historyToDownBelow", "historyToDownBelowTg" },
+	{ "historyToDownBelowOver", "historyToDownBelowOverTg" },
+	{ "historyUnreadMentions.iconAbove", "historyUnreadMentionsIconAboveTg" },
+	{ "historyUnreadMentions.iconAboveOver", "historyUnreadMentionsIconAboveOverTg" },
+	{ "historyUnreadReactions.iconAbove", "historyUnreadReactionsIconAboveTg" },
+	{ "historyUnreadReactions.iconAboveOver", "historyUnreadReactionsIconAboveOverTg" },
+	{ "stickersTrendingAdd.radius", "0px" },
+	{ "ttlMediaButton.textFg", "activeButtonFg" },
+	{ "ttlMediaButton.textFgOver", "activeButtonFgOver" },
+	// dialogs/dialogs.style
+	{ "dialogsArchiveUserpic", "dialogsArchiveUserpicTg" },
+	// history/view/controls/history_view_voice_record_bar.style
+	{ "historyRecordLockInput", "historyRecordLockInputTg" },
+	{ "historyRecordLockRound", "historyRecordLockRoundTg" },
+	// info/info.style
+	{ "infoMembersSearch.icon", "infoMembersSearchIconTg" },
+	// intro/intro.style
+	{ "introCoverIcon", "introCoverIconTg" },
+	// media/view/media_view.style
+	{ "mediaviewLeft", "mediaviewLeftTg" },
+	{ "mediaviewRight", "mediaviewRightTg" },
+	{ "mediaviewTitleButtonMac", "mediaviewTitleButtonMacTg" },
+	{ "mediaviewTitleClose", "mediaviewTitleCloseTg" },
+	{ "mediaviewTitleMaximize", "mediaviewTitleMaximizeTg" },
+	{ "mediaviewTitleMinimize", "mediaviewTitleMinimizeTg" },
+	{ "mediaviewTitleRestore", "mediaviewTitleRestoreTg" },
+	{ "storiesEmojiPan.icons.stripExpandDropdown", "storiesStripExpandDropdownTg" },
+	{ "storiesEmojiPan.icons.stripExpandPanel", "storiesStripExpandPanelTg" },
+	// settings/sections/settings_premium.style
+	{ "settingsIconChat", "settingsIconChatTg" },
+	{ "settingsIconEmoji", "settingsIconEmojiTg" },
+	{ "settingsIconStickers", "settingsIconStickersTg" },
+	{ "settingsPremiumIconBusiness", "settingsPremiumIconBusinessTg" },
+	{ "settingsPremiumIconChannelsOff", "settingsPremiumIconChannelsOffTg" },
+	{ "settingsPremiumIconChecklist", "settingsPremiumIconChecklistTg" },
+	{ "settingsPremiumIconEffects", "settingsPremiumIconEffectsTg" },
+	{ "settingsPremiumIconFiles", "settingsPremiumIconFilesTg" },
+	{ "settingsPremiumIconLastSeen", "settingsPremiumIconLastSeenTg" },
+	{ "settingsPremiumIconLike", "settingsPremiumIconLikeTg" },
+	{ "settingsPremiumIconNoForwards", "settingsPremiumIconNoForwardsTg" },
+	{ "settingsPremiumIconPeerColors", "settingsPremiumIconPeerColorsTg" },
+	{ "settingsPremiumIconPlay", "settingsPremiumIconPlayTg" },
+	{ "settingsPremiumIconPrivacy", "settingsPremiumIconPrivacyTg" },
+	{ "settingsPremiumIconSpeed", "settingsPremiumIconSpeedTg" },
+	{ "settingsPremiumIconStar", "settingsPremiumIconStarTg" },
+	{ "settingsPremiumIconStatus", "settingsPremiumIconStatusTg" },
+	{ "settingsPremiumIconStories", "settingsPremiumIconStoriesTg" },
+	{ "settingsPremiumIconTranslations", "settingsPremiumIconTranslationsTg" },
+	{ "settingsPremiumIconVoice", "settingsPremiumIconVoiceTg" },
+	{ "settingsPremiumIconWallpapers", "settingsPremiumIconWallpapersTg" },
+	// settings/settings.style
+	{ "settingsBusinessIconAway", "settingsBusinessIconAwayTg" },
+	{ "settingsBusinessIconChatIntro", "settingsBusinessIconChatIntroTg" },
+	{ "settingsBusinessIconChatLinks", "settingsBusinessIconChatLinksTg" },
+	{ "settingsBusinessIconChatbots", "settingsBusinessIconChatbotsTg" },
+	{ "settingsBusinessIconGreeting", "settingsBusinessIconGreetingTg" },
+	{ "settingsBusinessIconHours", "settingsBusinessIconHoursTg" },
+	{ "settingsBusinessIconLocation", "settingsBusinessIconLocationTg" },
+	{ "settingsBusinessIconReplies", "settingsBusinessIconRepliesTg" },
+	{ "settingsIconAdd", "settingsIconAddTg" },
+	{ "settingsIconRemove", "settingsIconRemoveTg" },
+	{ "settingsPremiumIconDouble", "settingsPremiumIconDoubleTg" },
+	{ "settingsPremiumIconTags", "settingsPremiumIconTagsTg" },
+	// ui/chat/chat.style
+	{ "largeEmojiOutline", "1px" },
+	// ui/chat/chat_style.style
+	{ "chatSimilarLockedIcon", "chatSimilarLockedIconTg" },
+	{ "historyCallCameraInIcon", "historyCallCameraInIconTg" },
+	{ "historyCallCameraInIconSelected", "historyCallCameraInIconSelectedTg" },
+	{ "historyCallCameraOutIcon", "historyCallCameraOutIconTg" },
+	{ "historyCallCameraOutIconSelected", "historyCallCameraOutIconSelectedTg" },
+	{ "historyCallGroupInIcon", "historyCallGroupInIconTg" },
+	{ "historyCallGroupInIconSelected", "historyCallGroupInIconSelectedTg" },
+	{ "historyCallGroupOutIcon", "historyCallGroupOutIconTg" },
+	{ "historyCallGroupOutIconSelected", "historyCallGroupOutIconSelectedTg" },
+	{ "historyCallInIcon", "historyCallInIconTg" },
+	{ "historyCallInIconSelected", "historyCallInIconSelectedTg" },
+	{ "historyCallOutIcon", "historyCallOutIconTg" },
+	{ "historyCallOutIconSelected", "historyCallOutIconSelectedTg" },
+};
+
 [[nodiscard]] bool UsesDesignVariants(const QString &name) {
 	const auto prefix = name + '.';
 	for (const auto &entry : kDesignVariants) {
@@ -125,8 +255,44 @@ const auto kDesignVariants = std::map<QString, std::vector<int>>{
 			return true;
 		}
 	}
+	for (const auto &entry : kTelegramValues) {
+		if (entry.first == name || entry.first.startsWith(prefix)) {
+			return true;
+		}
+	}
 	return false;
 }
+
+[[nodiscard]] QString TelegramValueCode(
+		const QString &telegram,
+		const QString &type,
+		const QString &material) {
+	auto telegramCode = QString();
+	auto number = false;
+	if (telegram.endsWith("px")) {
+		telegram.chopped(2).toInt(&number);
+		if (number) {
+			telegramCode = QString("ConvertScale(%1, scale)").arg(
+				telegram.chopped(2));
+		}
+	} else {
+		telegram.toInt(&number);
+		if (number) {
+			telegramCode = telegram;
+		}
+	}
+	if (!number) {
+		telegramCode = "st::" + telegram;
+	}
+	const auto wrapped = material.startsWith('{')
+		? (type + material)
+		: QString("%1(%2)").arg(type, material);
+	return QString("(AyuUiSettings::isTelegramDesign() ? %1(%2) : %3)").arg(
+		type,
+		telegramCode,
+		wrapped);
+}
+
 
 [[nodiscard]] QString DesignValueCode(const QString &material, int telegram) {
 	return QString("AyuUiSettings::getDesignValue(%1, ConvertScale(%2, scale))").arg(material).arg(telegram);
@@ -252,6 +418,11 @@ QString paletteColorValue(const structure::data::color &value) {
 	case Tag::Double: return true;
 	default: return false;
 	}
+}
+
+[[nodiscard]] bool IsVariableInHeader(const Variable &variable) {
+	return IsValueInHeader(variable.value.type())
+		&& !kTelegramValues.contains(variable.name.back());
 }
 
 } // namespace
@@ -382,6 +553,56 @@ QString Generator::typeToDefaultValue(structure::Type type) const {
 
 // Empty result means an error.
 QString Generator::valueAssignmentCode(
+		structure::Value value,
+		bool ignoreCopy,
+		const QString& name) const {
+	auto result = valueAssignmentCodeMaterial(value, ignoreCopy, name);
+	if (result.isEmpty() || name.isEmpty()) {
+		return result;
+	}
+	if (const auto i = kTelegramValues.find(name); i != kTelegramValues.end()) {
+		return TelegramValueCode(i->second, typeToString(value.type()), result);
+	} else if (!kDesignVariants.contains(name)
+		&& !ignoreCopy
+		&& value.copyOf().isEmpty()
+		&& isOverriddenPath(value.inheritedFrom())) {
+		// WHY: an inherited field must follow the design value of its parent.
+		return "st::" + value.inheritedFrom().join('.');
+	}
+	return result;
+}
+
+bool Generator::isOverriddenPath(const structure::FullName &path) const {
+	if (path.isEmpty()) {
+		return false;
+	} else if (UsesDesignVariants(path.join('.'))) {
+		return true;
+	}
+	const auto variable = module_.findVariable({ path.front() });
+	if (!variable) {
+		return false;
+	}
+	const auto *value = &variable->value;
+	for (auto i = 1; i < path.size(); ++i) {
+		const auto fields = value->Fields();
+		if (!fields) {
+			return false;
+		}
+		const auto j = std::find_if(fields->begin(), fields->end(), [&](
+				const structure::data::field &field) {
+			return !field.variable.name.isEmpty()
+				&& (field.variable.name.back() == path[i]);
+		});
+		if (j == fields->end()) {
+			return false;
+		}
+		value = &j->variable.value;
+	}
+	return value->copyOf().isEmpty()
+		&& isOverriddenPath(value->inheritedFrom());
+}
+
+QString Generator::valueAssignmentCodeMaterial(
 		structure::Value value,
 		bool ignoreCopy,
 		const QString& name) const {
@@ -714,7 +935,7 @@ bool Generator::writeRefsDeclarations() {
 			return false;
 		}
 
-		if (IsValueInHeader(value.value.type())) {
+		if (IsVariableInHeader(value)) {
 			header_->stream()
 				<< "constexpr "
 				<< type
@@ -791,7 +1012,7 @@ bool Generator::writeVariableDefinitions() {
 		if (type.isEmpty()) {
 			return false;
 		}
-		if (!IsValueInHeader(variable.value.type())) {
+		if (!IsVariableInHeader(variable)) {
 			source_->stream()
 				<< type
 				<< " _"
@@ -820,7 +1041,7 @@ bool Generator::writeRefsDefinition() {
 		if (type.isEmpty()) {
 			return false;
 		}
-		if (IsValueInHeader(variable.value.type())) {
+		if (IsVariableInHeader(variable)) {
 			return true;
 		}
 		source_->stream() << "const " << type << " &" << name << "(";
@@ -1133,7 +1354,7 @@ void init_" << baseName_ << "(int scale) {\n\
 		if (value.isEmpty()) {
 			return false;
 		}
-		if (!IsValueInHeader(variable.value.type())) {
+		if (!IsVariableInHeader(variable)) {
 			source_->stream() << "\t_" << name << " = " << value << ";\n";
 		}
 		return true;

@@ -69,6 +69,10 @@ DesignStyle designStyle() {
 	return currentDesignStyle;
 }
 
+bool isTelegramDesign() {
+	return (currentDesignStyle == DesignStyle::Telegram);
+}
+
 int getDesignValue(int material, int telegram) {
 	return (currentDesignStyle == DesignStyle::Materialgram)
 		? material

@@ -88,6 +88,7 @@ ComposeIcons {
 	menuPrice: icon;
 	menuEditStars: icon;
 
+	stripBubble: icon;
 	stripExpandPanel: icon;
 	stripExpandDropdown: icon;
 }
@@ -708,6 +709,14 @@ sendBoxAlbumButtonMediaMore: icon {{ "send_media/send_media_more", roundedFg }};
 sendBoxAlbumGroupButtonMediaMore: icon {{ "send_media/send_media_more", roundedFg, point(4px, 1px) }};
 sendBoxAlbumGroupButtonMediaDelete: icon {{ "send_media/send_media_cross", roundedFg }};
 
+stripExpandPanelTg: icon{
+	{ "chat/reactions_round_big", windowBgRipple },
+	{ "chat/reactions_expand_panel", windowSubTextFg },
+};
+stripExpandDropdownTg: icon{
+	{ "chat/reactions_round_small", windowBgRipple },
+	{ "chat/reactions_expand_panel", windowSubTextFg },
+};
 defaultComposeIcons: ComposeIcons {
 	settings: icon {{ "emoji/emoji_settings", emojiIconFg }};
 	collectibles: icon {{ "menu/unique", emojiIconFg }};
@@ -756,6 +765,10 @@ defaultComposeIcons: ComposeIcons {
 	menuCoverRemove: menuIconCancel;
 	menuPrice: menuIconEarn;
 
+	stripBubble: icon{
+		{ "chat/reactions_bubble_shadow", windowShadowFg },
+		{ "chat/reactions_bubble", emojiPanBg },
+	};
 	stripExpandPanel: icon{{ "chat/reactions_expand_panel", windowSubTextFg }};
 	stripExpandDropdown: icon{{ "chat/reactions_expand_panel", windowSubTextFg }};
 }
@@ -924,6 +937,7 @@ reactStripSize: 32px;
 reactStripMinWidth: 60px;
 reactStripImage: 26px;
 reactStripSkip: 7px;
+reactStripBubbleRight: 20px;
 userpicBuilderEmojiPan: EmojiPan(statusEmojiPan) {
 	margin: margins(reactStripSkip, 0px, reactStripSkip, 0px);
 	padding: margins(reactStripSkip, 0px, reactStripSkip, reactStripSkip);
@@ -940,6 +954,7 @@ reactPanelEmojiPan: EmojiPan(userpicBuilderEmojiPan) {
 emojiScroll: ScrollArea(defaultSolidScroll) {
 	deltat: 3px;
 	deltab: 3px;
+	round: 0px;
 	width: 7px;
 	deltax: 2px;
 	hiding: 0;
@@ -1165,6 +1180,16 @@ historyPinnedBotLabel: FlatLabel(defaultFlatLabel) {
 historyPinnedBotButtonMaxWidth: 120px;
 
 historyToDownPosition: point(12px, 10px);
+historyToDownAboveTg: icon {{ "history_down_arrow", historyToDownFg }};
+historyToDownAboveOverTg: icon {{ "history_down_arrow", historyToDownFgOver }};
+historyToDownBelowTg: icon {
+	{ "history_down_shadow", historyToDownShadow },
+	{ "history_down_circle", historyToDownBg },
+};
+historyToDownBelowOverTg: icon {
+	{ "history_down_shadow", historyToDownShadow },
+	{ "history_down_circle", historyToDownBgOver },
+};
 historyToDownAbove: icon {{ "history_down_arrow", windowBgActive }};
 historyToDownAboveOver: icon {{ "history_down_arrow", windowBgActive }};
 historyToDownPaddingTop: 10px;
@@ -1219,6 +1244,8 @@ historyPullNextBadgeFont: font(12px semibold);
 historyPullNextNameFont: font(13px semibold);
 historyPullNextHintFont: font(14px);
 
+dialogsToUpAboveTg: icon {{ "history_down_arrow-flip_vertical", historyToDownFg, point(0px, 1px) }};
+dialogsToUpAboveOverTg: icon {{ "history_down_arrow-flip_vertical", historyToDownFgOver, point(0px, 1px) }};
 dialogsToUpAbove: icon {{ "history_down_arrow-flip_vertical", windowBgActive, point(0px, 1px) }};
 dialogsToUpAboveOver: icon {{ "history_down_arrow-flip_vertical", windowBgActive, point(0px, 1px) }};
 
@@ -1227,6 +1254,10 @@ dialogsToUp: TwoIconButton(historyToDown) {
 	iconAboveOver: dialogsToUpAboveOver;
 }
 
+historyUnreadMentionsIconAboveTg: icon {{ "history_unread_mention", historyToDownFg }};
+historyUnreadMentionsIconAboveOverTg: icon {{ "history_unread_mention", historyToDownFgOver }};
+historyUnreadReactionsIconAboveTg: icon {{ "history_unread_reaction", historyToDownFg }};
+historyUnreadReactionsIconAboveOverTg: icon {{ "history_unread_reaction", historyToDownFgOver }};
 historyUnreadMentions: TwoIconButton(historyToDown) {
 	iconAbove: icon {{ "history_unread_mention", windowBgActive }};
 	iconAboveOver: icon {{ "history_unread_mention", windowBgActive }};
@@ -1432,6 +1463,10 @@ historyRecordMajorBlobMinRadius: 43px;
 historyRecordMajorBlobMaxRadius: 50px;
 
 historyRecordLockTopShadow: icon {{ "voice_lock/record_lock_top_shadow", historyToDownShadow }};
+historyRecordLockTopTg: icon {{ "voice_lock/record_lock_top", historyToDownBg }};
+historyRecordLockBottomTg: icon {{ "voice_lock/record_lock_bottom", historyToDownBg }};
+historyRecordLockBodyTg: icon {{ "voice_lock/record_lock_body", historyToDownBg }};
+historyRecordLockArrowTg: icon {{ "voice_lock/voice_arrow", historyToDownFg }};
 historyRecordLockTop: icon {{ "voice_lock/record_lock_top", sideBarBg }};
 historyRecordLockBottomShadow: icon {{ "voice_lock/record_lock_bottom_shadow", historyToDownShadow }};
 historyRecordLockBottom: icon {{ "voice_lock/record_lock_bottom", sideBarBg }};

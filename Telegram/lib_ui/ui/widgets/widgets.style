@@ -811,6 +811,7 @@ defaultScrollArea: ScrollArea {
 	barBg: scrollBarBg;
 	barBgOver: scrollBarBgOver;
 
+	round: 0px;
 	width: 9px;
 	minHeight: 20px;
 	deltax: 3px;
@@ -835,6 +836,7 @@ defaultSolidScroll: ScrollArea(defaultScrollArea) {
 	hiding: 0;
 }
 
+defaultCheckboxIconTg: icon {{ "default_checkbox_check", overviewCheckFgActive, point(4px, 7px) }};
 defaultCheckboxIcon: icon {{ "default_checkbox_check", overviewCheckFgActive, point(4px, 6px) }};
 
 defaultCheck: Check {
@@ -931,6 +933,7 @@ roundShadowRadius8px: Shadow {
 	fallback: windowShadowFgFallback;
 }
 
+defaultPanelAnimationStartHeightTg: 0.3;
 defaultPanelAnimation: PanelAnimation {
 	startWidth: 0.5;
 	widthDuration: 0.6;
@@ -957,6 +960,7 @@ defaultMenuSeparator: MenuSeparator {
 	width: 1px;
 	fg: menuSeparatorFg;
 }
+defaultMenuItemPaddingTg: margins(17px, 8px, 17px, 7px);
 defaultMenu: Menu {
 	skip: 0px;
 
@@ -1134,6 +1138,7 @@ defaultMultiSelect: MultiSelect {
 	scroll: ScrollArea(defaultSolidScroll) {
 		deltat: 3px;
 		deltab: 3px;
+		round: 0px;
 		width: 9px;
 		deltax: 3px;
 		hiding: 1000;

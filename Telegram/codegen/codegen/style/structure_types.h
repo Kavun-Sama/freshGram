@@ -151,6 +151,16 @@ public:
 		return copyOf_;
 	}
 
+	Value makeInherited(const FullName &from) const {
+		Value result(*this);
+		result.inheritedFrom_ = from;
+		return result;
+	}
+
+	const FullName &inheritedFrom() const {
+		return inheritedFrom_;
+	}
+
 private:
 	class DataBase {
 	public:
@@ -177,6 +187,7 @@ private:
 	std::shared_ptr<DataBase> data_;
 
 	FullName copyOf_; // for copies of existing named values
+	FullName inheritedFrom_; // for fields taken from the struct parent
 
 };
 

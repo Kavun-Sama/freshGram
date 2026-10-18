@@ -503,6 +503,7 @@ callPanelDuration: 150;
 
 callPanelSignalBars: CallSignalBars {
 	width: 2px;
+	radius: 0px;
 	skip: 2px;
 	min: 4px;
 	max: 10px;
@@ -518,7 +519,17 @@ callBarSignalBars: CallSignalBars(callPanelSignalBars) {
 }
 
 callTitleButton: windowTitleButton;
+callTitleMinimizeIconTg: icon {
+	{ "title_shadow_minimize", windowShadowFg },
+	{ "title_button_minimize", callNameFg },
+};
 callTitleMinimizeIcon: icon {
+	{ "title_button_minimize", callNameFg },
+};
+callTitleMinimizeIconOverTg: icon {
+	{ windowTitleButtonSize, callBgButton },
+	{ windowTitleButtonSize, callMuteRipple },
+	{ "title_shadow_minimize", windowShadowFg },
 	{ "title_button_minimize", callNameFg },
 };
 callTitleMinimizeIconOver: icon {
@@ -526,7 +537,17 @@ callTitleMinimizeIconOver: icon {
 	{ windowTitleButtonSize, callMuteRipple },
 	{ "title_button_minimize", callNameFg },
 };
+callTitleMaximizeIconTg: icon {
+	{ "title_shadow_maximize", windowShadowFg },
+	{ "title_button_maximize", callNameFg },
+};
 callTitleMaximizeIcon: icon {
+	{ "title_button_maximize", callNameFg },
+};
+callTitleMaximizeIconOverTg: icon {
+	{ windowTitleButtonSize, callBgButton },
+	{ windowTitleButtonSize, callMuteRipple },
+	{ "title_shadow_maximize", windowShadowFg },
 	{ "title_button_maximize", callNameFg },
 };
 callTitleMaximizeIconOver: icon {
@@ -534,7 +555,17 @@ callTitleMaximizeIconOver: icon {
 	{ windowTitleButtonSize, callMuteRipple },
 	{ "title_button_maximize", callNameFg },
 };
+callTitleRestoreIconTg: icon {
+	{ "title_shadow_restore", windowShadowFg },
+	{ "title_button_restore", callNameFg },
+};
 callTitleRestoreIcon: icon {
+	{ "title_button_restore", callNameFg },
+};
+callTitleRestoreIconOverTg: icon {
+	{ windowTitleButtonSize, callBgButton },
+	{ windowTitleButtonSize, callMuteRipple },
+	{ "title_shadow_restore", windowShadowFg },
 	{ "title_button_restore", callNameFg },
 };
 callTitleRestoreIconOver: icon {
@@ -542,8 +573,17 @@ callTitleRestoreIconOver: icon {
 	{ windowTitleButtonSize, callMuteRipple },
 	{ "title_button_restore", callNameFg },
 };
+callTitleCloseIconTg: icon {
+	{ "title_shadow_close", windowShadowFg },
+	{ "title_button_close", callNameFg },
+};
 callTitleCloseIcon: icon {
 	{ "title_button_close", callNameFg },
+};
+callTitleCloseIconOverTg: icon {
+	{ windowTitleButtonSize, titleButtonCloseBgOver },
+	{ "title_shadow_close", windowShadowFg },
+	{ "title_button_close", titleButtonCloseFgOver },
 };
 callTitleCloseIconOver: icon {
 	{ windowTitleButtonSize, titleButtonCloseBgOver },

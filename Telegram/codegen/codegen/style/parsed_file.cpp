@@ -413,7 +413,9 @@ void ParsedFile::applyStructParent(structure::Value &result, const structure::Fu
 				auto &dstValue(dstField.variable.value);
 				logAssert(srcValue.type() == dstValue.type()) << "struct field type check failed";
 
-				dstValue = srcValue;
+				dstValue = srcValue.makeInherited(
+					parentName + srcField.variable.name.mid(
+						srcField.variable.name.size() - 1));
 				dstField.status = fromTheSameModule
 					? Status::Implicit
 					: Status::ImplicitOtherModule;

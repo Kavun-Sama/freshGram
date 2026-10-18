@@ -99,7 +99,9 @@ settingsUpdateStatePosition: point(22px, 29px);
 
 settingsIconInterfaceScale: icon {{ "settings/interface_scale", settingsIconFg }};
 
+settingsPremiumIconDoubleTg: icon {{ "settings/premium/double", settingsIconFg }};
 settingsPremiumIconDouble: icon {{ "settings/premium/double", windowFgActive }};
+settingsPremiumIconTagsTg: icon {{ "settings/premium/tags", settingsIconFg }};
 settingsPremiumIconTags: icon {{ "settings/premium/tags", windowFgActive }};
 
 settingsIconChatAutomation: icon {
@@ -117,13 +119,21 @@ settingsStoriesIconDownload: icon {{ "menu/download", premiumButtonBg1 }};
 settingsStoriesIconCaption: icon {{ "settings/premium/stories_caption", premiumButtonBg1 }};
 settingsStoriesIconLinks: icon {{ "menu/links_profile", premiumButtonBg1 }};
 
+settingsBusinessIconLocationTg: icon {{ "settings/premium/business/business_location", settingsIconFg }};
 settingsBusinessIconLocation: icon {{ "settings/premium/business/business_location", windowFgActive }};
+settingsBusinessIconHoursTg: icon {{ "settings/premium/business/business_hours", settingsIconFg }};
 settingsBusinessIconHours: icon {{ "settings/premium/business/business_hours", windowFgActive }};
+settingsBusinessIconRepliesTg: icon {{ "settings/premium/business/business_quick", settingsIconFg }};
 settingsBusinessIconReplies: icon {{ "settings/premium/business/business_quick", windowFgActive }};
+settingsBusinessIconGreetingTg: icon {{ "settings/premium/status", settingsIconFg }};
 settingsBusinessIconGreeting: icon {{ "settings/premium/status", windowFgActive }};
+settingsBusinessIconAwayTg: icon {{ "settings/premium/business/business_away", settingsIconFg }};
 settingsBusinessIconAway: icon {{ "settings/premium/business/business_away", windowFgActive }};
+settingsBusinessIconChatbotsTg: icon {{ "settings/premium/business/business_chatbots", settingsIconFg }};
 settingsBusinessIconChatbots: icon {{ "settings/premium/business/business_chatbots", windowFgActive }};
+settingsBusinessIconChatIntroTg: icon {{ "settings/premium/business/business_intro", settingsIconFg }};
 settingsBusinessIconChatIntro: icon {{ "settings/premium/business/business_intro", windowFgActive }};
+settingsBusinessIconChatLinksTg: icon {{ "settings/premium/business/business_links", settingsIconFg }};
 settingsBusinessIconChatLinks: icon {{ "settings/premium/business/business_links", windowFgActive }};
 
 settingsBusinessPromoLocation: icon {{ "settings/premium/promo/business_location", premiumButtonBg1 }};
@@ -149,7 +159,9 @@ settingsPremiumNewBadgePadding: margins(4px, 1px, 4px, 1px);
 settingsTTLChatsOff: icon {{ "settings/ttl/autodelete_off", windowSubTextFg }};
 settingsTTLChatsOn: icon {{ "settings/ttl/autodelete_on", windowActiveTextFg }};
 
+settingsIconAddTg: icon {{ "settings/add", windowFgActive }};
 settingsIconAdd: icon {{ "settings/add", windowBgActive }};
+settingsIconRemoveTg: icon {{ "settings/remove", windowFgActive }};
 settingsIconRemove: icon {{ "settings/remove", windowBgActive }};
 settingsFolderShareIcon: icon {{ "settings/folder_links", lightButtonFg }};
 

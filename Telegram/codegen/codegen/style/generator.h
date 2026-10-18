@@ -37,6 +37,11 @@ private:
 		structure::Value value,
 		bool ignoreCopy = false,
 		const QString& name = QString()) const;
+	bool isOverriddenPath(const structure::FullName &path) const;
+	QString valueAssignmentCodeMaterial(
+		structure::Value value,
+		bool ignoreCopy,
+		const QString& name) const;
 
 	bool writeHeaderRequiredIncludes();
 	bool writeHeaderStyleNamespace();

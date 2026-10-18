@@ -392,6 +392,7 @@ dialogsChannelIcon: ThreeStateIcon {
 	over: icon {{ "dialogs/dialogs_channel", dialogsChatIconFgOver, point(3px, 4px) }};
 	active: icon {{ "dialogs/dialogs_channel", dialogsChatIconFgActive, point(3px, 4px) }};
 }
+dialogsArchiveUserpicTg: icon {{ "archive_userpic", historyPeerUserpicFg }};
 dialogsArchiveUserpic: icon {{ "archive_userpic", windowBgActive }};
 dialogsRepliesUserpic: icon {{ "replies_userpic", historyPeerUserpicFg }};
 dialogsInaccessibleUserpic: icon {{ "dialogs/inaccessible_userpic", historyPeerUserpicFg }};

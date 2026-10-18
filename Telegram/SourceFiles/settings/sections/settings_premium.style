@@ -7,26 +7,47 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 using "settings/settings.style";
 
+settingsIconChatTg: icon {{ "settings/chat", settingsIconFg }};
 settingsIconChat: icon {{ "settings/chat", windowFgActive }};
+settingsIconStickersTg: icon {{ "settings/stickers", settingsIconFg }};
 settingsIconStickers: icon {{ "settings/stickers", windowFgActive }};
+settingsIconEmojiTg: icon {{ "settings/emoji", settingsIconFg }};
 settingsIconEmoji: icon {{ "settings/emoji", windowFgActive }};
+settingsPremiumIconWallpapersTg: icon {{ "settings/photo", settingsIconFg }};
 settingsPremiumIconWallpapers: icon {{ "settings/photo", windowFgActive }};
+settingsPremiumIconStoriesTg: icon {{ "settings/stories", settingsIconFg }};
 settingsPremiumIconStories: icon {{ "settings/stories", windowFgActive }};
+settingsPremiumIconChannelsOffTg: icon {{ "settings/premium/channels_off", settingsIconFg }};
 settingsPremiumIconChannelsOff: icon {{ "settings/premium/channels_off", windowFgActive }};
+settingsPremiumIconStatusTg: icon {{ "settings/premium/status", settingsIconFg }};
 settingsPremiumIconStatus: icon {{ "settings/premium/status", windowFgActive }};
+settingsPremiumIconLikeTg: icon {{ "settings/premium/like", settingsIconFg }};
 settingsPremiumIconLike: icon {{ "settings/premium/like", windowFgActive }};
+settingsPremiumIconPlayTg: icon {{ "settings/premium/play", settingsIconFg }};
 settingsPremiumIconPlay: icon {{ "settings/premium/play", windowFgActive }};
+settingsPremiumIconSpeedTg: icon {{ "settings/premium/speed", settingsIconFg }};
 settingsPremiumIconSpeed: icon {{ "settings/premium/speed", windowFgActive }};
+settingsPremiumIconStarTg: icon {{ "settings/premium/star", settingsIconFg }};
 settingsPremiumIconStar: icon {{ "settings/premium/star", windowFgActive }};
+settingsPremiumIconVoiceTg: icon {{ "settings/premium/voice", settingsIconFg }};
 settingsPremiumIconVoice: icon {{ "settings/premium/voice", windowFgActive }};
+settingsPremiumIconFilesTg: icon {{ "settings/premium/files", settingsIconFg }};
 settingsPremiumIconFiles: icon {{ "settings/premium/files", windowFgActive }};
+settingsPremiumIconTranslationsTg: icon {{ "settings/premium/translations", settingsIconFg }};
 settingsPremiumIconTranslations: icon {{ "settings/premium/translations", windowFgActive }};
+settingsPremiumIconLastSeenTg: icon {{ "settings/premium/lastseen", settingsIconFg }};
 settingsPremiumIconLastSeen: icon {{ "settings/premium/lastseen", windowFgActive }};
+settingsPremiumIconPrivacyTg: icon {{ "settings/premium/privacy", settingsIconFg }};
 settingsPremiumIconPrivacy: icon {{ "settings/premium/privacy", windowFgActive }};
+settingsPremiumIconBusinessTg: icon {{ "settings/premium/market", settingsIconFg }};
 settingsPremiumIconBusiness: icon {{ "settings/premium/market", windowFgActive }};
+settingsPremiumIconEffectsTg: icon {{ "settings/premium/effects", settingsIconFg }};
 settingsPremiumIconEffects: icon {{ "settings/premium/effects", windowFgActive }};
+settingsPremiumIconChecklistTg: icon {{ "settings/premium/checklist", settingsIconFg }};
 settingsPremiumIconChecklist: icon {{ "settings/premium/checklist", windowFgActive }};
+settingsPremiumIconPeerColorsTg: icon {{ "settings/premium/peer_colors-24x24", settingsIconFg }};
 settingsPremiumIconPeerColors: icon {{ "settings/premium/peer_colors-24x24", windowFgActive }};
+settingsPremiumIconNoForwardsTg: icon {{ "menu/share_off-24x24", settingsIconFg }};
 settingsPremiumIconNoForwards: icon {{ "menu/share_off-24x24", windowFgActive }};
 settingsPremiumIconAiCompose: icon{
 	{ size(24px, 24px), transparent },
