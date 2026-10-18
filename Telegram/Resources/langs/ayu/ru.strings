@@ -664,6 +664,7 @@
 "ayu_SecretTranslateSystem" = "системный переводчик";
 "ayu_MessageFieldElementTranslate" = "Перевод";
 "ayu_TranslateComposeTo" = "Переводить набранный текст на";
+"ayu_AutoTranslateOutgoing" = "Автоматически переводить при отправке";
 "ayu_TranslateComposeFailed" = "Не удалось перевести.";
 "ayu_TranslateComposeProgress" = "Перевод…";
 "ayu_TranslateComposeDone" = "Перевод выполнен.";

@@ -2222,7 +2222,10 @@ rpl::producer<Api::SendOptions> ComposeControls::scrollToMaxRequests() const {
 rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
 	return sendContentRequests(
 		SendRequestType::Text
-	) | rpl::filter([=] {
+	) | rpl::filter([=](const Api::SendOptions &options) {
+		return !const_cast<ComposeControls*>(this)->autoTranslateBeforeSend(
+			options);
+	}) | rpl::filter([=] {
 		if (!_chosenStarsCount) {
 			return true;
 		}
@@ -2457,9 +2460,6 @@ void ComposeControls::showFinished() {
 	}
 	_expand->raise();
 	_discardRichDraft->raise();
-	if (_translate) {
-		_translate->raise();
-	}
 	if (_aiTooltipManager) {
 		_aiTooltipManager->raise();
 	}
@@ -4721,9 +4721,13 @@ void ComposeControls::initTranslateButton() {
 			translateField();
 		}
 	}, _translate->lifetime());
+	AyuSettings::getInstance().autoTranslateOutgoingValue(
+	) | rpl::on_next([=] {
+		updateTranslateActive();
+	}, _translate->lifetime());
 }
 
-void ComposeControls::translateField() {
+void ComposeControls::translateField(Fn<void()> done) {
 	if (!_history || _translator->busy()) {
 		return;
 	}
@@ -4737,7 +4741,43 @@ void ComposeControls::translateField() {
 			result->text,
 			TextUtilities::ConvertEntitiesToTextTags(result->entities),
 		}, TextUpdateEvent::SaveDraft, Ui::InputField::HistoryAction::NewEntry);
+		if (done) {
+			done();
+		}
 	}));
+}
+
+bool ComposeControls::autoTranslateBeforeSend(Api::SendOptions options) {
+	if (_autoTranslateBypass) {
+		_autoTranslateBypass = false;
+		return false;
+	} else if (!_translate
+		|| !AyuSettings::getInstance().autoTranslateOutgoing()
+		|| !AyuSettings::getInstance().showTranslateButtonInMessageField()
+		|| !_history
+		|| isEditingMessage()
+		|| _voiceRecordBar->isListenState()
+		|| shouldShowRichDraftPreview()
+		|| _translator->busy()
+		|| !hasVisibleSendText()) {
+		return false;
+	}
+	translateField(crl::guard(_wrap.get(), [=] {
+		_autoTranslateBypass = true;
+		_sendCustomRequests.fire_copy(options);
+		_autoTranslateBypass = false;
+	}));
+	return true;
+}
+
+void ComposeControls::updateTranslateActive() {
+	if (!_translate) {
+		return;
+	}
+	const auto active = AyuSettings::getInstance().autoTranslateOutgoing();
+	_translate->setIconOverride(
+		active ? &st::historyTranslateIconOn : nullptr,
+		active ? &st::historyTranslateIconOn : nullptr);
 }
 
 void ComposeControls::initDiscardRichDraftButton() {

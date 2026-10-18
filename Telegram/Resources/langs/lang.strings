@@ -9179,6 +9179,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_SecretTranslateSystem" = "the system translator";
 "ayu_MessageFieldElementTranslate" = "Translate";
 "ayu_TranslateComposeTo" = "Translate typed text to";
+"ayu_AutoTranslateOutgoing" = "Translate automatically when sending";
 "ayu_TranslateComposeFailed" = "Translation failed.";
 "ayu_TranslateComposeProgress" = "Translating...";
 "ayu_TranslateComposeDone" = "Translation completed.";

@@ -593,7 +593,9 @@ private:
 	[[nodiscard]] bool canShowRichEditor() const;
 	void showRichEditor();
 	void initTranslateButton();
-	void translateField();
+	void translateField(Fn<void()> done = nullptr);
+	[[nodiscard]] bool autoTranslateBeforeSend(Api::SendOptions options);
+	void updateTranslateActive();
 	void initDiscardRichDraftButton();
 	void updateDiscardRichDraftVisibility();
 	void updateDiscardRichDraftGeometry();
@@ -938,6 +940,7 @@ private:
 	Ui::IconButton * const _discardRichDraft = nullptr;
 	Ui::IconButton * const _translate = nullptr;
 	const std::unique_ptr<Ayu::ComposeTranslator> _translator;
+	bool _autoTranslateBypass = false;
 	object_ptr<Ui::FlatButton> _unblock;
 	object_ptr<Ui::FlatButton> _botStart;
 	object_ptr<Ui::FlatButton> _joinChannel;

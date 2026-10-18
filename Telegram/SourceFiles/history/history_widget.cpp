@@ -2301,7 +2301,6 @@ void HistoryWidget::orderWidgets() {
 	_expand->raise();
 	_richDraftPreview->raise();
 	_discardRichDraft->raise();
-	_translate->raise();
 	_topBars->raise();
 	if (_businessBotStatus) {
 		_businessBotStatus->bar().raise();
@@ -6031,6 +6030,8 @@ void HistoryWidget::sendVoice(const VoiceToSend &data) {
 void HistoryWidget::send(Api::SendOptions options) {
 	if (!_history) {
 		return;
+	} else if (autoTranslateBeforeSend(options)) {
+		return;
 	} else if (_editMsgId) {
 		saveEditMessage({});
 		return;
@@ -7730,9 +7731,13 @@ void HistoryWidget::initTranslateButton() {
 			translateField();
 		}
 	}, _translate->lifetime());
+	AyuSettings::getInstance().autoTranslateOutgoingValue(
+	) | rpl::on_next([=] {
+		updateTranslateActive();
+	}, _translate->lifetime());
 }
 
-void HistoryWidget::translateField() {
+void HistoryWidget::translateField(Fn<void()> done) {
 	if (!_peer || _translator->busy()) {
 		return;
 	}
@@ -7746,7 +7751,39 @@ void HistoryWidget::translateField() {
 			result->text,
 			TextUtilities::ConvertEntitiesToTextTags(result->entities),
 		}, TextUpdateEvent::SaveDraft, Ui::InputField::HistoryAction::NewEntry);
+		if (done) {
+			done();
+		}
 	}));
+}
+
+bool HistoryWidget::autoTranslateBeforeSend(Api::SendOptions options) {
+	if (_autoTranslateBypass) {
+		_autoTranslateBypass = false;
+		return false;
+	} else if (!AyuSettings::getInstance().autoTranslateOutgoing()
+		|| !AyuSettings::getInstance().showTranslateButtonInMessageField()
+		|| !_peer
+		|| _editMsgId
+		|| _voiceRecordBar->isListenState()
+		|| shownRichMessage()
+		|| _translator->busy()
+		|| !HasSendText(_field)) {
+		return false;
+	}
+	translateField(crl::guard(this, [=] {
+		_autoTranslateBypass = true;
+		send(options);
+		_autoTranslateBypass = false;
+	}));
+	return true;
+}
+
+void HistoryWidget::updateTranslateActive() {
+	const auto active = AyuSettings::getInstance().autoTranslateOutgoing();
+	_translate->setIconOverride(
+		active ? &st::historyTranslateIconOn : nullptr,
+		active ? &st::historyTranslateIconOn : nullptr);
 }
 
 void HistoryWidget::initDiscardRichDraftButton() {

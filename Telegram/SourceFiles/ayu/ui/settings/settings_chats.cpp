@@ -509,6 +509,14 @@ void BuildMessageFieldElements(SectionBuilder &builder, AyuSectionBuilder &ayu) 
 		.shown = AyuSettings::getInstance().showTranslateButtonInMessageFieldValue(),
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/autoTranslateOutgoing"_q,
+		.title = tr::ayu_AutoTranslateOutgoing(),
+		.getter = &AyuSettings::autoTranslateOutgoing,
+		.setter = &AyuSettings::setAutoTranslateOutgoing,
+		.keywords = { u"translate"_q, u"send"_q, u"auto"_q },
+		.shown = AyuSettings::getInstance().showTranslateButtonInMessageFieldValue(),
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/showAiEditorButtonInMessageField"_q,
 		.altIds = { u"ayu/showArticleButtonInMessageField"_q },
 		.title = tr::ayu_AiAndArticlePopups(),

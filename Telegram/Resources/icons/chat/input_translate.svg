@@ -1,12 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="72px" height="72px" viewBox="0 0 72 72" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <title>Input / input_translate</title>
-    <g id="Input-/-input_translate" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12,19.5 L39,19.5"></path>
-        <path d="M25.5,12 L25.5,19.5"></path>
-        <path d="M31.5,21 C30,31.5 22.5,40.5 12,45"></path>
-        <path d="M18,30 C22.5,37.5 30,43.5 39,46.5"></path>
-        <path d="M37.5,60 L49.5,30 L61.5,60"></path>
-        <path d="M42,51 L57,51"></path>
-    </g>
-</svg>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><g fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.51,13.0 L20.95,13.0"/><path d="M15.23,9.82 L15.23,13.0"/><path d="M17.77,13.64 C17.14,18.09 13.96,21.91 9.51,23.82"/><path d="M12.05,17.46 C13.96,20.64 17.14,23.18 20.95,24.45"/><path d="M20.32,30.18 L25.41,17.46 L30.49,30.18"/><path d="M22.23,26.36 L28.59,26.36"/></g></svg>

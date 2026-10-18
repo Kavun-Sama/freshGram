@@ -163,9 +163,11 @@ deleteOwnFieldWidth: 120px;
 storyPreviewHeight: 320px;
 storyRowPadding: margins(22px, 4px, 22px, 4px);
 
+historyTranslateIconOn: icon {{ "chat/input_translate", windowActiveTextFg }};
+
 historyTranslateButton: IconButton(historyAttach) {
-	icon: icon {{ "chat/input_translate-24x24", historyComposeIconFg }};
-	iconOver: icon {{ "chat/input_translate-24x24", historyComposeIconFgOver }};
+	icon: icon {{ "chat/input_translate", historyComposeIconFg }};
+	iconOver: icon {{ "chat/input_translate", historyComposeIconFgOver }};
 }
 
 fagramSliderHeight: 32px;

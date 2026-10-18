@@ -646,6 +646,7 @@
 "ayu_SecretTranslateSystem" = "il traduttore di sistema";
 "ayu_MessageFieldElementTranslate" = "Traduci";
 "ayu_TranslateComposeTo" = "Traduci il testo digitato in";
+"ayu_AutoTranslateOutgoing" = "Traduci automaticamente all'invio";
 "ayu_TranslateComposeFailed" = "Traduzione non riuscita.";
 "ayu_TranslateComposeProgress" = "Traduzione…";
 "ayu_TranslateComposeDone" = "Traduzione completata.";

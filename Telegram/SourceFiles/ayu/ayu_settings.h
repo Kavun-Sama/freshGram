@@ -362,6 +362,7 @@ public:
 	[[nodiscard]] bool showGiftButtonInMessageField() const { return _showGiftButtonInMessageField.current(); }
 	[[nodiscard]] bool showTranslateButtonInMessageField() const { return _showTranslateButtonInMessageField.current(); }
 	[[nodiscard]] const QString &translateComposeTo() const { return _translateComposeTo.current(); }
+	[[nodiscard]] bool autoTranslateOutgoing() const { return _autoTranslateOutgoing.current(); }
 	[[nodiscard]] bool showAiEditorButtonInMessageField() const { return _showAiEditorButtonInMessageField.current(); }
 	[[nodiscard]] bool showAttachPopup() const { return _showAttachPopup.current(); }
 	[[nodiscard]] bool showEmojiPopup() const { return _showEmojiPopup.current(); }
@@ -516,6 +517,7 @@ public:
 	void setShowGiftButtonInMessageField(bool val);
 	void setShowTranslateButtonInMessageField(bool val);
 	void setTranslateComposeTo(const QString &val);
+	void setAutoTranslateOutgoing(bool val);
 	void setShowAiEditorButtonInMessageField(bool val);
 	void setShowAttachPopup(bool val);
 	void setShowEmojiPopup(bool val);
@@ -690,6 +692,8 @@ public:
 	[[nodiscard]] rpl::producer<bool> showTranslateButtonInMessageFieldValue() const { return _showTranslateButtonInMessageField.value(); }
 	[[nodiscard]] rpl::producer<bool> showTranslateButtonInMessageFieldChanges() const { return _showTranslateButtonInMessageField.changes(); }
 	[[nodiscard]] rpl::producer<QString> translateComposeToValue() const { return _translateComposeTo.value(); }
+	[[nodiscard]] rpl::producer<bool> autoTranslateOutgoingValue() const { return _autoTranslateOutgoing.value(); }
+	[[nodiscard]] rpl::producer<bool> autoTranslateOutgoingChanges() const { return _autoTranslateOutgoing.changes(); }
 	[[nodiscard]] rpl::producer<bool> showAiEditorButtonInMessageFieldValue() const { return _showAiEditorButtonInMessageField.value(); }
 	[[nodiscard]] rpl::producer<bool> showAiEditorButtonInMessageFieldChanges() const { return _showAiEditorButtonInMessageField.changes(); }
 	[[nodiscard]] rpl::producer<bool> showAttachPopupValue() const { return _showAttachPopup.value(); }
@@ -869,6 +873,7 @@ private:
 	rpl::variable<bool> _showGiftButtonInMessageField = true;
 	rpl::variable<bool> _showTranslateButtonInMessageField = true;
 	rpl::variable<QString> _translateComposeTo = QString("en");
+	rpl::variable<bool> _autoTranslateOutgoing = false;
 	rpl::variable<bool> _showAiEditorButtonInMessageField = true;
 	rpl::variable<bool> _showAttachPopup = true;
 	rpl::variable<bool> _showEmojiPopup = true;

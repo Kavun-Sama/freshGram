@@ -1126,6 +1126,12 @@ void AyuSettings::setTranslateComposeTo(const QString &val) {
 	save();
 }
 
+void AyuSettings::setAutoTranslateOutgoing(bool val) {
+	if (_autoTranslateOutgoing.current() == val) return;
+	_autoTranslateOutgoing = val;
+	save();
+}
+
 void AyuSettings::setShowAiEditorButtonInMessageField(bool val) {
 	if (_showAiEditorButtonInMessageField.current() == val) return;
 	_showAiEditorButtonInMessageField = val;
@@ -1650,6 +1656,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showGiftButtonInMessageField", s._showGiftButtonInMessageField.current()},
 		{"showTranslateButtonInMessageField", s._showTranslateButtonInMessageField.current()},
 		{"translateComposeTo", s._translateComposeTo.current()},
+		{"autoTranslateOutgoing", s._autoTranslateOutgoing.current()},
 		{"showAiEditorButtonInMessageField", s._showAiEditorButtonInMessageField.current()},
 		{"showAttachPopup", s._showAttachPopup.current()},
 		{"showEmojiPopup", s._showEmojiPopup.current()},
@@ -1813,6 +1820,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showGiftButtonInMessageField = j.value("showGiftButtonInMessageField", defaults._showGiftButtonInMessageField.current());
 	s._showTranslateButtonInMessageField = j.value("showTranslateButtonInMessageField", defaults._showTranslateButtonInMessageField.current());
 	s._translateComposeTo = j.value("translateComposeTo", defaults._translateComposeTo.current());
+	s._autoTranslateOutgoing = j.value("autoTranslateOutgoing", defaults._autoTranslateOutgoing.current());
 	s._showAiEditorButtonInMessageField = j.value("showAiEditorButtonInMessageField", defaults._showAiEditorButtonInMessageField.current());
 	s._showAttachPopup = j.value("showAttachPopup", defaults._showAttachPopup.current());
 	s._showEmojiPopup = j.value("showEmojiPopup", defaults._showEmojiPopup.current());

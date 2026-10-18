@@ -412,7 +412,9 @@ private:
 	void showRichEditorWithPaste(std::shared_ptr<QMimeData> data);
 	void offerRichPaste(not_null<const QMimeData*> data);
 	void initTranslateButton();
-	void translateField();
+	void translateField(Fn<void()> done = nullptr);
+	[[nodiscard]] bool autoTranslateBeforeSend(Api::SendOptions options);
+	void updateTranslateActive();
 	void initDiscardRichDraftButton();
 	void updateDiscardRichDraftVisibility();
 	void updateDiscardRichDraftGeometry();
@@ -573,6 +575,7 @@ private:
 	Ui::IconButton * const _discardRichDraft = nullptr;
 	Ui::IconButton * const _translate = nullptr;
 	const std::unique_ptr<Ayu::ComposeTranslator> _translator;
+	bool _autoTranslateBypass = false;
 	Ui::IconButton *_editStars = nullptr;
 	Ui::IconButton *_like = nullptr;
 	rpl::variable<int> _minStarsCount;
