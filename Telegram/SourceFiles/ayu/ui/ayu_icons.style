@@ -58,13 +58,7 @@ messageFieldCocoonAiIcon: icon{
 	{ "chat/ai_star2-20x20", menuIconColor, point(2px, 2px) },
 };
 
-messageFieldAiArticleIcon: icon{
-	{ size(44px, 24px), transparent },
-	{ "/menu/article_rich-24x24", menuIconColor },
-	{ "chat/ai_letters-20x20", menuIconColor, point(22px, 2px) },
-	{ "chat/ai_star1-20x20", menuIconColor, point(22px, 2px) },
-	{ "chat/ai_star2-20x20", menuIconColor, point(22px, 2px) },
-};
+messageFieldAiArticleIcon: icon {{ "/menu/article_rich-24x24", menuIconColor }};
 
 inChannelBadgeIcon: icon {{ "ayu/channel", msgInDateFg }};
 inChannelBadgeSelectedIcon: icon {{ "ayu/channel", msgInDateFgSelected }};
