@@ -82,6 +82,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ayu/ayu_settings.h"
 #include "ayu/features/stories/story_entry.h"
+#include "ayu/ui/fagram/fagram_design.h"
 #include "ayu/ui/fagram/fagram_nav_drawer.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "boxes/abstract_box.h"
@@ -370,11 +371,57 @@ MainMenu::MainMenu(
 		}
 	});
 
-	_footer->heightValue(
-	) | rpl::on_next([=] {
-		_telegram->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuTelegramBottom - _telegram->height());
-		_version->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuVersionBottom - _version->height());
-	}, _footer->lifetime());
+	if (FA::Ui::Enabled()) {
+		const auto marginX = style::ConvertScale(12);
+		const auto marginBottom = style::ConvertScale(12);
+		const auto paddingX = style::ConvertScale(16);
+		const auto paddingY = style::ConvertScale(10);
+		const auto lineSkip = style::ConvertScale(3);
+		const auto cardRect = [=](QSize size) {
+			const auto height = _telegram->height()
+				+ lineSkip
+				+ _version->height()
+				+ 2 * paddingY;
+			return QRect(
+				marginX,
+				size.height() - marginBottom - height,
+				size.width() - 2 * marginX,
+				height);
+		};
+		_footer->paintRequest(
+		) | rpl::on_next([=] {
+			auto p = QPainter(_footer.get());
+			auto hq = PainterHighQualityEnabler(p);
+			const auto radius = style::ConvertScale(16);
+			p.setPen(Qt::NoPen);
+			p.setBrush(st::windowBgOver);
+			p.drawRoundedRect(cardRect(_footer->size()), radius, radius);
+		}, _footer->lifetime());
+		_footer->sizeValue(
+		) | rpl::on_next([=](QSize size) {
+			const auto available = std::max(
+				size.width() - 2 * marginX - 2 * paddingX,
+				0);
+			_telegram->resizeToWidth(available);
+			_version->resizeToWidth(available);
+			const auto card = cardRect(size);
+			_telegram->moveToLeft(
+				card.x() + paddingX,
+				card.y() + paddingY,
+				size.width());
+			_version->moveToLeft(
+				card.x() + paddingX,
+				card.y() + paddingY + _telegram->height() + lineSkip,
+				size.width());
+			_footer->update();
+		}, _footer->lifetime());
+	} else {
+		_footer->heightValue(
+		) | rpl::on_next([=] {
+			_telegram->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuTelegramBottom - _telegram->height());
+			_version->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuVersionBottom - _version->height());
+		}, _footer->lifetime());
+	}
 
 	rpl::combine(
 		heightValue(),
