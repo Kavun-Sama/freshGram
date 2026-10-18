@@ -2,6 +2,7 @@
 #include "ayu/features/fake_passcode/fake_passcode.h"
 
 #include "ayu/data/messages_storage.h"
+#include "ayu/features/passcode_guard/lock_background.h"
 #include "base/random.h"
 #include "base/timer.h"
 #include "base/weak_ptr.h"
@@ -459,6 +460,7 @@ void WipeSessionFiles() {
 	RemoveFiles({
 		u"key_data*"_q,
 		u"ayu_accounts*"_q,
+		u"lock_background*"_q,
 		FileName() + '*',
 		LegacyFileName() + '*',
 		hex + '*',
@@ -552,6 +554,7 @@ void Run(const Actions &actions) {
 	}
 	if (actions.deleteAll) {
 		AyuMessages::clearEverything();
+		AyuLockBackground::Remove();
 	} else {
 		for (const auto userId : userIds) {
 			if (actions.logoutDb) {

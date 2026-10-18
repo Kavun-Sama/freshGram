@@ -1,7 +1,6 @@
 // This is the source code of freshGram.
 #include "ayu/utils/passcode_strength.h"
 
-#include "ayu/ayu_settings.h"
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
 
@@ -100,28 +99,6 @@ QString StrengthText(const QString &passcode) {
 			name,
 			lt_bits,
 			QString::number(bits));
-}
-
-QString RequirementsError(const QString &passcode) {
-	const auto &settings = AyuSettings::getInstance();
-	const auto minLength = settings.passcodeMinLength();
-	if (minLength > 0 && passcode.size() < minLength) {
-		return tr::ayu_PasscodeTooShort(
-			tr::now,
-			lt_length,
-			QString::number(minLength));
-	} else if (settings.passcodeRequireMixed()) {
-		const auto letters = ranges::any_of(passcode, [](QChar ch) {
-			return ch.isLetter();
-		});
-		const auto digits = ranges::any_of(passcode, [](QChar ch) {
-			return ch.isDigit();
-		});
-		if (!letters || !digits) {
-			return tr::ayu_PasscodeNeedMixed(tr::now);
-		}
-	}
-	return QString();
 }
 
 } // namespace AyuPasscode

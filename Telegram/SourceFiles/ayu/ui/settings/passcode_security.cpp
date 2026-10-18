@@ -2,10 +2,12 @@
 #include "ayu/ui/settings/passcode_security.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/passcode_guard/lock_background.h"
 #include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/utils/passcode_strength.h"
 #include "base/platform/base_platform_info.h"
 #include "core/application.h"
+#include "core/file_utilities.h"
 #include "crl/crl_async.h"
 #include "crl/crl_on_main.h"
 #include "lang/lang_keys.h"
@@ -22,14 +24,18 @@
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/fields/password_input.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/vertical_layout.h"
+#include "window/window_controller.h"
+#include "window/window_lock_widgets.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
+#include "styles/style_window_lock_widgets.h"
 
 namespace AyuUi {
 namespace {
@@ -46,6 +52,65 @@ struct Choice {
 
 [[nodiscard]] QString OffText() {
 	return tr::lng_settings_auto_night_mode_off(tr::now);
+}
+
+void ChooseLockBackground(not_null<Window::SessionController*> controller) {
+	const auto filter = u"Image files (*.jpg *.jpeg *.png *.webp)"_q;
+	const auto weak = base::make_weak(controller);
+	FileDialog::GetOpenPath(
+		controller->widget().get(),
+		tr::lng_choose_image(tr::now),
+		filter,
+		[=](FileDialog::OpenResult &&result) {
+			if (result.paths.isEmpty()) {
+				return;
+			}
+			AyuLockBackground::Import(result.paths.front(), [=](bool ok) {
+				if (ok) {
+					AyuSettings::getInstance().setLockScreenBackground(2);
+				} else if (const auto strong = weak.get()) {
+					strong->showToast(tr::ayu_PasscodeLockImageFailed(tr::now));
+				}
+			});
+		});
+}
+
+void LockTextBox(not_null<Ui::GenericBox*> box) {
+	constexpr auto kMaxLength = 120;
+	box->setTitle(tr::ayu_PasscodeLockText());
+	const auto field = box->addRow(object_ptr<Ui::InputField>(
+		box,
+		st::newGroupDescription,
+		Ui::InputField::Mode::MultiLine,
+		tr::ayu_PasscodeLockTextPlaceholder(),
+		AyuSettings::getInstance().lockScreenText()));
+	field->setMaxLength(kMaxLength);
+	box->setFocusCallback([=] {
+		field->setFocusFast();
+	});
+	const auto save = [=] {
+		AyuSettings::getInstance().setLockScreenText(field->getLastText());
+		box->closeBox();
+	};
+	field->submits() | rpl::on_next(save, field->lifetime());
+	box->addButton(tr::lng_settings_save(), save);
+	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+}
+
+void LockPreviewBox(
+		not_null<Ui::GenericBox*> box,
+		not_null<Window::SessionController*> controller) {
+	box->setTitle(tr::ayu_PasscodeLockPreview());
+	box->setWidth(st::boxWideWidth);
+	box->setNoContentMargin(true);
+	const auto lock = box->addRow(
+		object_ptr<Window::PasscodeLockWidget>(
+			box,
+			&controller->window(),
+			true),
+		style::margins());
+	lock->resize(st::boxWideWidth, st::passcodePreviewHeight);
+	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 }
 
 [[nodiscard]] QString KdfLevelName(PasscodeKdfLevel level) {
@@ -357,12 +422,14 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 			tr::phrase<> title,
 			const style::icon *icon,
 			bool value,
-			Fn<void(bool)> set) {
+			Fn<void(bool)> set,
+			rpl::producer<bool> shown = nullptr) {
 		const auto button = builder.addButton({
 			.id = std::move(id),
 			.title = title(),
 			.icon = { icon },
 			.toggled = rpl::single(value),
+			.shown = shown ? std::move(shown) : rpl::single(true),
 		});
 		if (button) {
 			button->toggledChanges(
@@ -390,33 +457,6 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 	});
 	builder.addSkip();
 	builder.addDividerText(tr::ayu_PasscodeKdfAbout());
-
-	builder.addSkip();
-	builder.addSubsectionTitle(tr::ayu_PasscodeRequirements());
-	auto lengths = std::vector<Choice>{ { 0, OffText() } };
-	for (const auto length : { 4, 6, 8, 10, 12 }) {
-		lengths.push_back({ length, QString::number(length) });
-	}
-	addChoice(
-		u"passcode/min-length"_q,
-		tr::ayu_PasscodeMinLength,
-		&st::menuIconEdit,
-		std::move(lengths),
-		settings.passcodeMinLengthValue(),
-		[] { return AyuSettings::getInstance().passcodeMinLength(); },
-		[](int value) {
-			AyuSettings::getInstance().setPasscodeMinLength(value);
-		});
-	addToggle(
-		u"passcode/mixed"_q,
-		tr::ayu_PasscodeRequireMixed,
-		&st::menuIconFont,
-		settings.passcodeRequireMixed(),
-		[](bool value) {
-			AyuSettings::getInstance().setPasscodeRequireMixed(value);
-		});
-	builder.addSkip();
-	builder.addDividerText(tr::ayu_PasscodeRequirementsAbout());
 
 	builder.addSkip();
 	builder.addSubsectionTitle(tr::ayu_PasscodeWrongInput());
@@ -453,6 +493,84 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 
 	builder.addSkip();
 	builder.addSubsectionTitle(tr::ayu_PasscodeLockScreen());
+	const auto cardStyle = [&] {
+		return settings.lockScreenStyleValue(
+		) | rpl::map(rpl::mappers::_1 == 0);
+	};
+	const auto imageShown = [&] {
+		return rpl::combine(
+			settings.lockScreenStyleValue(),
+			settings.lockScreenBackgroundValue(),
+			[](int style, int background) {
+				return (style == 0) && (background == 2);
+			});
+	};
+	addChoice(
+		u"passcode/lock-style"_q,
+		tr::ayu_PasscodeLockStyle,
+		&st::menuIconCustomize,
+		{
+			{ 0, tr::ayu_PasscodeLockStyleFresh(tr::now) },
+			{ 1, tr::ayu_PasscodeLockStyleTelegram(tr::now) },
+		},
+		settings.lockScreenStyleValue(),
+		[] { return AyuSettings::getInstance().lockScreenStyle(); },
+		[](int value) {
+			AyuSettings::getInstance().setLockScreenStyle(value);
+		});
+	const auto chooseImage = [=] {
+		ChooseLockBackground(controller);
+	};
+	addChoice(
+		u"passcode/lock-background"_q,
+		tr::ayu_PasscodeLockBackground,
+		&st::menuIconPalette,
+		{
+			{ 0, tr::ayu_PasscodeLockBackgroundGradient(tr::now) },
+			{ 1, tr::ayu_PasscodeLockBackgroundSolid(tr::now) },
+			{ 2, tr::ayu_PasscodeLockBackgroundImage(tr::now) },
+		},
+		settings.lockScreenBackgroundValue(),
+		[] { return AyuSettings::getInstance().lockScreenBackground(); },
+		[=](int value) {
+			if (value == 2) {
+				chooseImage();
+			} else {
+				AyuSettings::getInstance().setLockScreenBackground(value);
+			}
+		},
+		cardStyle());
+	builder.addButton({
+		.id = u"passcode/lock-image"_q,
+		.title = tr::ayu_PasscodeLockChangeImage(),
+		.icon = { &st::menuIconPhoto },
+		.onClick = chooseImage,
+		.shown = imageShown(),
+	});
+	addToggle(
+		u"passcode/lock-blur"_q,
+		tr::ayu_PasscodeLockBlur,
+		&st::menuIconSpoiler,
+		settings.lockScreenBlur(),
+		[](bool value) {
+			AyuSettings::getInstance().setLockScreenBlur(value);
+		},
+		imageShown());
+	auto dims = std::vector<Choice>{ { 0, OffText() } };
+	for (const auto dim : { 25, 50, 75 }) {
+		dims.push_back({ dim, QString::number(dim) + '%' });
+	}
+	addChoice(
+		u"passcode/lock-dim"_q,
+		tr::ayu_PasscodeLockDim,
+		&st::menuIconNightMode,
+		std::move(dims),
+		settings.lockScreenDimValue(),
+		[] { return AyuSettings::getInstance().lockScreenDim(); },
+		[](int value) {
+			AyuSettings::getInstance().setLockScreenDim(value);
+		},
+		imageShown());
 	addToggle(
 		u"passcode/clock"_q,
 		tr::ayu_PasscodeShowClock,
@@ -460,7 +578,52 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 		settings.lockScreenShowClock(),
 		[](bool value) {
 			AyuSettings::getInstance().setLockScreenShowClock(value);
+		},
+		cardStyle());
+	addToggle(
+		u"passcode/date"_q,
+		tr::ayu_PasscodeShowDate,
+		&st::menuIconOrderDate,
+		settings.lockScreenShowDate(),
+		[](bool value) {
+			AyuSettings::getInstance().setLockScreenShowDate(value);
+		},
+		cardStyle());
+	builder.addButton({
+		.id = u"passcode/lock-text"_q,
+		.title = tr::ayu_PasscodeLockText(),
+		.icon = { &st::menuIconArticle },
+		.label = settings.lockScreenTextValue(
+		) | rpl::map([](const QString &text) {
+			return text.isEmpty()
+				? OffText()
+				: text.split(QChar('\n')).front();
+		}),
+		.onClick = [=] {
+			controller->show(Box(LockTextBox));
+		},
+	});
+	addToggle(
+		u"passcode/lock-logout"_q,
+		tr::ayu_PasscodeLockShowLogout,
+		&st::menuIconLeave,
+		settings.lockScreenShowLogout(),
+		[](bool value) {
+			AyuSettings::getInstance().setLockScreenShowLogout(value);
 		});
+	builder.addButton({
+		.id = u"passcode/lock-preview"_q,
+		.title = tr::ayu_PasscodeLockPreview(),
+		.icon = { &st::menuIconShowAll },
+		.onClick = [=] {
+			controller->show(Box(LockPreviewBox, controller));
+		},
+	});
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_PasscodeLockAppearanceAbout());
+
+	builder.addSkip();
+	builder.addSubsectionTitle(tr::ayu_PasscodeAutoLock());
 	addToggle(
 		u"passcode/system-lock"_q,
 		tr::ayu_PasscodeLockOnSystemLock,

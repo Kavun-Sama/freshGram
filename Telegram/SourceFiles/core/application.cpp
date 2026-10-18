@@ -109,6 +109,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <ksandbox.h>
 
+#include "ayu/features/passcode_guard/lock_background.h"
 #include "ayu/features/passcode_guard/lock_triggers.h"
 #include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/ayu_infra.h"
@@ -1385,6 +1386,7 @@ void Application::unlockPasscode() {
 		w->clearPasscodeLock();
 	});
 	AyuFakePasscode::RunPending();
+	AyuLockBackground::Clear();
 }
 
 void Application::clearPasscodeLock() {

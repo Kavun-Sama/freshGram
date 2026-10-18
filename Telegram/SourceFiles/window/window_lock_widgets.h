@@ -20,6 +20,7 @@ enum class SystemUnlockResult;
 namespace Ui {
 class PasswordInput;
 class LinkButton;
+class FlatLabel;
 class RoundButton;
 class IconButton;
 class CheckView;
@@ -68,6 +69,8 @@ public:
 protected:
 	void paintEvent(QPaintEvent *e) override;
 	virtual void paintContent(QPainter &p);
+	virtual void restoreChildrenVisibility() {
+	}
 
 private:
 	const not_null<Controller*> _window;
@@ -77,7 +80,10 @@ private:
 
 class PasscodeLockWidget : public LockWidget {
 public:
-	PasscodeLockWidget(QWidget *parent, not_null<Controller*> window);
+	PasscodeLockWidget(
+		QWidget *parent,
+		not_null<Controller*> window,
+		bool preview = false);
 
 	void setInnerFocus() override;
 
@@ -94,7 +100,18 @@ private:
 	};
 
 	void paintContent(QPainter &p) override;
+	void restoreChildrenVisibility() override;
+	void paintBackground(QPainter &p);
+	void paintCardContent(QPainter &p);
+	void paintTelegramContent(QPainter &p);
+	void paintCentered(
+		QPainter &p,
+		const style::font &font,
+		QRect area,
+		const QString &text);
 
+	void setupSettings();
+	void applySettings();
 	void setupSystemUnlockInfo();
 	void setupSystemUnlock();
 	void suggestSystemUnlock();
@@ -104,9 +121,12 @@ private:
 	void error();
 	void setupEye();
 	void updateLayout();
+	void updateCardLayout();
+	void updateTelegramLayout();
 	void updateClock();
 	void updateStatus();
 	void updateCapsLock();
+	void setCapsLock(bool on);
 	void setBusy(bool busy);
 	void shake();
 
@@ -115,13 +135,16 @@ private:
 	object_ptr<Ui::PasswordInput> _passcode;
 	object_ptr<Ui::RoundButton> _submit;
 	object_ptr<Ui::LinkButton> _logout;
+	object_ptr<Ui::FlatLabel> _text;
 	Ui::IconButton *_eye = nullptr;
 	QString _error;
 	QString _status;
 	QString _clock;
 	QString _date;
 	QRect _card;
+	rpl::variable<int> _contentBottom = 0;
 	int _clockTop = 0;
+	int _dateTop = 0;
 	int _lockTop = 0;
 	int _titleTop = 0;
 	int _statusTop = 0;
@@ -129,13 +152,19 @@ private:
 	bool _statusError = false;
 	bool _capsLock = false;
 	bool _busy = false;
-	bool _showClock = false;
+	bool _clockShown = false;
+	bool _dateShown = false;
+	bool _imageShown = false;
+	bool _telegramStyle = false;
+	bool _logoutShown = true;
+	bool _textShown = false;
 	Ui::Animations::Simple _shakeAnimation;
 	base::Timer _clockTimer;
 	base::Timer _statusTimer;
 
 	rpl::lifetime _systemUnlockSuggested;
 	base::Timer _systemUnlockCooldown;
+	const bool _preview = false;
 
 };
 

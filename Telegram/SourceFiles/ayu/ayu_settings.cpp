@@ -657,10 +657,17 @@ void AyuSettings::validate() {
 	validateRange(_keptSnapshotLimit, 0, 100000, defaults._keptSnapshotLimit);
 	validateRange(_deletedMediaMaxSizeMb, 0, 4096, defaults._deletedMediaMaxSizeMb);
 	validateRange(_keepDeletedDays, 0, 3650, defaults._keepDeletedDays);
-	validateRange(_passcodeMinLength, 0, 32, defaults._passcodeMinLength);
 	validateRange(_passcodeWipeAttempts, 0, 50, defaults._passcodeWipeAttempts);
 	validateRange(_passcodeWipeAction, 0, 1, defaults._passcodeWipeAction);
 	validateRange(_lockOnMinimize, -1, 3600, defaults._lockOnMinimize);
+	validateRange(_lockScreenStyle, 0, 1, defaults._lockScreenStyle);
+	validateRange(_lockScreenBackground, 0, 2, defaults._lockScreenBackground);
+	validateRange(_lockScreenDim, 0, 75, defaults._lockScreenDim);
+	if (const auto text = sanitizeLockScreenText(_lockScreenText.current())
+		; text != _lockScreenText.current()) {
+		_lockScreenText = text;
+		modified = true;
+	}
 	validateRange(_hideFromCapture, 0, 2, defaults._hideFromCapture);
 	validateRange(_lockedNotifications, 0, 2, defaults._lockedNotifications);
 	validateRange(_backupKeepCount, 1, 100, defaults._backupKeepCount);
@@ -1183,18 +1190,6 @@ void AyuSettings::setShowNewStoryInDrawer(bool val) {
 	save();
 }
 
-void AyuSettings::setPasscodeMinLength(int val) {
-	if (_passcodeMinLength.current() == val) return;
-	_passcodeMinLength = val;
-	save();
-}
-
-void AyuSettings::setPasscodeRequireMixed(bool val) {
-	if (_passcodeRequireMixed.current() == val) return;
-	_passcodeRequireMixed = val;
-	save();
-}
-
 void AyuSettings::setPasscodeWipeAttempts(int val) {
 	if (_passcodeWipeAttempts.current() == val) return;
 	_passcodeWipeAttempts = val;
@@ -1210,6 +1205,76 @@ void AyuSettings::setPasscodeWipeAction(int val) {
 void AyuSettings::setLockScreenShowClock(bool val) {
 	if (_lockScreenShowClock.current() == val) return;
 	_lockScreenShowClock = val;
+	save();
+}
+
+void AyuSettings::setLockScreenStyle(int val) {
+	if (_lockScreenStyle.current() == val) return;
+	_lockScreenStyle = val;
+	save();
+}
+
+void AyuSettings::setLockScreenBackground(int val) {
+	if (_lockScreenBackground.current() == val) return;
+	_lockScreenBackground = val;
+	save();
+}
+
+void AyuSettings::setLockScreenBlur(bool val) {
+	if (_lockScreenBlur.current() == val) return;
+	_lockScreenBlur = val;
+	save();
+}
+
+void AyuSettings::setLockScreenDim(int val) {
+	if (_lockScreenDim.current() == val) return;
+	_lockScreenDim = val;
+	save();
+}
+
+void AyuSettings::setLockScreenShowDate(bool val) {
+	if (_lockScreenShowDate.current() == val) return;
+	_lockScreenShowDate = val;
+	save();
+}
+
+QString AyuSettings::sanitizeLockScreenText(QString text) {
+	constexpr auto kMaxLength = 120;
+	constexpr auto kMaxLines = 3;
+	text.replace(u"\r\n"_q, u"\n"_q);
+	text.replace(QChar('\r'), QChar('\n'));
+	auto lines = text.split(QChar('\n'));
+	for (auto &line : lines) {
+		line = line.trimmed();
+	}
+	while (!lines.isEmpty() && lines.back().isEmpty()) {
+		lines.pop_back();
+	}
+	while (!lines.isEmpty() && lines.front().isEmpty()) {
+		lines.pop_front();
+	}
+	if (lines.size() > kMaxLines) {
+		lines = lines.mid(0, kMaxLines);
+	}
+	auto result = lines.join(QChar('\n'));
+	for (auto &ch : result) {
+		if (ch != QChar('\n') && (ch.category() == QChar::Other_Control)) {
+			ch = QChar(' ');
+		}
+	}
+	return result.left(kMaxLength);
+}
+
+void AyuSettings::setLockScreenText(QString val) {
+	val = sanitizeLockScreenText(std::move(val));
+	if (_lockScreenText.current() == val) return;
+	_lockScreenText = val;
+	save();
+}
+
+void AyuSettings::setLockScreenShowLogout(bool val) {
+	if (_lockScreenShowLogout.current() == val) return;
+	_lockScreenShowLogout = val;
 	save();
 }
 
@@ -1675,11 +1740,16 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showNewGroupInDrawer", s._showNewGroupInDrawer.current()},
 		{"showNewChannelInDrawer", s._showNewChannelInDrawer.current()},
 		{"showNewStoryInDrawer", s._showNewStoryInDrawer.current()},
-		{"passcodeMinLength", s._passcodeMinLength.current()},
-		{"passcodeRequireMixed", s._passcodeRequireMixed.current()},
 		{"passcodeWipeAttempts", s._passcodeWipeAttempts.current()},
 		{"passcodeWipeAction", s._passcodeWipeAction.current()},
 		{"lockScreenShowClock", s._lockScreenShowClock.current()},
+		{"lockScreenStyle", s._lockScreenStyle.current()},
+		{"lockScreenBackground", s._lockScreenBackground.current()},
+		{"lockScreenBlur", s._lockScreenBlur.current()},
+		{"lockScreenDim", s._lockScreenDim.current()},
+		{"lockScreenShowDate", s._lockScreenShowDate.current()},
+		{"lockScreenText", s._lockScreenText.current()},
+		{"lockScreenShowLogout", s._lockScreenShowLogout.current()},
 		{"lockOnSystemLock", s._lockOnSystemLock.current()},
 		{"lockOnMinimize", s._lockOnMinimize.current()},
 		{"hideFromCapture", s._hideFromCapture.current()},
@@ -1840,11 +1910,16 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showNewGroupInDrawer = j.value("showNewGroupInDrawer", defaults._showNewGroupInDrawer.current());
 	s._showNewChannelInDrawer = j.value("showNewChannelInDrawer", defaults._showNewChannelInDrawer.current());
 	s._showNewStoryInDrawer = j.value("showNewStoryInDrawer", defaults._showNewStoryInDrawer.current());
-	s._passcodeMinLength = j.value("passcodeMinLength", defaults._passcodeMinLength.current());
-	s._passcodeRequireMixed = j.value("passcodeRequireMixed", defaults._passcodeRequireMixed.current());
 	s._passcodeWipeAttempts = j.value("passcodeWipeAttempts", defaults._passcodeWipeAttempts.current());
 	s._passcodeWipeAction = j.value("passcodeWipeAction", defaults._passcodeWipeAction.current());
 	s._lockScreenShowClock = j.value("lockScreenShowClock", defaults._lockScreenShowClock.current());
+	s._lockScreenStyle = j.value("lockScreenStyle", defaults._lockScreenStyle.current());
+	s._lockScreenBackground = j.value("lockScreenBackground", defaults._lockScreenBackground.current());
+	s._lockScreenBlur = j.value("lockScreenBlur", defaults._lockScreenBlur.current());
+	s._lockScreenDim = j.value("lockScreenDim", defaults._lockScreenDim.current());
+	s._lockScreenShowDate = j.value("lockScreenShowDate", defaults._lockScreenShowDate.current());
+	s._lockScreenText = j.value("lockScreenText", defaults._lockScreenText.current());
+	s._lockScreenShowLogout = j.value("lockScreenShowLogout", defaults._lockScreenShowLogout.current());
 	s._lockOnSystemLock = j.value("lockOnSystemLock", defaults._lockOnSystemLock.current());
 	s._lockOnMinimize = j.value("lockOnMinimize", defaults._lockOnMinimize.current());
 	s._hideFromCapture = j.value("hideFromCapture", defaults._hideFromCapture.current());

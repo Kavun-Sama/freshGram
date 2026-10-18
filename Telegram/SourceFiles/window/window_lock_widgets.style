@@ -60,6 +60,13 @@ passcodeTitleSkip: 18px;
 passcodeStatusFont: font(13px);
 passcodeStatusHeight: 40px;
 passcodeLogoutSkip: 14px;
+passcodeText: FlatLabel(defaultFlatLabel) {
+	align: align(top);
+	textFg: windowSubTextFg;
+	minWidth: 1px;
+}
+passcodeTextSkip: 14px;
+passcodePreviewHeight: 560px;
 unlockPasscodeIconPadding: margins(0px, 32px, 0px, 10px);
 unlockPasscodeTitlePadding: margins(0px, 0px, 0px, 12px);
 unlockPasscodeErrorPadding: margins(0px, 6px, 0px, 8px);

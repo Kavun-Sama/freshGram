@@ -15,7 +15,4 @@ enum class Strength : uchar {
 [[nodiscard]] Strength StrengthForBits(int bits);
 [[nodiscard]] QString StrengthText(const QString &passcode);
 
-// Empty when the passcode meets the requirements from the settings.
-[[nodiscard]] QString RequirementsError(const QString &passcode);
-
 } // namespace AyuPasscode

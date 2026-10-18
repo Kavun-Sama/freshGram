@@ -372,11 +372,17 @@ public:
 	[[nodiscard]] bool showNewGroupInDrawer() const { return _showNewGroupInDrawer.current(); }
 	[[nodiscard]] bool showNewChannelInDrawer() const { return _showNewChannelInDrawer.current(); }
 	[[nodiscard]] bool showNewStoryInDrawer() const { return _showNewStoryInDrawer.current(); }
-	[[nodiscard]] int passcodeMinLength() const { return _passcodeMinLength.current(); }
-	[[nodiscard]] bool passcodeRequireMixed() const { return _passcodeRequireMixed.current(); }
 	[[nodiscard]] int passcodeWipeAttempts() const { return _passcodeWipeAttempts.current(); }
 	[[nodiscard]] int passcodeWipeAction() const { return _passcodeWipeAction.current(); }
 	[[nodiscard]] bool lockScreenShowClock() const { return _lockScreenShowClock.current(); }
+	[[nodiscard]] int lockScreenStyle() const { return _lockScreenStyle.current(); }
+	[[nodiscard]] int lockScreenBackground() const { return _lockScreenBackground.current(); }
+	[[nodiscard]] bool lockScreenBlur() const { return _lockScreenBlur.current(); }
+	[[nodiscard]] int lockScreenDim() const { return _lockScreenDim.current(); }
+	[[nodiscard]] bool lockScreenShowDate() const { return _lockScreenShowDate.current(); }
+	[[nodiscard]] QString lockScreenText() const { return _lockScreenText.current(); }
+	[[nodiscard]] bool lockScreenShowLogout() const { return _lockScreenShowLogout.current(); }
+	[[nodiscard]] static QString sanitizeLockScreenText(QString text);
 	[[nodiscard]] bool lockOnSystemLock() const { return _lockOnSystemLock.current(); }
 	[[nodiscard]] int lockOnMinimize() const { return _lockOnMinimize.current(); }
 	[[nodiscard]] int hideFromCapture() const { return _hideFromCapture.current(); }
@@ -528,11 +534,16 @@ public:
 	void setShowNewGroupInDrawer(bool val);
 	void setShowNewChannelInDrawer(bool val);
 	void setShowNewStoryInDrawer(bool val);
-	void setPasscodeMinLength(int val);
-	void setPasscodeRequireMixed(bool val);
 	void setPasscodeWipeAttempts(int val);
 	void setPasscodeWipeAction(int val);
 	void setLockScreenShowClock(bool val);
+	void setLockScreenStyle(int val);
+	void setLockScreenBackground(int val);
+	void setLockScreenBlur(bool val);
+	void setLockScreenDim(int val);
+	void setLockScreenShowDate(bool val);
+	void setLockScreenText(QString val);
+	void setLockScreenShowLogout(bool val);
 	void setLockOnSystemLock(bool val);
 	void setLockOnMinimize(int val);
 	void setHideFromCapture(int val);
@@ -712,11 +723,16 @@ public:
 	[[nodiscard]] rpl::producer<bool> showNewChannelInDrawerChanges() const { return _showNewChannelInDrawer.changes(); }
 	[[nodiscard]] rpl::producer<bool> showNewStoryInDrawerValue() const { return _showNewStoryInDrawer.value(); }
 	[[nodiscard]] rpl::producer<bool> showNewStoryInDrawerChanges() const { return _showNewStoryInDrawer.changes(); }
-	[[nodiscard]] rpl::producer<int> passcodeMinLengthValue() const { return _passcodeMinLength.value(); }
-	[[nodiscard]] rpl::producer<bool> passcodeRequireMixedValue() const { return _passcodeRequireMixed.value(); }
 	[[nodiscard]] rpl::producer<int> passcodeWipeAttemptsValue() const { return _passcodeWipeAttempts.value(); }
 	[[nodiscard]] rpl::producer<int> passcodeWipeActionValue() const { return _passcodeWipeAction.value(); }
 	[[nodiscard]] rpl::producer<bool> lockScreenShowClockValue() const { return _lockScreenShowClock.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenStyleValue() const { return _lockScreenStyle.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenBackgroundValue() const { return _lockScreenBackground.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenBlurValue() const { return _lockScreenBlur.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenDimValue() const { return _lockScreenDim.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenShowDateValue() const { return _lockScreenShowDate.value(); }
+	[[nodiscard]] rpl::producer<QString> lockScreenTextValue() const { return _lockScreenText.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenShowLogoutValue() const { return _lockScreenShowLogout.value(); }
 	[[nodiscard]] rpl::producer<bool> lockOnSystemLockValue() const { return _lockOnSystemLock.value(); }
 	[[nodiscard]] rpl::producer<int> lockOnMinimizeValue() const { return _lockOnMinimize.value(); }
 	[[nodiscard]] rpl::producer<int> hideFromCaptureValue() const { return _hideFromCapture.value(); }
@@ -885,11 +901,16 @@ private:
 	rpl::variable<bool> _showNewGroupInDrawer = true;
 	rpl::variable<bool> _showNewChannelInDrawer = true;
 	rpl::variable<bool> _showNewStoryInDrawer = true;
-	rpl::variable<int> _passcodeMinLength = 0;
-	rpl::variable<bool> _passcodeRequireMixed = false;
 	rpl::variable<int> _passcodeWipeAttempts = 0;
 	rpl::variable<int> _passcodeWipeAction = 0;
 	rpl::variable<bool> _lockScreenShowClock = true;
+	rpl::variable<int> _lockScreenStyle = 0;
+	rpl::variable<int> _lockScreenBackground = 0;
+	rpl::variable<bool> _lockScreenBlur = true;
+	rpl::variable<int> _lockScreenDim = 25;
+	rpl::variable<bool> _lockScreenShowDate = true;
+	rpl::variable<QString> _lockScreenText;
+	rpl::variable<bool> _lockScreenShowLogout = true;
 	rpl::variable<bool> _lockOnSystemLock = false;
 	rpl::variable<int> _lockOnMinimize = -1;
 	rpl::variable<int> _hideFromCapture = 0;

@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ayu/ayu_settings.h"
 #include "ayu/features/fake_passcode/fake_passcode.h"
+#include "ayu/features/passcode_guard/lock_background.h"
 #include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/utils/caps_lock.h"
 #include "ayu/ayu_ui_settings.h"
@@ -184,6 +185,7 @@ void LockWidget::showAnimated(QPixmap oldContentCache) {
 	_showAnimation = nullptr;
 
 	showChildren();
+	restoreChildrenVisibility();
 	setInnerFocus();
 	auto newContentCache = Ui::GrabWidget(this);
 	hideChildren();
@@ -199,6 +201,7 @@ void LockWidget::showAnimated(QPixmap oldContentCache) {
 
 void LockWidget::showFinished() {
 	showChildren();
+	restoreChildrenVisibility();
 	_window->widget()->setInnerFocus();
 	_showAnimation = nullptr;
 	if (const auto controller = _window->sessionController()) {
@@ -222,23 +225,29 @@ void LockWidget::paintContent(QPainter &p) {
 
 PasscodeLockWidget::PasscodeLockWidget(
 	QWidget *parent,
-	not_null<Controller*> window)
+	not_null<Controller*> window,
+	bool preview)
 : LockWidget(parent, window)
 , _passcode(this, st::passcodeInputWithButtons, tr::lng_passcode_ph())
 , _submit(this, tr::lng_passcode_submit(), st::passcodeSubmit)
 , _logout(this, tr::lng_passcode_logout(tr::now))
+, _text(this, st::passcodeText)
 , _clockTimer([=] { updateClock(); })
-, _statusTimer([=] { updateStatus(); }) {
+, _statusTimer([=] { updateStatus(); })
+, _preview(preview) {
 	AyuPasscodeGuard::EnsureLoaded();
 	setupEye();
 	updateClock();
 	updateStatus();
+	setupSettings();
+	if (_preview) {
+		// WHY: the preview in the settings must never check a passcode.
+		_passcode->setDisabled(true);
+		_submit->setDisabled(true);
+		_logout->setDisabled(true);
+		return;
+	}
 	_passcode->installEventFilter(this);
-	AyuSettings::getInstance().lockScreenShowClockValue(
-	) | rpl::skip(1) | rpl::on_next([=] {
-		updateLayout();
-		update();
-	}, lifetime());
 	connect(_passcode, &Ui::MaskedInputField::changed, [=] { changed(); });
 	connect(_passcode, &Ui::MaskedInputField::submitted, [=] { submit(); });
 	_submit->setClickedCallback([=] { submit(); });
@@ -268,6 +277,42 @@ PasscodeLockWidget::PasscodeLockWidget(
 	}
 }
 
+void PasscodeLockWidget::setupSettings() {
+	const auto &settings = AyuSettings::getInstance();
+	rpl::merge(
+		settings.lockScreenShowClockValue() | rpl::to_empty,
+		settings.lockScreenStyleValue() | rpl::to_empty,
+		settings.lockScreenBackgroundValue() | rpl::to_empty,
+		settings.lockScreenBlurValue() | rpl::to_empty,
+		settings.lockScreenDimValue() | rpl::to_empty,
+		settings.lockScreenShowDateValue() | rpl::to_empty,
+		settings.lockScreenTextValue() | rpl::to_empty,
+		settings.lockScreenShowLogoutValue() | rpl::to_empty
+	) | rpl::on_next([=] {
+		applySettings();
+	}, lifetime());
+	AyuLockBackground::Updates() | rpl::on_next([=] {
+		update();
+	}, lifetime());
+}
+
+void PasscodeLockWidget::applySettings() {
+	const auto &settings = AyuSettings::getInstance();
+	_telegramStyle = (settings.lockScreenStyle() == 1);
+	_logoutShown = settings.lockScreenShowLogout();
+	const auto text = settings.lockScreenText();
+	_text->setText(text);
+	_textShown = !text.isEmpty();
+	restoreChildrenVisibility();
+	updateLayout();
+	update();
+}
+
+void PasscodeLockWidget::restoreChildrenVisibility() {
+	_logout->setVisible(_logoutShown);
+	_text->setVisible(_textShown);
+}
+
 void PasscodeLockWidget::setupSystemUnlockInfo() {
 	const auto macos = [&] {
 		return _systemUnlockAvailable.value(
@@ -286,14 +331,14 @@ void PasscodeLockWidget::setupSystemUnlockInfo() {
 		this,
 		std::move(text),
 		st::passcodeSystemUnlockLater);
-	_logout->geometryValue(
-	) | rpl::on_next([=](QRect logout) {
+	_contentBottom.value(
+	) | rpl::on_next([=](int bottom) {
 		info->resizeToWidth(width()
 			- st::boxRowPadding.left()
 			- st::boxRowPadding.right());
 		info->moveToLeft(
 			st::boxRowPadding.left(),
-			logout.y() + logout.height() + st::passcodeSystemUnlockSkip);
+			bottom + st::passcodeSystemUnlockSkip);
 	}, info->lifetime());
 	info->showOn(_systemUnlockAvailable.value(
 	) | rpl::map(rpl::mappers::_1 != SystemUnlockType::None));
@@ -446,10 +491,12 @@ void PasscodeLockWidget::updateStatus() {
 }
 
 void PasscodeLockWidget::updateCapsLock() {
-	if (!AyuPlatform::CapsLockSupported()) {
-		return;
+	if (AyuPlatform::CapsLockQueryable()) {
+		setCapsLock(AyuPlatform::CapsLockOn());
 	}
-	const auto on = AyuPlatform::CapsLockOn();
+}
+
+void PasscodeLockWidget::setCapsLock(bool on) {
 	if (_capsLock != on) {
 		_capsLock = on;
 		updateStatus();
@@ -459,9 +506,18 @@ void PasscodeLockWidget::updateCapsLock() {
 bool PasscodeLockWidget::eventFilter(QObject *o, QEvent *e) {
 	if (o == _passcode.data()) {
 		const auto type = e->type();
-		if (type == QEvent::KeyPress
-			|| type == QEvent::KeyRelease
-			|| type == QEvent::FocusIn) {
+		if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+			const auto key = static_cast<QKeyEvent*>(e);
+			if (const auto on = AyuPlatform::CapsLockFromEvent(
+					key,
+					_capsLock)) {
+				setCapsLock(*on);
+			}
+		}
+		if (AyuPlatform::CapsLockQueryable()
+			&& (type == QEvent::KeyPress
+				|| type == QEvent::KeyRelease
+				|| type == QEvent::FocusIn)) {
 			// WHY: the key state changes after the event is delivered.
 			crl::on_main(this, [=] { updateCapsLock(); });
 		}
@@ -492,8 +548,36 @@ void PasscodeLockWidget::shake() {
 }
 
 void PasscodeLockWidget::paintContent(QPainter &p) {
-	LockWidget::paintContent(p);
+	paintBackground(p);
+	if (_telegramStyle) {
+		paintTelegramContent(p);
+	} else {
+		paintCardContent(p);
+	}
+}
 
+void PasscodeLockWidget::paintBackground(QPainter &p) {
+	LockWidget::paintContent(p);
+	_imageShown = false;
+	if (_telegramStyle) {
+		return;
+	}
+	const auto &settings = AyuSettings::getInstance();
+	const auto type = settings.lockScreenBackground();
+	if (type == 2) {
+		const auto image = AyuLockBackground::Prepared(
+			size() * style::DevicePixelRatio(),
+			settings.lockScreenBlur(),
+			settings.lockScreenDim());
+		if (!image.isNull()) {
+			auto hq = PainterHighQualityEnabler(p);
+			p.drawImage(rect(), image);
+			_imageShown = true;
+			return;
+		}
+	} else if (type == 1) {
+		return;
+	}
 	auto hq = PainterHighQualityEnabler(p);
 	auto tint = st::activeButtonBg->c;
 	tint.setAlpha(40);
@@ -505,25 +589,33 @@ void PasscodeLockWidget::paintContent(QPainter &p) {
 	gradient.setColorAt(0., tint);
 	gradient.setColorAt(1., clear);
 	p.fillRect(rect(), gradient);
+}
 
-	if (_showClock) {
-		const auto &clock = st::passcodeClockFont;
-		p.setPen(st::windowFg);
-		p.setFont(clock);
-		p.drawText(
-			QRect(0, _clockTop, width(), clock->height),
-			_clock,
-			style::al_top);
-		p.setPen(st::windowSubTextFg);
-		p.setFont(st::passcodeDateFont);
-		p.drawText(
-			QRect(
-				0,
-				_clockTop + clock->height + st::passcodeClockSkip,
-				width(),
-				st::passcodeDateFont->height),
-			_date,
-			style::al_top);
+void PasscodeLockWidget::paintCentered(
+		QPainter &p,
+		const style::font &font,
+		QRect area,
+		const QString &text) {
+	// WHY: a rectangle of the font height cuts the descenders off.
+	p.setFont(font);
+	p.drawText(
+		area.x() + (area.width() - font->width(text)) / 2,
+		area.y() + font->ascent,
+		text);
+}
+
+void PasscodeLockWidget::paintCardContent(QPainter &p) {
+	auto hq = PainterHighQualityEnabler(p);
+	const auto full = QRect(0, 0, width(), 0);
+	if (_clockShown) {
+		p.setPen(_imageShown ? QColor(255, 255, 255) : st::windowFg->c);
+		paintCentered(p, st::passcodeClockFont, full.translated(0, _clockTop), _clock);
+	}
+	if (_dateShown) {
+		p.setPen(_imageShown
+			? QColor(255, 255, 255, 210)
+			: st::windowSubTextFg->c);
+		paintCentered(p, st::passcodeDateFont, full.translated(0, _dateTop), _date);
 	}
 
 	const auto radius = AyuUiSettings::isTelegramDesign()
@@ -540,20 +632,45 @@ void PasscodeLockWidget::paintContent(QPainter &p) {
 	p.drawEllipse(lock);
 	st::passcodeLockIcon.paintInCenter(p, lock);
 
-	p.setFont(st::passcodeHeaderFont);
 	p.setPen(st::windowFg);
-	p.drawText(
-		QRect(_card.x(), _titleTop, _card.width(), st::passcodeHeaderFont->height),
-		tr::lng_passcode_enter(tr::now),
-		style::al_top);
+	paintCentered(
+		p,
+		st::passcodeHeaderFont,
+		QRect(_card.x(), _titleTop, _card.width(), 0),
+		tr::lng_passcode_enter(tr::now));
 
 	if (!_status.isEmpty()) {
 		p.setFont(st::passcodeStatusFont);
 		p.setPen(_statusError ? st::boxTextFgError : st::windowSubTextFg);
 		p.drawText(
 			QRect(_card.x(), _statusTop, _card.width(), st::passcodeStatusHeight),
-			_status,
-			style::al_center);
+			Qt::AlignCenter | Qt::TextDontClip,
+			_status);
+	}
+}
+
+void PasscodeLockWidget::paintTelegramContent(QPainter &p) {
+	const auto &header = st::passcodeHeaderFont;
+	const auto headerTop = _passcode->y()
+		- st::passcodeHeaderHeight
+		+ (st::passcodeHeaderHeight - header->height) / 2;
+	p.setPen(st::windowFg);
+	paintCentered(
+		p,
+		header,
+		QRect(0, headerTop, width(), 0),
+		tr::lng_passcode_enter(tr::now));
+	if (!_status.isEmpty()) {
+		p.setFont(st::boxTextFont);
+		p.setPen(_statusError ? st::boxTextFgError : st::windowSubTextFg);
+		p.drawText(
+			QRect(
+				0,
+				_passcode->y() + _passcode->height(),
+				width(),
+				st::passcodeSubmitSkip),
+			Qt::AlignCenter | Qt::TextDontClip,
+			_status);
 	}
 }
 
@@ -614,7 +731,6 @@ void PasscodeLockWidget::resizeEvent(QResizeEvent *e) {
 }
 
 void PasscodeLockWidget::updateLayout() {
-	const auto &padding = st::passcodeCardPadding;
 	const auto available = width() - 2 * st::passcodeCardMargin;
 	const auto fieldWidth = std::max(
 		std::min(
@@ -628,11 +744,29 @@ void PasscodeLockWidget::updateLayout() {
 	if (_submit->width() != submitWidth) {
 		_submit->setFullWidth(submitWidth);
 	}
+	if (_telegramStyle) {
+		updateTelegramLayout();
+	} else {
+		updateCardLayout();
+	}
+	update();
+}
+
+void PasscodeLockWidget::updateCardLayout() {
+	const auto &settings = AyuSettings::getInstance();
+	const auto &padding = st::passcodeCardPadding;
+	const auto available = width() - 2 * st::passcodeCardMargin;
 	const auto field = _passcode->size();
 	const auto headerHeight = st::passcodeHeaderFont->height;
 	const auto cardWidth = std::max(
 		std::min(field.width() + padding.left() + padding.right(), available),
 		0);
+	const auto logout = _logoutShown;
+	const auto text = _textShown;
+	if (text) {
+		_text->resizeToWidth(
+			std::max(cardWidth - 2 * st::passcodeCardPaddingMin, 1));
+	}
 	const auto cardHeight = padding.top()
 		+ st::passcodeLockSize
 		+ st::passcodeLockSkip
@@ -641,19 +775,28 @@ void PasscodeLockWidget::updateLayout() {
 		+ field.height()
 		+ st::passcodeStatusHeight
 		+ _submit->height()
-		+ st::passcodeLogoutSkip
-		+ _logout->height()
+		+ (logout ? (st::passcodeLogoutSkip + _logout->height()) : 0)
+		+ (text ? (st::passcodeTextSkip + _text->height()) : 0)
 		+ padding.bottom();
-	const auto clockHeight = st::passcodeClockFont->height
-		+ st::passcodeClockSkip
-		+ st::passcodeDateFont->height
-		+ st::passcodeClockBottom;
-	_showClock = AyuSettings::getInstance().lockScreenShowClock()
+	const auto clock = settings.lockScreenShowClock();
+	const auto date = settings.lockScreenShowDate();
+	auto clockHeight = (clock ? st::passcodeClockFont->height : 0)
+		+ ((clock && date) ? st::passcodeClockSkip : 0)
+		+ (date ? st::passcodeDateFont->height : 0);
+	if (clockHeight > 0) {
+		clockHeight += st::passcodeClockBottom;
+	}
+	const auto fits = (clockHeight > 0)
 		&& (height() >= cardHeight + clockHeight + 2 * padding.top());
-	const auto total = cardHeight + (_showClock ? clockHeight : 0);
+	_clockShown = fits && clock;
+	_dateShown = fits && date;
+	const auto total = cardHeight + (fits ? clockHeight : 0);
 	auto top = std::max((height() - total) / 2, 0);
-	if (_showClock) {
+	if (fits) {
 		_clockTop = top;
+		_dateTop = top + (clock
+			? (st::passcodeClockFont->height + st::passcodeClockSkip)
+			: 0);
 		top += clockHeight;
 	}
 	_card = QRect((width() - cardWidth) / 2, top, cardWidth, cardHeight);
@@ -667,9 +810,44 @@ void PasscodeLockWidget::updateLayout() {
 	_statusTop = y;
 	y += st::passcodeStatusHeight;
 	_submit->moveToLeft((width() - _submit->width()) / 2, y);
-	y += _submit->height() + st::passcodeLogoutSkip;
-	_logout->moveToLeft((width() - _logout->width()) / 2, y);
-	update();
+	y += _submit->height();
+	if (logout) {
+		y += st::passcodeLogoutSkip;
+		_logout->moveToLeft((width() - _logout->width()) / 2, y);
+		y += _logout->height();
+	}
+	if (text) {
+		y += st::passcodeTextSkip;
+		_text->moveToLeft((width() - _text->width()) / 2, y);
+	}
+	_contentBottom = _card.y() + _card.height();
+}
+
+void PasscodeLockWidget::updateTelegramLayout() {
+	_clockShown = _dateShown = false;
+	const auto field = _passcode->size();
+	const auto top = height() / 3;
+	_passcode->moveToLeft((width() - field.width()) / 2 + _shift, top);
+	auto y = top + field.height() + st::passcodeSubmitSkip;
+	_submit->moveToLeft((width() - _submit->width()) / 2, y);
+	y += _submit->height();
+	if (_logoutShown) {
+		y += st::linkFont->ascent;
+		_logout->moveToLeft((width() - _logout->width()) / 2, y);
+		y += _logout->height();
+	}
+	if (_textShown) {
+		const auto &padding = st::passcodeCardPadding;
+		_text->resizeToWidth(std::max(
+			std::min(
+				field.width() + padding.left() + padding.right(),
+				width() - 2 * st::passcodeCardMargin),
+			1));
+		y += st::passcodeTextSkip;
+		_text->moveToLeft((width() - _text->width()) / 2, y);
+		y += _text->height();
+	}
+	_contentBottom = y;
 }
 
 void PasscodeLockWidget::setInnerFocus() {

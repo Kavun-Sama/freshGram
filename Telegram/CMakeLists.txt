@@ -138,6 +138,8 @@ set(ayugram_files
         ayu/features/compose_stash/compose_stash_storage.cpp
         ayu/features/compose_stash/compose_stash_storage.h
         ayu/features/fake_passcode/fake_passcode.h
+        ayu/features/passcode_guard/lock_background.cpp
+        ayu/features/passcode_guard/lock_background.h
         ayu/features/passcode_guard/lock_triggers.cpp
         ayu/features/passcode_guard/lock_triggers.h
         ayu/features/passcode_guard/passcode_guard.cpp

@@ -13,7 +13,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/ui/boxes/fake_passcode_box.h"
 #include "ayu/ui/settings/passcode_security.h"
-#include "ayu/utils/passcode_strength.h"
 #include "boxes/auto_lock_box.h"
 #include "core/application.h"
 #include "core/core_settings.h"
@@ -254,12 +253,6 @@ void LocalPasscodeEnter::setupContent() {
 			} else if (reenterText.isEmpty()) {
 				reenterPasscode->setFocus();
 				reenterPasscode->showError();
-			} else if (const auto text = AyuPasscode::RequirementsError(newText)
-				; !text.isEmpty()) {
-				newPasscode->setFocus();
-				newPasscode->showError();
-				error->show();
-				error->setText(text);
 			} else if (newText != reenterText) {
 				reenterPasscode->setFocus();
 				reenterPasscode->showError();
