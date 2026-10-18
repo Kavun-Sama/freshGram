@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "base/weak_ptr.h"
 #include "storage/details/storage_passcode_kdf.h"
 
 namespace MTP {
@@ -26,14 +27,23 @@ enum class StartResult : uchar {
 	Success,
 	IncorrectPasscode,
 	IncorrectPasscodeLegacy,
+	KeyUnavailable,
 };
 
-class Domain final {
+enum class PasscodeCheck : uchar {
+	Correct,
+	Wrong,
+	Failed,
+};
+
+class Domain final : public base::has_weak_ptr {
 public:
 	Domain(not_null<Main::Domain*> owner, const QString &dataName);
 	~Domain();
 
-	[[nodiscard]] StartResult start(const QByteArray &passcode);
+	[[nodiscard]] StartResult start(
+		const QByteArray &passcode,
+		const PrecomputedPasscodeKey &precomputed = {});
 	void startAdded(
 		not_null<Main::Account*> account,
 		std::unique_ptr<MTP::Config> config);
@@ -41,8 +51,17 @@ public:
 	void startFromScratch();
 
 	[[nodiscard]] bool checkPasscode(const QByteArray &passcode) const;
-	void setPasscode(const QByteArray &passcode);
-	void setPasscode(const QByteArray &passcode, const PasscodeKdf &kdf);
+	[[nodiscard]] PasscodeCheck checkPasscodeResult(
+		const QByteArray &passcode) const;
+	[[nodiscard]] PasscodeCheck checkPasscodeKey(
+		const PrecomputedPasscodeKey &precomputed) const;
+	[[nodiscard]] bool setPasscode(const QByteArray &passcode);
+
+	// Derives the keys on a thread, nothing changes when it fails.
+	void setPasscodeAsync(
+		const QByteArray &passcode,
+		const PasscodeKdf &kdf,
+		Fn<void(bool)> done);
 
 	struct PasscodeKdfInput {
 		QByteArray salt;
@@ -67,16 +86,25 @@ private:
 	enum class StartModernResult {
 		Success,
 		IncorrectPasscode,
+		KeyUnavailable,
 		Failed,
 		Empty,
 	};
 
-	[[nodiscard]] StartModernResult startModern(const QByteArray &passcode);
+	[[nodiscard]] StartModernResult startModern(
+		const QByteArray &passcode,
+		const PrecomputedPasscodeKey &precomputed);
 	void startWithSingleAccount(
 		const QByteArray &passcode,
 		std::unique_ptr<Main::Account> account);
 	void generateLocalKey();
-	void encryptLocalKey(const QByteArray &passcode);
+	[[nodiscard]] bool encryptLocalKey(const QByteArray &passcode);
+	void applyPasscodeKey(
+		const QByteArray &passcode,
+		const QByteArray &salt,
+		const PasscodeKdf &kdf,
+		MTP::AuthKeyPtr key);
+	void finishPasscodeChange();
 
 	const not_null<Main::Domain*> _owner;
 	const QString _dataName;

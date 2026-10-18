@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/auto_lock_box.h"
 #include "core/application.h"
 #include "core/core_settings.h"
+#include "crl/crl_on_main.h"
 #include "lang/lang_keys.h"
 #include "lottie/lottie_icon.h"
 #include "main/main_domain.h"
@@ -44,11 +45,11 @@ namespace {
 
 using namespace Builder;
 
-void SetPasscode(
-		not_null<Window::SessionController*> controller,
-		const QString &pass) {
+void DisablePasscode() {
 	AyuPasscodeGuard::RegisterSuccess();
-	controller->session().domain().local().setPasscode(pass.toUtf8());
+	// WHY: an empty passcode always uses the cheap key, it cannot fail.
+	[[maybe_unused]] const auto ok = Core::App().domain().local().setPasscode(
+		QByteArray());
 	Core::App().localPasscodeChanged();
 }
 
@@ -195,7 +196,53 @@ void LocalPasscodeEnter::setupContent() {
 			st::changePhoneButton),
 		st::settingLocalPasscodeButtonPadding,
 		style::al_top);
+	const auto busy = std::make_shared<bool>(false);
+	const auto setBusy = [=](bool value) {
+		*busy = value;
+		button->setDisabled(value);
+		newPasscode->setDisabled(value);
+		if (reenterPasscode) {
+			reenterPasscode->setDisabled(value);
+		}
+		if (value) {
+			error->show();
+			error->setText(tr::ayu_PasscodeKdfApplying(tr::now));
+		}
+	};
+	const auto failed = [=](
+			not_null<Ui::PasswordInput*> field,
+			const QString &text) {
+		setBusy(false);
+		field->setFocus();
+		field->showError();
+		field->selectAll();
+		error->show();
+		error->setText(text);
+	};
+	const auto apply = [=](const QString &newText) {
+		AyuUi::SetPasscodeAsync(newText.toUtf8(), crl::guard(this, [=](
+				bool ok) {
+			if (!ok) {
+				failed(newPasscode, tr::ayu_PasscodeKdfFailed(tr::now));
+				return;
+			}
+			setBusy(false);
+			error->hide();
+			if (isCreate) {
+				if (Platform::IsWindows() || _systemUnlockWithBiometric) {
+					Core::App().settings().setSystemUnlockEnabled(true);
+					Core::App().saveSettingsDelayed();
+				}
+				_showOther.fire(LocalPasscodeManageId());
+			} else if (isChange) {
+				_showBack.fire({});
+			}
+		}));
+	};
 	button->setClickedCallback([=] {
+		if (*busy) {
+			return;
+		}
 		const auto newText = newPasscode->text();
 		const auto reenterText = reenterPasscode
 			? reenterPasscode->text()
@@ -219,28 +266,19 @@ void LocalPasscodeEnter::setupContent() {
 				reenterPasscode->selectAll();
 				error->show();
 				error->setText(tr::lng_passcode_differ(tr::now));
-			} else {
-				if (isChange) {
-					const auto &domain = controller()->session().domain();
-					if (domain.local().checkPasscode(newText.toUtf8())) {
-						newPasscode->setFocus();
-						newPasscode->showError();
-						newPasscode->selectAll();
-						error->show();
-						error->setText(tr::lng_passcode_is_same(tr::now));
+			} else if (isChange) {
+				setBusy(true);
+				AyuUi::CheckPasscodeAsync(newText.toUtf8(), crl::guard(this, [=](
+						Storage::PasscodeCheck result) {
+					if (result == Storage::PasscodeCheck::Correct) {
+						failed(newPasscode, tr::lng_passcode_is_same(tr::now));
 						return;
 					}
-				}
-				SetPasscode(controller(), newText);
-				if (isCreate) {
-					if (Platform::IsWindows() || _systemUnlockWithBiometric) {
-						Core::App().settings().setSystemUnlockEnabled(true);
-						Core::App().saveSettingsDelayed();
-					}
-					_showOther.fire(LocalPasscodeManageId());
-				} else if (isChange) {
-					_showBack.fire({});
-				}
+					apply(newText);
+				}));
+			} else {
+				setBusy(true);
+				apply(newText);
 			}
 		} else if (isCheck) {
 			if (!passcodeCanTry()) {
@@ -250,20 +288,28 @@ void LocalPasscodeEnter::setupContent() {
 				error->setText(tr::lng_flood_error(tr::now));
 				return;
 			}
-			const auto &domain = controller()->session().domain();
-			if (domain.local().checkPasscode(newText.toUtf8())) {
-				AyuPasscodeGuard::RegisterSuccess();
-				_showOther.fire(LocalPasscodeManageId());
-			} else {
+			setBusy(true);
+			AyuUi::CheckPasscodeAsync(newText.toUtf8(), crl::guard(this, [=](
+					Storage::PasscodeCheck result) {
+				switch (result) {
+				case Storage::PasscodeCheck::Correct:
+					setBusy(false);
+					error->hide();
+					AyuPasscodeGuard::RegisterSuccess();
+					_showOther.fire(LocalPasscodeManageId());
+					return;
+				case Storage::PasscodeCheck::Failed:
+					failed(
+						newPasscode,
+						tr::ayu_PasscodeKeyUnavailable(tr::now));
+					return;
+				case Storage::PasscodeCheck::Wrong:
+					break;
+				}
 				cSetPasscodeBadTries(cPasscodeBadTries() + 1);
 				cSetPasscodeLastTry(crl::now());
-
-				newPasscode->selectAll();
-				newPasscode->setFocus();
-				newPasscode->showError();
-				error->show();
-				error->setText(tr::lng_passcode_wrong(tr::now));
-			}
+				failed(newPasscode, tr::lng_passcode_wrong(tr::now));
+			}));
 		}
 	});
 
@@ -682,7 +728,7 @@ base::weak_qptr<Ui::RpWidget> LocalPasscodeManage::createPinnedToBottom(
 			Ui::MakeConfirmBox({
 				.text = tr::lng_settings_passcode_disable_sure(),
 				.confirmed = [=](Fn<void()> &&close) {
-					SetPasscode(controller(), QString());
+					DisablePasscode();
 					Core::App().settings().setSystemUnlockEnabled(false);
 					Core::App().saveSettingsDelayed();
 

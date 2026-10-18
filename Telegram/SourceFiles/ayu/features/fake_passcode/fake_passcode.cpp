@@ -361,20 +361,39 @@ void Load() {
 		std::make_shared<MTP::AuthKey>(data));
 }
 
+[[nodiscard]] bool ApplyRebuildTask(const RebuildTask &task);
+
 [[nodiscard]] bool Rebuild(const QByteArray &realPasscode) {
-	auto &state = GetState();
-	state.salt.resize(kSaltSize);
-	base::RandomFill(state.salt.data(), state.salt.size());
 	// WHY: fake passcodes cost the same to check as the real one.
-	state.kdf = Core::App().domain().local().passcodeKdf();
-	state.blobs.clear();
-	for (const auto &entry : state.data.list) {
-		auto blob = MakeBlob(entry, realPasscode, state.salt, state.kdf);
-		if (blob.isEmpty()) {
-			return false;
+	auto task = PrepareRebuild(
+		realPasscode,
+		Core::App().domain().local().passcodeKdf());
+	ComputeRebuild(task);
+	return ApplyRebuildTask(task);
+}
+
+[[nodiscard]] bool ApplyRebuildTask(const RebuildTask &task) {
+	auto &state = GetState();
+	if (task.remove) {
+		if (state.loaded) {
+			state = State{ .loaded = true, .pendingId = state.pendingId };
+			RemoveFile();
 		}
-		state.blobs.push_back(std::move(blob));
+		return true;
+	} else if (!task.needed || !task.ok) {
+		return task.ok;
 	}
+	const auto made = Data{
+		.clearCacheOnLock = state.data.clearCacheOnLock,
+		.list = task.entries,
+	};
+	if (PackData(made) != PackData(state.data)) {
+		// The list changed while the blobs were made.
+		return Rebuild(task.realPasscode);
+	}
+	state.salt = task.salt;
+	state.kdf = task.kdf;
+	state.blobs = task.blobs;
 	return WriteFile();
 }
 
@@ -427,7 +446,8 @@ void WipeMessageDatabaseFiles() {
 }
 
 void WipeSavedMediaFiles() {
-	RemoveFiles({ u"ayu_media"_q }, true);
+	RemoveFiles({ u"ayu_media*"_q }, true);
+	QDir(AyuMessages::openedMediaDirectory()).removeRecursively();
 }
 
 void WipeSecretChatFiles() {
@@ -560,33 +580,31 @@ void Run(const Actions &actions) {
 } // namespace
 
 KdfInput MatchKdfInput() {
-	auto salt = QByteArray();
-	auto kdf = Storage::PasscodeKdf();
-	auto blobs = std::vector<QByteArray>();
-	if (ReadPlain(salt, kdf, blobs)) {
-		return { .salt = salt, .kdf = kdf };
+	auto result = KdfInput();
+	if (!ReadPlain(result.salt, result.kdf, result.blobs)) {
+		result = KdfInput{ .salt = QByteArray(kSaltSize, '\0') };
 	}
-	return { .salt = QByteArray(kSaltSize, '\0') };
+	return result;
 }
 
 std::optional<Match> TryMatch(const QByteArray &passcode) {
 	if (passcode.isEmpty()) {
 		return std::nullopt;
 	}
-	auto salt = QByteArray();
-	auto kdf = Storage::PasscodeKdf();
-	auto blobs = std::vector<QByteArray>();
-	if (!ReadPlain(salt, kdf, blobs)) {
-		salt = QByteArray(kSaltSize, '\0');
-		kdf = Storage::PasscodeKdf();
-		blobs.clear();
-	}
-	const auto key = Storage::DerivePasscodeKey(passcode, salt, kdf);
+	const auto input = MatchKdfInput();
+	return MatchWithKey(
+		input,
+		Storage::DerivePasscodeKey(passcode, input.salt, input.kdf));
+}
+
+std::optional<Match> MatchWithKey(
+		const KdfInput &input,
+		const MTP::AuthKeyPtr &key) {
 	if (!key) {
 		return std::nullopt;
 	}
 	auto found = std::optional<Match>();
-	for (const auto &blob : blobs) {
+	for (const auto &blob : input.blobs) {
 		auto decrypted = EncryptedDescriptor();
 		if (!DecryptLocal(decrypted, blob, key) || found) {
 			continue;
@@ -688,7 +706,21 @@ AddResult Add(
 		.unlocks = unlocks,
 		.actions = std::move(actions),
 	});
-	if (!Rebuild(real)) {
+	const auto kdf = Core::App().domain().local().passcodeKdf();
+	auto written = false;
+	if (state.kdf == kdf
+		&& state.salt.size() == kSaltSize
+		&& state.blobs.size() == size_t(kMaxEntries)) {
+		// WHY: only the new entry needs a key, the others keep their blobs.
+		auto blob = MakeBlob(state.data.list.back(), real, state.salt, kdf);
+		if (!blob.isEmpty()) {
+			state.blobs[state.data.list.size() - 1] = std::move(blob);
+			written = WriteFile();
+		}
+	} else {
+		written = Rebuild(real);
+	}
+	if (!written) {
 		state.data.list.pop_back();
 		state.loaded = false;
 		return AddResult::Failed;
@@ -742,17 +774,53 @@ void SetClearCacheOnLock(bool value) {
 }
 
 void RealPasscodeChanged(const QByteArray &passcode) {
+	auto task = PrepareRebuild(
+		passcode,
+		Core::App().domain().local().passcodeKdf());
+	ComputeRebuild(task);
+	[[maybe_unused]] const auto written = ApplyRebuildTask(task);
+}
+
+RebuildTask PrepareRebuild(
+		const QByteArray &realPasscode,
+		const Storage::PasscodeKdf &kdf) {
 	Load();
-	auto &state = GetState();
+	const auto &state = GetState();
+	auto result = RebuildTask();
 	if (!state.loaded) {
+		return result;
+	} else if (realPasscode.isEmpty()) {
+		result.remove = true;
+		return result;
+	} else if (state.data.list.empty() && state.blobs.empty()) {
+		return result;
+	}
+	result.needed = true;
+	result.realPasscode = realPasscode;
+	result.salt.resize(kSaltSize);
+	base::RandomFill(result.salt.data(), result.salt.size());
+	result.kdf = kdf;
+	result.entries = state.data.list;
+	return result;
+}
+
+void ComputeRebuild(RebuildTask &task) {
+	if (!task.needed) {
 		return;
 	}
-	if (passcode.isEmpty()) {
-		state = State{ .loaded = true, .pendingId = state.pendingId };
-		RemoveFile();
-	} else if (!state.data.list.empty() || !state.blobs.empty()) {
-		[[maybe_unused]] const auto written = Rebuild(passcode);
+	task.blobs.clear();
+	for (const auto &entry : task.entries) {
+		auto blob = MakeBlob(entry, task.realPasscode, task.salt, task.kdf);
+		if (blob.isEmpty()) {
+			task.ok = false;
+			return;
+		}
+		task.blobs.push_back(std::move(blob));
 	}
+}
+
+void ApplyRebuild(const RebuildTask &task) {
+	[[maybe_unused]] const auto written = ApplyRebuildTask(task);
 }
 
 } // namespace AyuFakePasscode

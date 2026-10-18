@@ -2,10 +2,12 @@
 #include "ayu/ui/settings/passcode_security.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/utils/passcode_strength.h"
-#include "base/call_delayed.h"
 #include "base/platform/base_platform_info.h"
 #include "core/application.h"
+#include "crl/crl_async.h"
+#include "crl/crl_on_main.h"
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
 #include "main/main_domain.h"
@@ -123,8 +125,18 @@ void PasscodeKdfBox(
 		QString());
 	const auto error = Settings::CloudPassword::AddError(content, field);
 
+	const auto weak = QPointer<Ui::GenericBox>(box.get());
 	const auto busy = std::make_shared<bool>(false);
+	const auto setBusy = [=](bool value) {
+		*busy = value;
+		// WHY: the box looks blocked while the keys are made on a thread.
+		box->setCloseByEscape(!value);
+		box->setCloseByOutsideClick(!value);
+		field->setDisabled(value);
+		content->setAttribute(Qt::WA_TransparentForMouseEvents, value);
+	};
 	const auto fail = [=](const QString &text) {
+		setBusy(false);
 		error->setText(text);
 		error->show();
 		field->selectAll();
@@ -143,40 +155,100 @@ void PasscodeKdfBox(
 			return;
 		}
 		const auto passcode = field->text().toUtf8();
-		auto &domain = Core::App().domain().local();
 		if (passcode.isEmpty()) {
 			field->showError();
 			return;
-		} else if (!domain.checkPasscode(passcode)) {
-			cSetPasscodeBadTries(cPasscodeBadTries() + 1);
-			cSetPasscodeLastTry(crl::now());
-			fail(tr::lng_passcode_wrong(tr::now));
-			return;
 		}
-		cSetPasscodeBadTries(0);
-		*busy = true;
+		setBusy(true);
 		error->setText(tr::ayu_PasscodeKdfApplying(tr::now));
 		error->show();
-		// WHY: the key derivation blocks, let the status paint first.
-		base::call_delayed(crl::time(50), box, [=] {
-			Core::App().domain().local().setPasscode(
+		const auto apply = [=] {
+			Core::App().domain().local().setPasscodeAsync(
 				passcode,
-				Storage::PasscodeKdfFor(level));
-			Core::App().localPasscodeChanged();
-			box->showToast(tr::ayu_PasscodeKdfChanged(tr::now));
-			if (changed) {
-				changed();
+				Storage::PasscodeKdfFor(level),
+				[=](bool ok) {
+					if (ok) {
+						Core::App().localPasscodeChanged();
+					}
+					if (!weak) {
+						return;
+					} else if (!ok) {
+						fail(tr::ayu_PasscodeKdfFailed(tr::now));
+						return;
+					}
+					box->showToast(tr::ayu_PasscodeKdfChanged(tr::now));
+					if (changed) {
+						changed();
+					}
+					box->closeBox();
+				});
+		};
+		CheckPasscodeAsync(passcode, crl::guard(box, [=](
+				Storage::PasscodeCheck result) {
+			switch (result) {
+			case Storage::PasscodeCheck::Failed:
+				fail(tr::ayu_PasscodeKeyUnavailable(tr::now));
+				return;
+			case Storage::PasscodeCheck::Wrong:
+				cSetPasscodeBadTries(cPasscodeBadTries() + 1);
+				cSetPasscodeLastTry(crl::now());
+				fail(tr::lng_passcode_wrong(tr::now));
+				return;
+			case Storage::PasscodeCheck::Correct:
+				break;
 			}
-			box->closeBox();
-		});
+			AyuPasscodeGuard::RegisterSuccess();
+			apply();
+		}));
 	};
 	QObject::connect(field, &Ui::MaskedInputField::submitted, save);
 	box->setFocusCallback([=] { field->setFocusFast(); });
 	box->addButton(tr::lng_settings_save(), save);
-	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+	box->addButton(tr::lng_cancel(), [=] {
+		if (!*busy) {
+			box->closeBox();
+		}
+	});
 }
 
 } // namespace
+
+void CheckPasscodeAsync(
+		const QByteArray &passcode,
+		Fn<void(Storage::PasscodeCheck)> done) {
+	const auto input = Core::App().domain().local().passcodeKdfInput();
+	if (!input) {
+		done(Storage::PasscodeCheck::Failed);
+		return;
+	}
+	crl::async([=] {
+		auto key = Storage::PrecomputedPasscodeKey{
+			.salt = input->salt,
+			.kdf = input->kdf,
+			.key = Storage::DerivePasscodeKey(
+				passcode,
+				input->salt,
+				input->kdf),
+		};
+		crl::on_main([=, key = std::move(key)] {
+			auto &domain = Core::App().domain();
+			done(domain.started()
+				? domain.local().checkPasscodeKey(key)
+				: Storage::PasscodeCheck::Failed);
+		});
+	});
+}
+
+void SetPasscodeAsync(const QByteArray &passcode, Fn<void(bool)> done) {
+	auto &local = Core::App().domain().local();
+	local.setPasscodeAsync(passcode, local.passcodeKdf(), [=](bool ok) {
+		if (ok) {
+			AyuPasscodeGuard::RegisterSuccess();
+			Core::App().localPasscodeChanged();
+		}
+		done(ok);
+	});
+}
 
 void AddPasscodeStrength(
 		not_null<Ui::VerticalLayout*> content,
@@ -444,6 +516,9 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 			AyuSettings::getInstance().setLockedNotifications(value);
 		});
 	builder.addSkip();
+	if (Platform::IsWayland()) {
+		builder.addDividerText(tr::ayu_PasscodeLockMinimizeWayland());
+	}
 }
 
 } // namespace AyuUi

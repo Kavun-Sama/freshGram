@@ -15,7 +15,6 @@
 
 #include <QtCore/QDataStream>
 
-#include <mutex>
 
 namespace Storage {
 namespace {
@@ -24,15 +23,6 @@ constexpr auto kMagic = 0x314B4746; // "FGK1"
 constexpr auto kMaxMemoryKiB = quint32(1024 * 1024);
 constexpr auto kMaxIterations = quint32(16);
 constexpr auto kMaxLanes = quint32(4);
-constexpr auto kMaxCached = 4;
-
-struct CachedKey {
-	QByteArray tag;
-	MTP::AuthKeyPtr key;
-};
-
-std::mutex KeyCacheMutex;
-std::vector<CachedKey> KeyCache;
 
 [[nodiscard]] bool Valid(const PasscodeKdf &kdf) {
 	switch (kdf.type) {
@@ -47,30 +37,6 @@ std::vector<CachedKey> KeyCache;
 			&& (kdf.lanes <= kMaxLanes);
 	}
 	return false;
-}
-
-[[nodiscard]] QByteArray CacheTag(
-		const QByteArray &passcode,
-		const QByteArray &salt,
-		const PasscodeKdf &kdf) {
-	const auto params = SerializePasscodeKdf(kdf);
-	const auto hash = openssl::Sha256(
-		bytes::make_span(passcode),
-		bytes::make_span(salt),
-		bytes::make_span(params));
-	return QByteArray(
-		reinterpret_cast<const char*>(hash.data()),
-		int(hash.size()));
-}
-
-[[nodiscard]] MTP::AuthKeyPtr FindCached(const QByteArray &tag) {
-	auto lock = std::lock_guard(KeyCacheMutex);
-	for (const auto &entry : KeyCache) {
-		if (entry.tag == tag) {
-			return entry.key;
-		}
-	}
-	return nullptr;
 }
 
 [[nodiscard]] MTP::AuthKeyPtr Argon2(
@@ -118,10 +84,13 @@ std::vector<CachedKey> KeyCache;
 	EVP_KDF_CTX_free(context);
 	bytes::set_with_const(bytes::make_detached_span(password), gsl::byte{});
 	if (ok != 1) {
+		bytes::set_with_const(key, gsl::byte{});
 		LOG(("Passcode Error: Argon2id derivation failed."));
 		return nullptr;
 	}
-	return std::make_shared<MTP::AuthKey>(key);
+	auto result = std::make_shared<MTP::AuthKey>(key);
+	bytes::set_with_const(key, gsl::byte{});
+	return result;
 #else // FRESHGRAM_HAS_ARGON2
 	LOG(("Passcode Error: built without Argon2id support."));
 	return nullptr;
@@ -225,39 +194,10 @@ MTP::AuthKeyPtr DerivePasscodeKey(
 		return details::CreateLocalKey(passcode, salt);
 	} else if (!Valid(kdf)) {
 		return nullptr;
-	} else if (auto cached = FindCached(CacheTag(passcode, salt, kdf))) {
-		return cached;
 	} else if (kdf.type == PasscodeKdfType::Pbkdf2) {
 		return details::CreateLocalKey(passcode, salt);
 	}
 	return Argon2(passcode, salt, kdf);
-}
-
-void PrecomputePasscodeKey(
-		const QByteArray &passcode,
-		const QByteArray &salt,
-		const PasscodeKdf &kdf) {
-	if (passcode.isEmpty()) {
-		return;
-	}
-	auto tag = CacheTag(passcode, salt, kdf);
-	if (FindCached(tag)) {
-		return;
-	}
-	auto key = DerivePasscodeKey(passcode, salt, kdf);
-	if (!key) {
-		return;
-	}
-	auto lock = std::lock_guard(KeyCacheMutex);
-	if (KeyCache.size() >= kMaxCached) {
-		KeyCache.erase(KeyCache.begin());
-	}
-	KeyCache.push_back({ std::move(tag), std::move(key) });
-}
-
-void ClearPrecomputedPasscodeKeys() {
-	auto lock = std::lock_guard(KeyCacheMutex);
-	KeyCache.clear();
 }
 
 } // namespace Storage

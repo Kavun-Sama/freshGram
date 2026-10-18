@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Storage {
 class Domain;
 enum class StartResult : uchar;
+struct PrecomputedPasscodeKey;
 } // namespace Storage
 
 namespace MTP {
@@ -39,6 +40,9 @@ public:
 
 	[[nodiscard]] bool started() const;
 	[[nodiscard]] Storage::StartResult start(const QByteArray &passcode);
+	[[nodiscard]] Storage::StartResult start(
+		const QByteArray &passcode,
+		const Storage::PrecomputedPasscodeKey &precomputed);
 	void resetWithForgottenPasscode();
 	void finish();
 

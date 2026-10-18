@@ -45,12 +45,17 @@ struct PasscodeKdf {
 	const QByteArray &salt,
 	const PasscodeKdf &kdf);
 
-// WHY: the lock screen derives keys on a thread, then the usual
-// synchronous checks pick the result up instead of deriving again.
-void PrecomputePasscodeKey(
-	const QByteArray &passcode,
-	const QByteArray &salt,
-	const PasscodeKdf &kdf);
-void ClearPrecomputedPasscodeKeys();
+// A key derived on a thread for the salt and the KDF it was made with.
+struct PrecomputedPasscodeKey {
+	QByteArray salt;
+	PasscodeKdf kdf;
+	MTP::AuthKeyPtr key;
+
+	[[nodiscard]] bool matches(
+			const QByteArray &otherSalt,
+			const PasscodeKdf &otherKdf) const {
+		return key && (salt == otherSalt) && (kdf == otherKdf);
+	}
+};
 
 } // namespace Storage

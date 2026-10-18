@@ -646,9 +646,17 @@ void PasscodeBox::save(bool force) {
 			return;
 		}
 
-		if (_session->domain().local().checkPasscode(old.toUtf8())) {
+		const auto check = _session->domain().local().checkPasscodeResult(
+			old.toUtf8());
+		if (check == Storage::PasscodeCheck::Correct) {
 			cSetPasscodeBadTries(0);
 			if (_turningOff) pwd = conf = QString();
+		} else if (check == Storage::PasscodeCheck::Failed) {
+			_oldError = tr::ayu_PasscodeKeyUnavailable(tr::now);
+			_oldPasscode->setFocus();
+			_oldPasscode->showError();
+			update();
+			return;
 		} else {
 			cSetPasscodeBadTries(cPasscodeBadTries() + 1);
 			cSetPasscodeLastTry(crl::now());
@@ -714,7 +722,11 @@ void PasscodeBox::save(bool force) {
 		closeReplacedBy();
 		const auto weak = base::make_weak(this);
 		cSetPasscodeBadTries(0);
-		_session->domain().local().setPasscode(pwd.toUtf8());
+		if (!_session->domain().local().setPasscode(pwd.toUtf8())) {
+			_newError = tr::ayu_PasscodeKdfFailed(tr::now);
+			update();
+			return;
+		}
 		Core::App().localPasscodeChanged();
 		if (weak) {
 			closeBox();

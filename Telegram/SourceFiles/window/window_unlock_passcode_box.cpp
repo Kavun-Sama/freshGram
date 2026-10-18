@@ -77,6 +77,10 @@ void Submit(
 			field->clear();
 			fail(tr::ayu_PasscodeWiped(tr::now));
 			return;
+		case PasscodeAttempt::Unavailable:
+			field->showError();
+			fail(tr::ayu_PasscodeKeyUnavailable(tr::now));
+			return;
 		case PasscodeAttempt::Correct:
 			break;
 		}

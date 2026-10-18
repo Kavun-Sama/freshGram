@@ -56,9 +56,31 @@ struct Match {
 struct KdfInput {
 	QByteArray salt;
 	Storage::PasscodeKdf kdf;
+	std::vector<QByteArray> blobs;
 };
 [[nodiscard]] KdfInput MatchKdfInput();
 [[nodiscard]] std::optional<Match> TryMatch(const QByteArray &passcode);
+// Thread safe, the key is derived from the salt and the KDF of the input.
+[[nodiscard]] std::optional<Match> MatchWithKey(
+	const KdfInput &input,
+	const MTP::AuthKeyPtr &key);
+
+// The blobs are made on a thread when the real passcode changes.
+struct RebuildTask {
+	bool remove = false;
+	bool needed = false;
+	bool ok = true;
+	QByteArray realPasscode;
+	QByteArray salt;
+	Storage::PasscodeKdf kdf;
+	std::vector<Entry> entries;
+	std::vector<QByteArray> blobs;
+};
+[[nodiscard]] RebuildTask PrepareRebuild(
+	const QByteArray &realPasscode,
+	const Storage::PasscodeKdf &kdf);
+void ComputeRebuild(RebuildTask &task);
+void ApplyRebuild(const RebuildTask &task);
 
 void SetPending(int id);
 void RunPending();

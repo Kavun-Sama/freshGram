@@ -48,7 +48,25 @@ constexpr auto kAttemptsWarning = 3;
 
 } // namespace
 
-PasscodeAttempt TryPasscode(const QString &passcode) {
+namespace {
+
+struct PrecomputedKeys {
+	Storage::PrecomputedPasscodeKey real;
+	std::optional<AyuFakePasscode::Match> fake;
+	Storage::PrecomputedPasscodeKey fakeReal;
+};
+
+[[nodiscard]] Storage::PasscodeCheck CheckOf(Storage::StartResult result) {
+	return (result == Storage::StartResult::Success)
+		? Storage::PasscodeCheck::Correct
+		: (result == Storage::StartResult::KeyUnavailable)
+		? Storage::PasscodeCheck::Failed
+		: Storage::PasscodeCheck::Wrong;
+}
+
+[[nodiscard]] PasscodeAttempt TryPasscodeWith(
+		const QString &passcode,
+		const PrecomputedKeys *keys) {
 	AyuPasscodeGuard::EnsureLoaded();
 	if (passcode.isEmpty()) {
 		return PasscodeAttempt::Empty;
@@ -57,17 +75,34 @@ PasscodeAttempt TryPasscode(const QString &passcode) {
 	}
 	const auto utf8 = passcode.toUtf8();
 	auto &domain = Core::App().domain();
-	auto correct = domain.started()
-		? domain.local().checkPasscode(utf8)
-		: (domain.start(utf8) == Storage::StartResult::Success);
+	auto check = Storage::PasscodeCheck::Wrong;
+	if (domain.started()) {
+		const auto &local = domain.local();
+		const auto input = local.passcodeKdfInput();
+		check = (keys && input && keys->real.matches(input->salt, input->kdf))
+			? local.checkPasscodeKey(keys->real)
+			: local.checkPasscodeResult(utf8);
+	} else {
+		check = CheckOf(keys
+			? domain.start(utf8, keys->real)
+			: domain.start(utf8));
+	}
+	if (check == Storage::PasscodeCheck::Failed) {
+		// WHY: a key that could not be derived says nothing about the passcode.
+		return PasscodeAttempt::Unavailable;
+	}
+	auto correct = (check == Storage::PasscodeCheck::Correct);
 	if (!correct) {
-		if (const auto fake = AyuFakePasscode::TryMatch(utf8)) {
+		const auto fake = keys ? keys->fake : AyuFakePasscode::TryMatch(utf8);
+		if (fake) {
 			if (!fake->unlocks()) {
 				AyuFakePasscode::RunSilent(fake->actions);
 			} else {
 				correct = domain.started()
-					|| (domain.start(fake->realPasscode)
-						== Storage::StartResult::Success);
+					|| (CheckOf(keys
+						? domain.start(fake->realPasscode, keys->fakeReal)
+						: domain.start(fake->realPasscode))
+						== Storage::PasscodeCheck::Correct);
 				if (correct) {
 					AyuFakePasscode::SetPending(fake->id);
 				}
@@ -82,6 +117,12 @@ PasscodeAttempt TryPasscode(const QString &passcode) {
 	return PasscodeAttempt::Correct;
 }
 
+} // namespace
+
+PasscodeAttempt TryPasscode(const QString &passcode) {
+	return TryPasscodeWith(passcode, nullptr);
+}
+
 void TryPasscodeAsync(
 		const QString &passcode,
 		Fn<void(PasscodeAttempt)> done) {
@@ -92,16 +133,33 @@ void TryPasscodeAsync(
 	}
 	const auto utf8 = passcode.toUtf8();
 	const auto real = Core::App().domain().local().passcodeKdfInput();
-	const auto fake = AyuFakePasscode::MatchKdfInput();
+	const auto fakeInput = AyuFakePasscode::MatchKdfInput();
 	crl::async([=] {
+		const auto derive = [&](const QByteArray &value) {
+			return Storage::PrecomputedPasscodeKey{
+				.salt = real->salt,
+				.kdf = real->kdf,
+				.key = Storage::DerivePasscodeKey(
+					value,
+					real->salt,
+					real->kdf),
+			};
+		};
+		auto keys = std::make_shared<PrecomputedKeys>();
 		if (real) {
-			Storage::PrecomputePasscodeKey(utf8, real->salt, real->kdf);
+			keys->real = derive(utf8);
 		}
-		Storage::PrecomputePasscodeKey(utf8, fake.salt, fake.kdf);
+		keys->fake = AyuFakePasscode::MatchWithKey(
+			fakeInput,
+			Storage::DerivePasscodeKey(utf8, fakeInput.salt, fakeInput.kdf));
+		// WHY: the same work is done whatever passcode was entered,
+		// so the time of the answer does not tell a fake one.
+		const auto unlocks = keys->fake && keys->fake->unlocks();
+		if (real) {
+			keys->fakeReal = derive(unlocks ? keys->fake->realPasscode : utf8);
+		}
 		crl::on_main([=] {
-			const auto result = TryPasscode(passcode);
-			Storage::ClearPrecomputedPasscodeKeys();
-			done(result);
+			done(TryPasscodeWith(passcode, keys.get()));
 		});
 	});
 }
@@ -521,6 +579,11 @@ void PasscodeLockWidget::submit() {
 		case PasscodeAttempt::Wiped:
 			_error = tr::ayu_PasscodeWiped(tr::now);
 			_passcode->clear();
+			updateStatus();
+			return;
+		case PasscodeAttempt::Unavailable:
+			_error = tr::ayu_PasscodeKeyUnavailable(tr::now);
+			_passcode->showError();
 			updateStatus();
 			return;
 		case PasscodeAttempt::Correct:

@@ -65,12 +65,10 @@ void Remove() {
 }
 
 void SyncGlobals() {
-	const auto &state = GetState();
-	const auto elapsed = std::max(
-		QDateTime::currentMSecsSinceEpoch() - state.lastTryWall,
-		qint64(0));
-	cSetPasscodeBadTries(state.tries);
-	cSetPasscodeLastTry(crl::now() - elapsed);
+	// WHY: the wait starts again after a restart, so changing the clock
+	// of the system does not skip it.
+	cSetPasscodeBadTries(GetState().tries);
+	cSetPasscodeLastTry(crl::now());
 }
 
 void Wipe() {

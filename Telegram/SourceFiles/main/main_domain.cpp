@@ -65,9 +65,15 @@ bool Domain::started() const {
 }
 
 Storage::StartResult Domain::start(const QByteArray &passcode) {
+	return start(passcode, {});
+}
+
+Storage::StartResult Domain::start(
+		const QByteArray &passcode,
+		const Storage::PrecomputedPasscodeKey &precomputed) {
 	Expects(!started());
 
-	const auto result = _local->start(passcode);
+	const auto result = _local->start(passcode, precomputed);
 	if (result == Storage::StartResult::Success) {
 		activateAfterStarting();
 		crl::on_main(&Core::App(), [=] { suggestExportIfNeeded(); });

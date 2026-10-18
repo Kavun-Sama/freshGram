@@ -2,6 +2,7 @@
 #include "ayu/features/passcode_guard/lock_triggers.h"
 
 #include "ayu/ayu_settings.h"
+#include "base/platform/base_platform_info.h"
 #include "base/timer.h"
 #include "core/application.h"
 #include "core/core_screenshot_protection.h"
@@ -40,7 +41,13 @@ struct State {
 		return false;
 	}
 	const auto widget = window->widget();
-	return widget->isMinimized() || widget->isHidden();
+	if (widget->isHidden()) {
+		return true;
+	} else if (Platform::IsWayland()) {
+		// WHY: Wayland does not tell a window that it is minimized.
+		return (qGuiApp->applicationState() != Qt::ApplicationActive);
+	}
+	return widget->isMinimized();
 }
 
 void CheckMinimized() {

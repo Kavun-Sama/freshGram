@@ -1305,6 +1305,10 @@ void Manager::notificationActivated(
 		NotificationId id,
 		ActivateOptions &&options) {
 	onBeforeNotificationActivated(id);
+	if (Core::App().passcodeLocked()) {
+		// WHY: no draft is written from a notification without the passcode.
+		options.draft = {};
+	}
 	if (const auto session = system()->findSession(id.contextId.sessionId)) {
 		const auto history = session->data().history(
 			id.contextId.peerId);
@@ -1443,7 +1447,9 @@ Window::SessionController *Manager::openNotificationMessage(
 void Manager::notificationReplied(
 		NotificationId id,
 		const TextWithTags &reply) {
-	if (!id.contextId.sessionId || !id.contextId.peerId) {
+	if (Core::App().passcodeLocked()
+		|| !id.contextId.sessionId
+		|| !id.contextId.peerId) {
 		return;
 	}
 
@@ -1486,6 +1492,9 @@ void Manager::notificationReplied(
 void Manager::notificationActionActivated(
 		NotificationId id,
 		const QString &actionId) {
+	if (Core::App().passcodeLocked()) {
+		return;
+	}
 	if (actionId == u"markAsRead"_q) {
 		notificationReplied(id, {});
 		return;

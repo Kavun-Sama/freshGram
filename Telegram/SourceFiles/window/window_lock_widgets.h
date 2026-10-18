@@ -39,6 +39,7 @@ enum class PasscodeAttempt : uchar {
 	Flood,
 	Wrong,
 	Wiped,
+	Unavailable,
 	Correct,
 };
 
@@ -47,7 +48,7 @@ enum class PasscodeAttempt : uchar {
 // the caller runs it as its own last statement.
 [[nodiscard]] PasscodeAttempt TryPasscode(const QString &passcode);
 
-// Derives the keys on a thread, then runs TryPasscode on the main thread.
+// Derives the keys on a thread, then checks them on the main thread.
 void TryPasscodeAsync(
 	const QString &passcode,
 	Fn<void(PasscodeAttempt)> done);

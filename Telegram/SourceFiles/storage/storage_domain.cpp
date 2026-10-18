@@ -17,6 +17,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/random.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/data/ayu_vault.h"
+#include "crl/crl_async.h"
+#include "crl/crl_on_main.h"
 
 namespace Storage {
 namespace {
@@ -42,8 +44,10 @@ Domain::Domain(not_null<Main::Domain*> owner, const QString &dataName)
 
 Domain::~Domain() = default;
 
-StartResult Domain::start(const QByteArray &passcode) {
-	const auto modern = startModern(passcode);
+StartResult Domain::start(
+		const QByteArray &passcode,
+		const PrecomputedPasscodeKey &precomputed) {
+	const auto modern = startModern(passcode, precomputed);
 	if (modern == StartModernResult::Success) {
 		if (_oldVersion < AppVersion) {
 			writeAccounts();
@@ -51,6 +55,8 @@ StartResult Domain::start(const QByteArray &passcode) {
 		return StartResult::Success;
 	} else if (modern == StartModernResult::IncorrectPasscode) {
 		return StartResult::IncorrectPasscode;
+	} else if (modern == StartModernResult::KeyUnavailable) {
+		return StartResult::KeyUnavailable;
 	} else if (modern == StartModernResult::Failed) {
 		// startModern() may have already read the local key before failing.
 		_localKey = nullptr;
@@ -89,7 +95,7 @@ void Domain::startWithSingleAccount(
 		_localKey = std::move(localKey);
 		AyuVault::SetKey(_localKey);
 		AyuSettings::attachVault();
-		encryptLocalKey(passcode);
+		[[maybe_unused]] const auto encrypted = encryptLocalKey(passcode);
 		account->start(nullptr);
 	} else {
 		generateLocalKey();
@@ -114,24 +120,32 @@ void Domain::generateLocalKey() {
 	AyuVault::SetKey(_localKey);
 	AyuSettings::attachVault();
 
-	encryptLocalKey(QByteArray());
+	[[maybe_unused]] const auto encrypted = encryptLocalKey(QByteArray());
 }
 
-void Domain::encryptLocalKey(const QByteArray &passcode) {
-	if (passcode.isEmpty()) {
-		_passcodeKdf = PasscodeKdf();
+bool Domain::encryptLocalKey(const QByteArray &passcode) {
+	const auto kdf = passcode.isEmpty() ? PasscodeKdf() : _passcodeKdf;
+	auto salt = QByteArray(LocalEncryptSaltSize, Qt::Uninitialized);
+	base::RandomFill(salt.data(), salt.size());
+	auto key = DerivePasscodeKey(passcode, salt, kdf);
+	if (!key) {
+		LOG(("App Error: could not derive the passcode key."));
+		return false;
 	}
-	_passcodeKeySalt.resize(LocalEncryptSaltSize);
-	base::RandomFill(_passcodeKeySalt.data(), _passcodeKeySalt.size());
-	_passcodeKey = DerivePasscodeKey(passcode, _passcodeKeySalt, _passcodeKdf);
-	if (!_passcodeKey) {
-		LOG(("App Error: passcode KDF failed, falling back to PBKDF2."));
-		_passcodeKdf = PasscodeKdf();
-		_passcodeKey = DerivePasscodeKey(
-			passcode,
-			_passcodeKeySalt,
-			_passcodeKdf);
-	}
+	applyPasscodeKey(passcode, salt, kdf, std::move(key));
+	return true;
+}
+
+void Domain::applyPasscodeKey(
+		const QByteArray &passcode,
+		const QByteArray &salt,
+		const PasscodeKdf &kdf,
+		MTP::AuthKeyPtr key) {
+	Expects(key != nullptr);
+
+	_passcodeKdf = passcode.isEmpty() ? PasscodeKdf() : kdf;
+	_passcodeKeySalt = salt;
+	_passcodeKey = std::move(key);
 
 	EncryptedDescriptor passKeyData(MTP::AuthKey::kSize);
 	_localKey->write(passKeyData.stream);
@@ -140,7 +154,8 @@ void Domain::encryptLocalKey(const QByteArray &passcode) {
 }
 
 Domain::StartModernResult Domain::startModern(
-		const QByteArray &passcode) {
+		const QByteArray &passcode,
+		const PrecomputedPasscodeKey &precomputed) {
 	const auto name = ComputeKeyName(_dataName);
 
 	FileReadDescriptor keyData;
@@ -164,15 +179,21 @@ Domain::StartModernResult Domain::startModern(
 	}
 	const auto kdf = DeserializePasscodeKdf(kdfData);
 	if (!kdf) {
-		// WHY: an unknown KDF must not wipe the data like a broken file does.
+		// WHY: an unknown KDF must neither wipe the data like a broken file
+		// does nor count as a wrong passcode.
 		LOG(("App Error: unknown passcode KDF in info file."));
-		return StartModernResult::IncorrectPasscode;
+		return StartModernResult::KeyUnavailable;
 	}
-	_passcodeKey = DerivePasscodeKey(passcode, salt, *kdf);
+	_passcodeKey = precomputed.matches(salt, *kdf)
+		? precomputed.key
+		: DerivePasscodeKey(passcode, salt, *kdf);
+	if (!_passcodeKey) {
+		LOG(("App Error: could not derive the passcode key."));
+		return StartModernResult::KeyUnavailable;
+	}
 
 	EncryptedDescriptor keyInnerData, info;
-	if (!_passcodeKey
-		|| !DecryptLocal(keyInnerData, keyEncrypted, _passcodeKey)) {
+	if (!DecryptLocal(keyInnerData, keyEncrypted, _passcodeKey)) {
 		LOG(("App Info: could not decrypt pass-protected key from info file, "
 			"maybe bad password..."));
 		return StartModernResult::IncorrectPasscode;
@@ -286,30 +307,79 @@ void Domain::startFromScratch() {
 }
 
 bool Domain::checkPasscode(const QByteArray &passcode) const {
-	Expects(!_passcodeKeySalt.isEmpty());
-	Expects(_passcodeKey != nullptr);
-
-	const auto checkKey = DerivePasscodeKey(
-		passcode,
-		_passcodeKeySalt,
-		_passcodeKdf);
-	return checkKey && checkKey->equals(_passcodeKey);
+	return checkPasscodeResult(passcode) == PasscodeCheck::Correct;
 }
 
-void Domain::setPasscode(const QByteArray &passcode) {
+PasscodeCheck Domain::checkPasscodeResult(const QByteArray &passcode) const {
+	Expects(!_passcodeKeySalt.isEmpty());
+
+	return checkPasscodeKey({
+		.salt = _passcodeKeySalt,
+		.kdf = _passcodeKdf,
+		.key = DerivePasscodeKey(passcode, _passcodeKeySalt, _passcodeKdf),
+	});
+}
+
+PasscodeCheck Domain::checkPasscodeKey(
+		const PrecomputedPasscodeKey &precomputed) const {
+	Expects(_passcodeKey != nullptr);
+
+	if (!precomputed.key) {
+		return PasscodeCheck::Failed;
+	} else if (!precomputed.matches(_passcodeKeySalt, _passcodeKdf)) {
+		return PasscodeCheck::Wrong;
+	}
+	return precomputed.key->equals(_passcodeKey)
+		? PasscodeCheck::Correct
+		: PasscodeCheck::Wrong;
+}
+
+bool Domain::setPasscode(const QByteArray &passcode) {
 	Expects(!_passcodeKeySalt.isEmpty());
 	Expects(_localKey != nullptr);
 
-	encryptLocalKey(passcode);
+	if (!encryptLocalKey(passcode)) {
+		return false;
+	}
 	writeAccounts();
 	AyuFakePasscode::RealPasscodeChanged(passcode);
+	finishPasscodeChange();
+	return true;
+}
 
+void Domain::finishPasscodeChange() {
 	_passcodeKeyChanged.fire({});
 }
 
-void Domain::setPasscode(const QByteArray &passcode, const PasscodeKdf &kdf) {
-	_passcodeKdf = kdf;
-	setPasscode(passcode);
+void Domain::setPasscodeAsync(
+		const QByteArray &passcode,
+		const PasscodeKdf &kdf,
+		Fn<void(bool)> done) {
+	Expects(_localKey != nullptr);
+
+	const auto useKdf = passcode.isEmpty() ? PasscodeKdf() : kdf;
+	auto salt = QByteArray(LocalEncryptSaltSize, Qt::Uninitialized);
+	base::RandomFill(salt.data(), salt.size());
+	auto fake = std::make_shared<AyuFakePasscode::RebuildTask>(
+		AyuFakePasscode::PrepareRebuild(passcode, useKdf));
+	crl::async([=, weak = base::make_weak(this)] {
+		auto key = DerivePasscodeKey(passcode, salt, useKdf);
+		if (key) {
+			AyuFakePasscode::ComputeRebuild(*fake);
+		}
+		crl::on_main([=, key = std::move(key)]() mutable {
+			const auto strong = weak.get();
+			if (!strong || !key || !fake->ok) {
+				done(false);
+				return;
+			}
+			strong->applyPasscodeKey(passcode, salt, useKdf, std::move(key));
+			strong->writeAccounts();
+			AyuFakePasscode::ApplyRebuild(*fake);
+			strong->finishPasscodeChange();
+			done(true);
+		});
+	});
 }
 
 auto Domain::passcodeKdfInput() const -> std::optional<PasscodeKdfInput> {
