@@ -3035,14 +3035,25 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			|| (channel->canPostMessages()
 				&& item->viewsCount() >= kMinViewsCount));
 	};
+	const auto addAyuItemActions = [&](not_null<HistoryItem*> item) {
+		AyuUi::AddHistoryAction(_menu, item);
+		AyuUi::AddHideMessageAction(_menu, item);
+		AyuUi::AddUserMessagesAction(_menu, item);
+		AyuUi::AddRepeatMessageAction(_menu, item, HistoryView::Context::History);
+		AyuUi::AddMessageDetailsAction(_menu, item);
+	};
 	const auto addItemActions = [&](
 			HistoryItem *item,
 			HistoryItem *albumPartItem) {
 		if (!item
-			|| !item->isRegular()
 			|| IsAnchoredEphemeral(item)
 			|| isUponSelected == 2
 			|| isUponSelected == -2) {
+			return;
+		} else if (item->isAyuRestored()) {
+			addAyuItemActions(item);
+			return;
+		} else if (!item->isRegular()) {
 			return;
 		}
 		const auto itemId = item->fullId();
@@ -3134,11 +3145,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 				&st::menuIconStats);
 		}
 
-		AyuUi::AddHistoryAction(_menu, item);
-		AyuUi::AddHideMessageAction(_menu, item);
-		AyuUi::AddUserMessagesAction(_menu, item);
-		AyuUi::AddRepeatMessageAction(_menu, item, HistoryView::Context::History);
-		AyuUi::AddMessageDetailsAction(_menu, item);
+		addAyuItemActions(item);
 	};
 	const auto addPhotoActions = [&](not_null<PhotoData*> photo, HistoryItem *item) {
 		const auto media = photo->activeMediaView();
@@ -3364,7 +3371,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 
 	const auto addReplyAction = [&](HistoryItem *item) {
 		if (!item
-			|| (!item->isRegular() && !CanReplyToEphemeral(item))
+			|| (!item->isRegular()
+				&& !CanReplyToEphemeral(item)
+				&& !item->isAyuRestored())
 			|| IsAnchoredEphemeral(item)) {
 			return;
 		}

@@ -620,7 +620,7 @@ void AddMessageDetailsAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
 		return;
 	}
 
-	if (item->isLocal()) {
+	if (item->isLocal() && !item->isAyuRestored()) {
 		return;
 	}
 
@@ -648,7 +648,10 @@ void AddMessageDetailsAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
 
 	const auto isForwarded = forwarded && !forwarded->story && forwarded->psaType.isEmpty();
 
-	const auto messageId = QString::number(item->id.bare);
+	const auto originalId = item->isAyuRestored()
+		? item->history()->ayuOriginalId(item)
+		: item->id;
+	const auto messageId = QString::number(originalId.bare);
 	const auto messageDate = base::unixtime::parse(item->date());
 	const auto messageEditDate = base::unixtime::parse(view ? view->displayedEditDate() : TimeId(0));
 
@@ -831,7 +834,7 @@ void AddRepeatMessageAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item, Hi
 		return;
 	}
 
-	if (!item || !item->isHistoryEntry() || item->isService() || item->isLocal() || !item->allowsForward() || item->id <= 0) {
+	if (!item || !item->isHistoryEntry() || item->isService() || (item->isLocal() && !item->isAyuRestored()) || !item->allowsForward() || item->id <= 0) {
 		return;
 	}
 

@@ -2,6 +2,7 @@
 
 #include "api/api_text_entities.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_state.h"
 #include "ayu/data/known_users.h"
 #include "ayu/data/messages_storage.h"
 #include "ayu/utils/ayu_mapper.h"
@@ -519,7 +520,8 @@ HistoryItem *State::create(Row &row) {
 		row.localId = MsgId();
 	}
 	const auto &message = row.message;
-	if (owner.message(peer, MsgId(message.messageId))) {
+	if (owner.message(peer, MsgId(message.messageId))
+		|| AyuState::isHidden(peer->id, MsgId(message.messageId))) {
 		return nullptr;
 	}
 

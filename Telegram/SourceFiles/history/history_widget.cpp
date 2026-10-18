@@ -10730,6 +10730,11 @@ void HistoryWidget::replyToMessage(
 		return;
 	}
 	fields.messageId = item->fullId();
+	if (const auto original = item->isAyuRestored()
+			? item->history()->ayuOriginalId(item)
+			: MsgId()) {
+		fields.messageId.msg = original;
+	}
 	_processingReplyTo = fields;
 	_processingReplyItem = item;
 	processReply();
@@ -10786,7 +10791,8 @@ void HistoryWidget::processReply() {
 		return processCancel();
 #endif
 	} else if (!_processingReplyItem->isRegular()
-		&& !CanReplyToEphemeral(_processingReplyItem)) {
+		&& !CanReplyToEphemeral(_processingReplyItem)
+		&& !_processingReplyItem->isAyuRestored()) {
 		return processCancel();
 	} else if (const auto forum = _peer->forum()
 		; forum && _processingReplyItem->history() == _history) {
