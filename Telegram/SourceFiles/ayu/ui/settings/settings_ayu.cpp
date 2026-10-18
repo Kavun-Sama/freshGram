@@ -340,6 +340,7 @@ void BuildGhostEssentials(SectionBuilder &builder) {
 				dst.setSendUploadProgressLocked(src.sendUploadProgressLocked());
 				dst.setSendOfflinePacketAfterOnlineLocked(src.sendOfflinePacketAfterOnlineLocked());
 				dst.setUseScheduledMessagesLocked(src.useScheduledMessagesLocked());
+				dst.setMarkReadAfterActionLocked(src.markReadAfterActionLocked());
 				AyuSettings::getInstance().setUseGlobalGhostMode(true);
 			}
 
@@ -438,6 +439,19 @@ void BuildGhostEssentials(SectionBuilder &builder) {
 					},
 					[state] { return AyuSettings::ghost(state->selectedUserId.current()).useScheduledMessagesLocked(); },
 					[state](bool v) { AyuSettings::ghost(state->selectedUserId.current()).setUseScheduledMessagesLocked(v); }
+				},
+				NestedEntry{
+					tr::ayu_DontReadOnInteract(tr::now),
+					[state] { return !AyuSettings::ghost(state->selectedUserId.current()).markReadAfterAction(); },
+					[state](bool v) {
+						auto &ghost = AyuSettings::ghost(state->selectedUserId.current());
+						ghost.setMarkReadAfterAction(!v);
+						if (!v) {
+							ghost.setUseScheduledMessages(false);
+						}
+					},
+					[state] { return AyuSettings::ghost(state->selectedUserId.current()).markReadAfterActionLocked(); },
+					[state](bool v) { AyuSettings::ghost(state->selectedUserId.current()).setMarkReadAfterActionLocked(v); }
 				},
 			};
 

@@ -116,6 +116,7 @@ public:
 	[[nodiscard]] bool sendUploadProgressLocked() const { return _sendUploadProgressLocked.current(); }
 	[[nodiscard]] bool sendOfflinePacketAfterOnlineLocked() const { return _sendOfflinePacketAfterOnlineLocked.current(); }
 	[[nodiscard]] bool useScheduledMessagesLocked() const { return _useScheduledMessagesLocked.current(); }
+	[[nodiscard]] bool markReadAfterActionLocked() const { return _markReadAfterActionLocked.current(); }
 
 	void setSendReadMessages(bool val);
 	void setSendReadStories(bool val);
@@ -134,6 +135,7 @@ public:
 	void setSendUploadProgressLocked(bool val);
 	void setSendOfflinePacketAfterOnlineLocked(bool val);
 	void setUseScheduledMessagesLocked(bool val);
+	void setMarkReadAfterActionLocked(bool val);
 
 	[[nodiscard]] rpl::producer<bool> sendReadMessagesValue() const { return _sendReadMessages.value(); }
 	[[nodiscard]] rpl::producer<bool> sendReadMessagesChanges() const { return _sendReadMessages.changes(); }
@@ -168,6 +170,8 @@ public:
 	[[nodiscard]] rpl::producer<bool> sendOfflinePacketAfterOnlineLockedChanges() const { return _sendOfflinePacketAfterOnlineLocked.changes(); }
 	[[nodiscard]] rpl::producer<bool> useScheduledMessagesLockedValue() const { return _useScheduledMessagesLocked.value(); }
 	[[nodiscard]] rpl::producer<bool> useScheduledMessagesLockedChanges() const { return _useScheduledMessagesLocked.changes(); }
+	[[nodiscard]] rpl::producer<bool> markReadAfterActionLockedValue() const { return _markReadAfterActionLocked.value(); }
+	[[nodiscard]] rpl::producer<bool> markReadAfterActionLockedChanges() const { return _markReadAfterActionLocked.changes(); }
 
 	friend void to_json(nlohmann::json &j, const GhostModeAccountSettings &s);
 	friend void from_json(const nlohmann::json &j, GhostModeAccountSettings &s);
@@ -192,6 +196,7 @@ private:
 	rpl::variable<bool> _sendUploadProgressLocked = false;
 	rpl::variable<bool> _sendOfflinePacketAfterOnlineLocked = false;
 	rpl::variable<bool> _useScheduledMessagesLocked = true;
+	rpl::variable<bool> _markReadAfterActionLocked = false;
 };
 
 void to_json(nlohmann::json &j, const GhostModeAccountSettings &s);

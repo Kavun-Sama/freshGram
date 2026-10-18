@@ -2004,6 +2004,7 @@ void Filler::fillChatsListActions() {
 	addVideoChat();
 	_addAction(PeerMenuCallback::Args{ .isSeparator = true });
 	addReport();
+	AyuUi::AddDeleteOwnMessagesAction(_peer, nullptr, _controller, _addAction);
 	if (_peer->asChannel()->amIn()) {
 		addLeaveChat();
 	} else {

@@ -8806,6 +8806,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_GhostModeOptionShiftDescription" = "Click with SHIFT on any option to prevent it from changing when toggling Ghost Mode.";
 "ayu_MarkReadAfterAction" = "Read on Interact";
 "ayu_MarkReadAfterActionDescription" = "Automatically marks a message as read when you send a new one or tap a reaction.";
+"ayu_DontReadOnInteract" = "Don't read on interact";
 "ayu_MarkReadAfterSend" = "Send";
 "ayu_MarkReadAfterReaction" = "Reaction";
 "ayu_MarkReadAfterPoll" = "Poll";

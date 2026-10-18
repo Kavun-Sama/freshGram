@@ -172,6 +172,11 @@ void GhostModeAccountSettings::setGhostModeEnabled(bool val) {
 		_useScheduledMessages = val;
 		if (val) _markReadAfterAction = false;
 	}
+	if (!_markReadAfterActionLocked.current()) {
+		// Read on interact is off in the ghost mode and on otherwise,
+		// but never together with the scheduled messages.
+		_markReadAfterAction = !val && !_useScheduledMessages.current();
+	}
 	AyuSettings::save();
 
 	if (val) {
@@ -219,6 +224,12 @@ void GhostModeAccountSettings::setUseScheduledMessagesLocked(bool val) {
 	AyuSettings::save();
 }
 
+void GhostModeAccountSettings::setMarkReadAfterActionLocked(bool val) {
+	if (_markReadAfterActionLocked.current() == val) return;
+	_markReadAfterActionLocked = val;
+	AyuSettings::save();
+}
+
 void to_json(nlohmann::json &j, const GhostModeAccountSettings &s) {
 	j = nlohmann::json{
 		{"sendReadMessages", s._sendReadMessages.current()},
@@ -235,7 +246,8 @@ void to_json(nlohmann::json &j, const GhostModeAccountSettings &s) {
 		{"sendOnlinePacketsLocked", s._sendOnlinePacketsLocked.current()},
 		{"sendUploadProgressLocked", s._sendUploadProgressLocked.current()},
 		{"sendOfflinePacketAfterOnlineLocked", s._sendOfflinePacketAfterOnlineLocked.current()},
-		{"useScheduledMessagesLocked", s._useScheduledMessagesLocked.current()}
+		{"useScheduledMessagesLocked", s._useScheduledMessagesLocked.current()},
+		{"markReadAfterActionLocked", s._markReadAfterActionLocked.current()}
 	};
 }
 
@@ -262,6 +274,7 @@ void from_json(const nlohmann::json &j, GhostModeAccountSettings &s) {
 	s._sendUploadProgressLocked = j.value("sendUploadProgressLocked", false);
 	s._sendOfflinePacketAfterOnlineLocked = j.value("sendOfflinePacketAfterOnlineLocked", false);
 	s._useScheduledMessagesLocked = j.value("useScheduledMessagesLocked", true);
+	s._markReadAfterActionLocked = j.value("markReadAfterActionLocked", false);
 }
 
 void MessageShotSettings::setShowBackground(bool val) {
