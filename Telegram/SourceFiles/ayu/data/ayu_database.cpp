@@ -6,6 +6,7 @@
 // Copyright @Radolyn, 2026
 #include "ayu/data/ayu_database.h"
 
+#include "ayu/ayu_settings.h"
 #include "ayu/data/ayu_database_backup.h"
 #include "ayu/data/ayu_database_report.h"
 #include "ayu/data/ayu_encrypted_vfs.h"
@@ -15,6 +16,7 @@
 #include "ayu/data/entities.h"
 #include "ayu/data/message_rows.h"
 #include "ayu/data/message_schema.h"
+#include "ayu/data/messages_storage.h"
 #include "ayu/libs/sqlite/sqlite3.h"
 #include "ayu/libs/sqlite/sqlite_orm.h"
 #include "ayu/utils/id_search.h"
@@ -28,6 +30,7 @@
 
 #include <QtCore/QDateTime>
 #include <QtCore/QFileInfo>
+#include <QtCore/QRegularExpression>
 
 #include <atomic>
 #include <chrono>
@@ -268,6 +271,9 @@ constexpr auto kSqliteCorrupt = 11;
 constexpr auto kSqliteNotADatabase = 26;
 constexpr auto kLatestVersion = 4;
 constexpr auto kQueueDelay = crl::time(1500);
+constexpr auto kQueueAttempts = 3;
+constexpr auto kPurgeChunk = 2000;
+constexpr auto kPurgeEach = crl::time(6 * 60 * 60 * 1000);
 
 [[nodiscard]] QString snapshotPath() {
 	return "./tdata/ayudata.enc";
@@ -289,6 +295,7 @@ struct QueuedWrites {
 	std::vector<DeletedMarkup> markups;
 	std::vector<DeletedRank> ranks;
 	std::vector<QueuedEdit> edited;
+	int attempts = 0;
 
 	[[nodiscard]] bool empty() const {
 		return deleted.empty()
@@ -304,21 +311,60 @@ QueuedWrites Queue;
 std::atomic<bool> QueueFilled = false;
 std::atomic<bool> QueueScheduled = false;
 std::unique_ptr<base::Timer> QueueTimer;
+std::unique_ptr<base::Timer> PurgeTimer;
 
 void drainQueuedLocked();
 void flushQueuedLater();
+void trimRevisions(const EditedMessage &message, int maxRevisions);
 
 template<typename Callback>
 void enqueue(Callback &&callback) {
 	if (!DatabaseReady.load()) {
 		return;
 	}
+	auto schedule = false;
 	{
 		const auto lock = std::lock_guard(QueueMutex);
 		callback(Queue);
+		QueueFilled = true;
+		schedule = !QueueScheduled.exchange(true);
 	}
-	QueueFilled = true;
-	if (!QueueScheduled.exchange(true)) {
+	if (schedule) {
+		flushQueuedLater();
+	}
+}
+
+template<typename Value>
+void prependTo(std::vector<Value> &to, std::vector<Value> &&from) {
+	from.insert(
+		from.end(),
+		std::make_move_iterator(to.begin()),
+		std::make_move_iterator(to.end()));
+	to = std::move(from);
+}
+
+// The writes that failed go back before the new ones, a few times only.
+void requeue(QueuedWrites &&batch) {
+	if (++batch.attempts >= kQueueAttempts) {
+		LOG(("[AyuGram] Database: dropped %1 deleted and %2 edited messages after %3 attempts.")
+			.arg(batch.deleted.size())
+			.arg(batch.edited.size())
+			.arg(batch.attempts));
+		return;
+	}
+	auto schedule = false;
+	{
+		const auto lock = std::lock_guard(QueueMutex);
+		prependTo(Queue.deleted, std::move(batch.deleted));
+		prependTo(Queue.extras, std::move(batch.extras));
+		prependTo(Queue.markups, std::move(batch.markups));
+		prependTo(Queue.ranks, std::move(batch.ranks));
+		prependTo(Queue.edited, std::move(batch.edited));
+		Queue.attempts = std::max(Queue.attempts, batch.attempts);
+		QueueFilled = true;
+		schedule = !QueueScheduled.exchange(true);
+	}
+	if (schedule) {
 		flushQueuedLater();
 	}
 }
@@ -389,6 +435,14 @@ void reclaimSpace() {
 	}
 }
 
+// WHY: the deleted pages are already overwritten by secure_delete, the
+// whole file does not need a VACUUM that blocks for long.
+void reclaimAllSpace() {
+	if (MemoryHandle) {
+		sqlite3_exec(MemoryHandle, "PRAGMA incremental_vacuum", nullptr, nullptr, nullptr);
+	}
+}
+
 void flushQueuedLater() {
 	crl::on_main([] {
 		if (!QueueTimer) {
@@ -412,8 +466,8 @@ void drainQueuedLocked() {
 		batch = std::move(Queue);
 		Queue = QueuedWrites();
 		QueueFilled = false;
+		QueueScheduled = false;
 	}
-	QueueScheduled = false;
 	if (batch.empty() || !DatabaseReady.load()) {
 		return;
 	}
@@ -471,17 +525,40 @@ void drainQueuedLocked() {
 						column<EditedMessageRow>(&EditedMessageRow::dialogId) == message.dialogId and
 						column<EditedMessageRow>(&EditedMessageRow::messageId) == message.messageId
 					));
-				if (!edit.maxRevisions || saved < edit.maxRevisions) {
-					auto row = AyuMessageRows::ToRow(message);
-					row.fakeId = 0;
-					storage.insert(row);
+				auto row = AyuMessageRows::ToRow(message);
+				row.fakeId = 0;
+				storage.insert(row);
+				if (edit.maxRevisions && saved >= edit.maxRevisions) {
+					trimRevisions(message, edit.maxRevisions);
 				}
 			}
 		});
 	} catch (const std::exception &ex) {
 		LOG(("[AyuGram] Database: failed to save the queued messages: %1").arg(QString::fromUtf8(ex.what())));
+		requeue(std::move(batch));
 	} catch (...) {
 		LOG(("[AyuGram] Database: failed to save the queued messages."));
+		requeue(std::move(batch));
+	}
+}
+
+// The original text stays, the oldest edits after it make room for the new ones.
+void trimRevisions(const EditedMessage &message, int maxRevisions) {
+	const auto ids = storage.select(
+		&EditedMessageRow::fakeId,
+		where(
+			column<EditedMessageRow>(&EditedMessageRow::userId) == message.userId and
+			column<EditedMessageRow>(&EditedMessageRow::dialogId) == message.dialogId and
+			column<EditedMessageRow>(&EditedMessageRow::messageId) == message.messageId
+		),
+		order_by(&EditedMessageRow::fakeId));
+	const auto keep = std::max(maxRevisions, 1);
+	if (int(ids.size()) <= keep) {
+		return;
+	}
+	const auto removeTill = int(ids.size()) - (keep - 1);
+	for (auto i = 1; i < removeTill; ++i) {
+		storage.remove<EditedMessageRow>(ids[i]);
 	}
 }
 
@@ -496,6 +573,34 @@ void drainQueuedLocked() {
 
 [[nodiscard]] QString dirtyPath() {
 	return "./tdata/ayudata.sqlite.dirty";
+}
+
+[[nodiscard]] QString brokenPath() {
+	return "./tdata/ayudata.sqlite.broken";
+}
+
+// Only the newest copy put aside after a damage is kept.
+void pruneMovedCopies() {
+	static const auto moved = QRegularExpression(
+		u"^ayudata_\\d+\\.(sqlite|enc)$"_q);
+	auto list = QDir("./tdata").entryInfoList(
+		QStringList() << "ayudata_*",
+		QDir::Files,
+		QDir::Time);
+	for (const auto &extension : { u"sqlite"_q, u"enc"_q }) {
+		auto kept = false;
+		for (const auto &info : list) {
+			if (!moved.match(info.fileName()).hasMatch()
+				|| info.suffix() != extension) {
+				continue;
+			} else if (!kept) {
+				kept = true;
+				continue;
+			}
+			QFile::remove(info.absoluteFilePath());
+			QFile::remove(info.absoluteFilePath() + "-journal");
+		}
+	}
 }
 
 void renameDatabaseFiles(const QString &suffix, bool withMainFile) {
@@ -517,6 +622,7 @@ void renameDatabaseFiles(const QString &suffix, bool withMainFile) {
 		}
 		QFile::remove(dirtyPath());
 	}
+	pruneMovedCopies();
 }
 
 void copyDatabaseFiles(const QString &suffix) {
@@ -537,6 +643,55 @@ void pruneMigrationBackup() {
 [[noreturn]] void throwSqlite(int code) {
 	throw std::system_error(
 		std::error_code(code, sqlite_orm::get_sqlite_error_category()));
+}
+
+struct Statement {
+	sqlite3_stmt *raw = nullptr;
+
+	Statement(const Statement &) = delete;
+	Statement &operator=(const Statement &) = delete;
+	Statement(const char *sql) {
+		if (sqlite3_prepare_v2(MemoryHandle, sql, -1, &raw, nullptr) != SQLITE_OK) {
+			throwSqlite(sqlite3_extended_errcode(MemoryHandle));
+		}
+	}
+	~Statement() {
+		sqlite3_finalize(raw);
+	}
+	Statement &bind(int index, sqlite3_int64 value) {
+		sqlite3_bind_int64(raw, index, value);
+		return *this;
+	}
+	[[nodiscard]] bool next() {
+		const auto code = sqlite3_step(raw);
+		if (code == SQLITE_ROW) {
+			return true;
+		} else if (code != SQLITE_DONE) {
+			throwSqlite(sqlite3_extended_errcode(MemoryHandle));
+		}
+		return false;
+	}
+	[[nodiscard]] sqlite3_int64 value(int column) const {
+		return sqlite3_column_int64(raw, column);
+	}
+	int run() {
+		while (next()) {
+		}
+		return sqlite3_changes(MemoryHandle);
+	}
+};
+
+[[nodiscard]] QString ListOf(const std::vector<ID> &ids) {
+	auto result = QStringList();
+	result.reserve(int(ids.size()));
+	for (const auto id : ids) {
+		result.push_back(QString::number(id));
+	}
+	return result.join(',');
+}
+
+[[nodiscard]] bool DeleteSavedFiles() {
+	return AyuSettings::getInstance().deleteSavedFiles();
 }
 
 void sealLegacyCopies(const QString &directory, const QString &pattern) {
@@ -686,6 +841,7 @@ void setupConnection(sqlite3 *db) {
 	exec("PRAGMA locking_mode = EXCLUSIVE");
 	exec("PRAGMA mmap_size = 0");
 	exec("PRAGMA secure_delete = ON");
+	exec("PRAGMA temp_store = MEMORY");
 	const auto cache = QString("PRAGMA cache_size = -%1").arg(cacheKilobytes()).toUtf8();
 	exec(cache.constData());
 }
@@ -859,6 +1015,11 @@ void importOrKeepAside(Import &&import, const QString &path) {
 void prepareStorage() {
 	registerEncryptedFiles();
 	if (!storage.is_opened()) {
+		if (QFile::exists(brokenPath())) {
+			QFile::remove(brokenPath());
+			LOG(("[AyuGram] Database: the file was marked as damaged."));
+			throwSqlite(kSqliteCorrupt);
+		}
 		checkMainFile();
 		storage.on_open = setupConnection;
 		storage.open_forever();
@@ -936,6 +1097,14 @@ void initialize() {
 			if (const auto days = PurgeDays.load()) {
 				purgeOlderThan(days);
 			}
+			if (!PurgeTimer) {
+				PurgeTimer = std::make_unique<base::Timer>([] {
+					if (const auto days = PurgeDays.load()) {
+						purgeOlderThan(days);
+					}
+				});
+				PurgeTimer->callEach(kPurgeEach);
+			}
 			return;
 		} catch (const std::system_error &ex) {
 			const auto code = ex.code().value() & 0xFF;
@@ -947,6 +1116,15 @@ void initialize() {
 				continue;
 			}
 			if (sqliteError && (code == kSqliteCorrupt || code == kSqliteNotADatabase)) {
+				if (storage.is_opened()) {
+					// WHY: an open file cannot be put aside, it is
+					// replaced from a backup at the next start.
+					auto marker = QFile(brokenPath());
+					if (marker.open(QIODevice::WriteOnly)) {
+						marker.close();
+					}
+					break;
+				}
 				moveCurrentDatabase();
 				if (AyuDatabaseBackup::restore(restoreIndex)) {
 					continue;
@@ -971,23 +1149,73 @@ void purgeOlderThan(int days) {
 		return;
 	}
 	PurgeDays = days;
+	const auto files = DeleteSavedFiles();
 	crl::async([=] {
 		const auto cutoff = int(base::unixtime::now() - int64(days) * 86400);
-		runVoid("purge old messages", [&] {
-			inTransaction([&] {
-				storage.remove_all<DeletedMessageRow>(
-					where(column<DeletedMessageRow>(&DeletedMessageRow::entityCreateDate) < cutoff));
-				storage.remove_all<EditedMessageRow>(
-					where(column<EditedMessageRow>(&EditedMessageRow::entityCreateDate) < cutoff));
-				storage.remove_all<DeletedExtra>(
-					where(column<DeletedExtra>(&DeletedExtra::entityCreateDate) < cutoff));
-				storage.remove_all<DeletedMarkup>(
-					where(column<DeletedMarkup>(&DeletedMarkup::entityCreateDate) < cutoff));
-				storage.remove_all<DeletedRank>(
-					where(column<DeletedRank>(&DeletedRank::entityCreateDate) < cutoff));
+		const auto chunk = QString::number(kPurgeChunk);
+		auto removed = 0;
+		// WHY: small parts let the other queries in between the deletions.
+		while (true) {
+			auto keys = std::vector<AyuMessages::SavedFileKey>();
+			const auto deleted = run<int>("purge old deleted messages", 0, [&] {
+				auto ids = std::vector<ID>();
+				auto select = Statement(QString(
+					"SELECT fakeId, userId, dialogId, messageId FROM DeletedMessageV2 "
+					"WHERE entityCreateDate < ?1 LIMIT %1").arg(chunk).toUtf8().constData());
+				select.bind(1, cutoff);
+				while (select.next()) {
+					ids.push_back(select.value(0));
+					keys.push_back({ select.value(1), select.value(2), select.value(3) });
+				}
+				if (ids.empty()) {
+					return 0;
+				}
+				const auto list = ListOf(ids);
+				inTransaction([&] {
+					for (const auto &table : { "DeletedExtra", "DeletedMarkup", "DeletedRank" }) {
+						Statement(QString(
+							"DELETE FROM %1 WHERE (userId, dialogId, messageId) IN "
+							"(SELECT userId, dialogId, messageId FROM DeletedMessageV2 WHERE fakeId IN (%2))"
+						).arg(table, list).toUtf8().constData()).run();
+					}
+					Statement(QString("DELETE FROM DeletedMessageV2 WHERE fakeId IN (%1)")
+						.arg(list).toUtf8().constData()).run();
+				});
+				return int(ids.size());
 			});
+			if (files && !keys.empty()) {
+				AyuMessages::removeSavedFiles(keys);
+			}
+			removed += deleted;
+			if (deleted < kPurgeChunk) {
+				break;
+			}
+		}
+		for (const auto &table : {
+				"EditedMessageV2",
+				"DeletedExtra",
+				"DeletedMarkup",
+				"DeletedRank" }) {
+			const auto sql = QString(
+				"DELETE FROM %1 WHERE rowid IN "
+				"(SELECT rowid FROM %1 WHERE entityCreateDate < ?1 LIMIT %2)"
+			).arg(table, chunk).toUtf8();
+			while (true) {
+				const auto count = run<int>("purge old rows", 0, [&] {
+					return Statement(sql.constData()).bind(1, cutoff).run();
+				});
+				removed += count;
+				if (count < kPurgeChunk) {
+					break;
+				}
+			}
+		}
+		runVoid("reclaim the purged space", [] {
 			reclaimSpace();
 		});
+		if (files && removed) {
+			AyuDatabaseBackup::purgeLater(AyuDatabaseBackup::OlderThan(cutoff));
+		}
 	});
 }
 
@@ -1238,38 +1466,55 @@ void removeDeletedMessage(ID userId, ID dialogId, ID messageId) {
 			)
 		);
 	});
+	if (DeleteSavedFiles()) {
+		AyuDatabaseBackup::purgeLater(
+			AyuDatabaseBackup::OfMessage(userId, dialogId, messageId));
+	}
 }
 
 void clearDeletedMessages(ID userId, ID dialogId, ID topicId) {
 	runVoid("clear deleted messages", [&] {
-		if (!topicId) {
-			storage.remove_all<DeletedExtra>(
+		inTransaction([&] {
+			// WHY: the rows of a topic are found by the messages they belong to.
+			for (const auto &table : { "DeletedExtra", "DeletedMarkup", "DeletedRank" }) {
+				const auto sql = QString(topicId
+					? "DELETE FROM %1 WHERE userId = ?1 AND dialogId = ?2 AND messageId IN "
+						"(SELECT messageId FROM DeletedMessageV2 "
+						"WHERE userId = ?1 AND dialogId = ?2 AND topicId = ?3)"
+					: "DELETE FROM %1 WHERE userId = ?1 AND dialogId = ?2").arg(table).toUtf8();
+				auto statement = Statement(sql.constData());
+				statement.bind(1, userId).bind(2, dialogId);
+				if (topicId) {
+					statement.bind(3, topicId);
+				}
+				statement.run();
+			}
+			storage.remove_all<DeletedMessageRow>(
 				where(
-					column<DeletedExtra>(&DeletedExtra::userId) == userId and
-					column<DeletedExtra>(&DeletedExtra::dialogId) == dialogId
+					column<DeletedMessageRow>(&DeletedMessageRow::userId) == userId and
+					column<DeletedMessageRow>(&DeletedMessageRow::dialogId) == dialogId and
+					(column<DeletedMessageRow>(&DeletedMessageRow::topicId) == topicId or topicId == 0)
 				)
 			);
-			storage.remove_all<DeletedMarkup>(
-				where(
-					column<DeletedMarkup>(&DeletedMarkup::userId) == userId and
-					column<DeletedMarkup>(&DeletedMarkup::dialogId) == dialogId
-				)
-			);
-			storage.remove_all<DeletedRank>(
-				where(
-					column<DeletedRank>(&DeletedRank::userId) == userId and
-					column<DeletedRank>(&DeletedRank::dialogId) == dialogId
-				)
-			);
-		}
-		storage.remove_all<DeletedMessageRow>(
+		});
+		reclaimSpace();
+	});
+	if (DeleteSavedFiles()) {
+		AyuDatabaseBackup::purgeLater(
+			AyuDatabaseBackup::OfDialog(userId, dialogId, topicId));
+	}
+}
+
+std::vector<ID> getDeletedMessageIds(ID userId, ID dialogId, ID topicId) {
+	return run<std::vector<ID>>("load deleted message ids", {}, [&] {
+		const auto ids = storage.select(
+			&DeletedMessageRow::messageId,
 			where(
 				column<DeletedMessageRow>(&DeletedMessageRow::userId) == userId and
 				column<DeletedMessageRow>(&DeletedMessageRow::dialogId) == dialogId and
 				(column<DeletedMessageRow>(&DeletedMessageRow::topicId) == topicId or topicId == 0)
-			)
-		);
-		reclaimSpace();
+			));
+		return std::vector<ID>(ids.begin(), ids.end());
 	});
 }
 
@@ -1320,7 +1565,7 @@ void clearUserData(ID userId) {
 					where(column<Row>(&Row::userId) == userId));
 			});
 		});
-		storage.vacuum();
+		reclaimAllSpace();
 	});
 	AyuDatabaseBackup::purgeUser(userId);
 	flush();
@@ -1334,7 +1579,7 @@ void clearEverything() {
 				storage.remove_all<Row>();
 			});
 		});
-		storage.vacuum();
+		reclaimAllSpace();
 	});
 	AyuDatabaseBackup::removeAll();
 	flush();
@@ -1416,6 +1661,10 @@ std::string sizeReport() {
 }
 
 void saveSizeReport(std::function<void(bool)> done) {
+	if (!AyuSettings::getInstance().enableDebugLogging()) {
+		done(false);
+		return;
+	}
 	crl::async([=] {
 		const auto text = sizeReport();
 		auto file = QFile("./tdata/ayu_db_report.txt");
@@ -1436,6 +1685,7 @@ void flush() {
 
 void finish() {
 	QueueTimer = nullptr;
+	PurgeTimer = nullptr;
 	flush();
 	if (DatabaseReady) {
 		touchDirtyMarker(false);

@@ -28,6 +28,7 @@ namespace {
 constexpr auto kHour = crl::time(60 * 60 * 1000);
 constexpr auto kBigBackup = qint64(40) * 1024 * 1024;
 constexpr auto kBigBackupCount = 3;
+constexpr auto kPurgeDelay = crl::time(5000);
 
 std::atomic<bool> Running = false;
 std::mutex BackupMutex;
@@ -36,6 +37,11 @@ std::atomic<bool> Configured = false;
 std::atomic<int> KeepCount = 5;
 std::atomic<int> IntervalHours = 6;
 std::unique_ptr<base::Timer> PeriodicTimer;
+std::atomic<bool> KeepRichest = true;
+std::mutex PendingMutex;
+QStringList PendingStatements;
+std::atomic<bool> PurgeScheduled = false;
+std::unique_ptr<base::Timer> PurgeTimer;
 
 struct Entry {
 	QString path;
@@ -230,6 +236,9 @@ void Rotate() {
 	if (!list.empty() && QFileInfo(list.front().path).size() > kBigBackup) {
 		keep = std::min(keep, kBigBackupCount);
 	}
+	if (!KeepRichest) {
+		richest = -1;
+	}
 	for (auto i = keep; i < int(list.size()); ++i) {
 		if (i != richest) {
 			QFile::remove(list[i].path);
@@ -303,13 +312,84 @@ bool restore(int &index) {
 void removeAll() {
 	const auto lock = std::lock_guard(BackupMutex);
 	QDir(Directory()).removeRecursively();
+	// Every copy put aside: old snapshots, damaged and failed imports.
 	const auto moved = QDir("./tdata").entryList(
-		QStringList() << "ayudata_*.enc",
+		QStringList() << "ayudata_*",
 		QDir::Files);
 	for (const auto &name : moved) {
 		QFile::remove("./tdata/" + name);
 	}
+	QFile::remove("./tdata/ayudata.sqlite.broken");
+	QFile::remove("./tdata/ayu_db_report.txt");
 }
+
+namespace {
+
+// Runs the statements on every copy, a copy that cannot be read is
+// removed only when asked.
+void Rewrite(const QStringList &statements, bool removeUnreadable) {
+	const auto lock = std::lock_guard(BackupMutex);
+	for (const auto &entry : List()) {
+		const auto plain = AyuVault::ReadFile(entry.path, true);
+		auto handle = Handle();
+		if (!plain || !OpenMemory(handle, *plain)) {
+			if (removeUnreadable) {
+				QFile::remove(entry.path);
+			}
+			continue;
+		}
+		static_cast<void>(Exec(handle.db, QString("PRAGMA secure_delete = ON")));
+		const auto before = sqlite3_total_changes(handle.db);
+		for (const auto &statement : statements) {
+			// A table missing in an old copy only fails its own statement.
+			static_cast<void>(Exec(handle.db, statement));
+		}
+		if (sqlite3_total_changes(handle.db) == before) {
+			continue;
+		}
+		static_cast<void>(Exec(handle.db, QString("VACUUM")));
+		auto size = sqlite3_int64();
+		const auto data = sqlite3_serialize(handle.db, "main", &size, 0);
+		if (!data) {
+			if (removeUnreadable) {
+				QFile::remove(entry.path);
+			}
+			continue;
+		}
+		const auto saved = AyuVault::WriteCompressedFile(
+			entry.path,
+			data,
+			qint64(size));
+		sqlite3_free(data);
+		if (!saved && removeUnreadable) {
+			QFile::remove(entry.path);
+		}
+	}
+}
+
+void RunPendingPurge() {
+	auto statements = QStringList();
+	{
+		const auto lock = std::lock_guard(PendingMutex);
+		statements = base::take(PendingStatements);
+		PurgeScheduled = false;
+	}
+	if (!statements.isEmpty()) {
+		Rewrite(statements, false);
+	}
+}
+
+[[nodiscard]] QStringList MessageTables() {
+	return {
+		u"DeletedExtra"_q,
+		u"DeletedMarkup"_q,
+		u"DeletedRank"_q,
+		u"DeletedMessageV2"_q,
+		u"DeletedMessage"_q,
+	};
+}
+
+} // namespace
 
 void purgeUser(long long userId) {
 	static const auto kTables = {
@@ -320,38 +400,89 @@ void purgeUser(long long userId) {
 		"PeekRestore", "SpyMessageRead", "SpyMessageContentsRead",
 		"ComposeStash",
 	};
-	const auto lock = std::lock_guard(BackupMutex);
-	for (const auto &entry : List()) {
-		const auto plain = AyuVault::ReadFile(entry.path, true);
-		auto handle = Handle();
-		if (!plain || !OpenMemory(handle, *plain)) {
-			QFile::remove(entry.path);
-			continue;
+	auto statements = QStringList();
+	for (const auto &table : kTables) {
+		statements.push_back(QString(
+			"DELETE FROM %1 WHERE userId = %2").arg(table).arg(userId));
+	}
+	Rewrite(statements, true);
+}
+
+void setKeepRichest(bool keep) {
+	KeepRichest = keep;
+}
+
+void purgeLater(const QStringList &statements) {
+	if (statements.isEmpty()) {
+		return;
+	}
+	{
+		const auto lock = std::lock_guard(PendingMutex);
+		PendingStatements += statements;
+	}
+	if (PurgeScheduled.exchange(true)) {
+		return;
+	}
+	crl::on_main([] {
+		if (!PurgeTimer) {
+			PurgeTimer = std::make_unique<base::Timer>([] {
+				crl::async(RunPendingPurge);
+			});
 		}
-		static_cast<void>(Exec(handle.db, QString("PRAGMA secure_delete = ON")));
-		for (const auto &table : kTables) {
-			if (TableExists(handle.db, table)) {
-				static_cast<void>(Exec(handle.db, QString(
-					"DELETE FROM %1 WHERE userId = %2"
-				).arg(table).arg(userId)));
-			}
-		}
-		static_cast<void>(Exec(handle.db, QString("VACUUM")));
-		auto size = sqlite3_int64();
-		const auto data = sqlite3_serialize(handle.db, "main", &size, 0);
-		if (!data) {
-			QFile::remove(entry.path);
-			continue;
-		}
-		const auto saved = AyuVault::WriteCompressedFile(
-			entry.path,
-			data,
-			qint64(size));
-		sqlite3_free(data);
-		if (!saved) {
-			QFile::remove(entry.path);
+		PurgeTimer->callOnce(kPurgeDelay);
+	});
+}
+
+QStringList OfMessage(
+		long long userId,
+		long long dialogId,
+		long long messageId) {
+	auto result = QStringList();
+	for (const auto &table : MessageTables()) {
+		result.push_back(QString(
+			"DELETE FROM %1 WHERE userId = %2 AND dialogId = %3 AND messageId = %4"
+		).arg(table).arg(userId).arg(dialogId).arg(messageId));
+	}
+	return result;
+}
+
+QStringList OfDialog(
+		long long userId,
+		long long dialogId,
+		long long topicId) {
+	auto result = QStringList();
+	const auto where = QString("userId = %1 AND dialogId = %2")
+		.arg(userId)
+		.arg(dialogId);
+	for (const auto &table : MessageTables()) {
+		const auto messages = table.startsWith(u"DeletedMessage"_q);
+		if (!topicId) {
+			result.push_back(QString("DELETE FROM %1 WHERE %2").arg(table, where));
+		} else if (messages) {
+			result.push_back(QString("DELETE FROM %1 WHERE %2 AND topicId = %3")
+				.arg(table, where)
+				.arg(topicId));
+		} else {
+			result.push_back(QString(
+				"DELETE FROM %1 WHERE %2 AND messageId IN "
+				"(SELECT messageId FROM DeletedMessageV2 WHERE %2 AND topicId = %3)"
+			).arg(table, where).arg(topicId));
 		}
 	}
+	return result;
+}
+
+QStringList OlderThan(int cutoff) {
+	auto result = QStringList();
+	auto tables = MessageTables();
+	tables.push_back(u"EditedMessageV2"_q);
+	tables.push_back(u"EditedMessage"_q);
+	for (const auto &table : tables) {
+		result.push_back(QString("DELETE FROM %1 WHERE entityCreateDate < %2")
+			.arg(table)
+			.arg(cutoff));
+	}
+	return result;
 }
 
 void startPeriodic() {

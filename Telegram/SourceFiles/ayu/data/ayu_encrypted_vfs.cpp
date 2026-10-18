@@ -5,6 +5,7 @@
 
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/crypto.h>
 #include <openssl/rand.h>
 
 #include <algorithm>
@@ -22,9 +23,14 @@ constexpr auto kHeaderSize = 4096;
 constexpr auto kNonceSize = 12;
 constexpr auto kTagSize = 16;
 constexpr auto kContentSize = kPageSize - kReserveBytes;
-constexpr auto kJournalHeaderSize = 32;
+// The journal header: magic, nonce and the HMAC of the content at the last sync.
+constexpr auto kJournalHeaderSize = 64;
+constexpr auto kJournalNonceOffset = 8;
+constexpr auto kJournalMacOffset = 24;
+constexpr auto kJournalMacSize = 32;
+constexpr auto kJournalReadChunk = 64 * 1024;
 constexpr char kMainMagic[8] = {'A', 'Y', 'U', 'E', 'N', 'C', '0', '1'};
-constexpr char kJournalMagic[8] = {'A', 'Y', 'U', 'J', 'R', 'N', '0', '1'};
+constexpr char kJournalMagic[8] = {'A', 'Y', 'U', 'J', 'R', 'N', '0', '2'};
 
 enum class Kind {
 	Plain,
@@ -41,7 +47,11 @@ struct File {
 	Kind kind = Kind::Plain;
 	Key key = {};
 	std::array<unsigned char, 16> salt = {};
+	Key macKey = {};
 	bool headerReady = false;
+	bool written = false;
+	bool verify = false;
+	bool rejected = false;
 };
 
 std::mutex StateMutex;
@@ -181,6 +191,98 @@ void XorStream(
 	return true;
 }
 
+// The MAC covers the magic, the nonce and the hash of everything after the header.
+[[nodiscard]] bool JournalMac(
+		File &file,
+		const unsigned char *header,
+		unsigned char *mac) {
+	auto size = sqlite3_int64();
+	if (file.real->pMethods->xFileSize(file.real, &size) != SQLITE_OK) {
+		return false;
+	}
+	const auto context = EVP_MD_CTX_new();
+	if (!context || EVP_DigestInit_ex(context, EVP_sha256(), nullptr) != 1) {
+		EVP_MD_CTX_free(context);
+		return false;
+	}
+	auto chunk = std::vector<unsigned char>(kJournalReadChunk);
+	auto ok = true;
+	for (auto offset = sqlite3_int64(kJournalHeaderSize); ok && offset < size;) {
+		const auto amount = int(std::min<sqlite3_int64>(kJournalReadChunk, size - offset));
+		ok = (file.real->pMethods->xRead(file.real, chunk.data(), amount, offset) == SQLITE_OK)
+			&& (EVP_DigestUpdate(context, chunk.data(), amount) == 1);
+		offset += amount;
+	}
+	unsigned char digest[32];
+	auto digestSize = 0U;
+	ok = ok && (EVP_DigestFinal_ex(context, digest, &digestSize) == 1);
+	EVP_MD_CTX_free(context);
+	if (!ok) {
+		return false;
+	}
+	unsigned char data[8 + 16 + 32];
+	std::memcpy(data, header, 8 + 16);
+	std::memcpy(data + 8 + 16, digest, 32);
+	auto macSize = 0U;
+	return HMAC(
+		EVP_sha256(),
+		file.macKey.data(),
+		int(file.macKey.size()),
+		data,
+		sizeof(data),
+		mac,
+		&macSize) != nullptr && macSize == kJournalMacSize;
+}
+
+// A journal left by a crash is used only when its MAC is right.
+[[nodiscard]] bool VerifyJournal(File &file) {
+	auto size = sqlite3_int64();
+	if (file.real->pMethods->xFileSize(file.real, &size) != SQLITE_OK) {
+		return false;
+	} else if (!size) {
+		return true;
+	} else if (size < kJournalHeaderSize) {
+		return false;
+	}
+	unsigned char header[kJournalHeaderSize];
+	if (file.real->pMethods->xRead(file.real, header, sizeof(header), 0) != SQLITE_OK
+		|| std::memcmp(header, kJournalMagic, 8) != 0) {
+		return false;
+	}
+	unsigned char mac[kJournalMacSize];
+	if (!JournalMac(file, header, mac)
+		|| CRYPTO_memcmp(mac, header + kJournalMacOffset, kJournalMacSize) != 0) {
+		return false;
+	}
+	std::memcpy(file.salt.data(), header + kJournalNonceOffset, 16);
+	file.headerReady = true;
+	return true;
+}
+
+[[nodiscard]] int UpdateJournalMac(File &file) {
+	unsigned char header[kJournalHeaderSize];
+	auto rc = file.real->pMethods->xRead(file.real, header, sizeof(header), 0);
+	if (rc != SQLITE_OK) {
+		return rc;
+	}
+	unsigned char mac[kJournalMacSize];
+	if (!JournalMac(file, header, mac)) {
+		return SQLITE_IOERR_FSYNC;
+	}
+	return file.real->pMethods->xWrite(
+		file.real,
+		mac,
+		kJournalMacSize,
+		kJournalMacOffset);
+}
+
+void CheckJournal(File &file) {
+	if (file.verify) {
+		file.verify = false;
+		file.rejected = !VerifyJournal(file);
+	}
+}
+
 // The header of the main file: magic, version, salt and the check of the key.
 void MakeMainHeader(File &file, unsigned char *header) {
 	std::memset(header, 0, kHeaderSize);
@@ -261,6 +363,7 @@ int Close(sqlite3_file *file) {
 		rc = self->real->pMethods->xClose(self->real);
 	}
 	std::memset(self->key.data(), 0, self->key.size());
+	std::memset(self->macKey.data(), 0, self->macKey.size());
 	return rc;
 }
 
@@ -293,6 +396,13 @@ int Read(sqlite3_file *file, void *buffer, int amount, sqlite3_int64 offset) {
 		return SQLITE_OK;
 	}
 	const auto shift = (self->kind == Kind::Journal) ? kJournalHeaderSize : 0;
+	if (self->kind == Kind::Journal) {
+		CheckJournal(*self);
+		if (self->rejected) {
+			std::memset(buffer, 0, amount);
+			return SQLITE_IOERR_SHORT_READ;
+		}
+	}
 	auto size = sqlite3_int64();
 	if (const auto rc = self->real->pMethods->xFileSize(self->real, &size); rc != SQLITE_OK) {
 		return rc;
@@ -313,7 +423,7 @@ int Read(sqlite3_file *file, void *buffer, int amount, sqlite3_int64 offset) {
 			|| std::memcmp(header, kJournalMagic, 8) != 0) {
 			return SQLITE_IOERR_READ;
 		}
-		std::memcpy(self->salt.data(), header + 8, 16);
+		std::memcpy(self->salt.data(), header + kJournalNonceOffset, 16);
 		self->headerReady = true;
 	}
 	const auto nonce = self->salt.data();
@@ -365,6 +475,16 @@ int Write(sqlite3_file *file, const void *buffer, int amount, sqlite3_int64 offs
 	auto shift = sqlite3_int64(0);
 	if (self->kind == Kind::Journal) {
 		shift = kJournalHeaderSize;
+		CheckJournal(*self);
+		if (self->rejected) {
+			// WHY: a journal that failed the check is never extended.
+			if (const auto rc = self->real->pMethods->xTruncate(self->real, 0); rc != SQLITE_OK) {
+				return rc;
+			}
+			self->rejected = false;
+			self->headerReady = false;
+		}
+		self->written = true;
 		auto size = sqlite3_int64();
 		if (const auto rc = self->real->pMethods->xFileSize(self->real, &size); rc != SQLITE_OK) {
 			return rc;
@@ -373,11 +493,11 @@ int Write(sqlite3_file *file, const void *buffer, int amount, sqlite3_int64 offs
 			// A new journal gets a new nonce, the keystream is never reused for a new file.
 			unsigned char header[kJournalHeaderSize] = {};
 			std::memcpy(header, kJournalMagic, 8);
-			RandomBytes(header + 8, 16);
+			RandomBytes(header + kJournalNonceOffset, 16);
 			if (const auto rc = self->real->pMethods->xWrite(self->real, header, sizeof(header), 0); rc != SQLITE_OK) {
 				return rc;
 			}
-			std::memcpy(self->salt.data(), header + 8, 16);
+			std::memcpy(self->salt.data(), header + kJournalNonceOffset, 16);
 			self->headerReady = true;
 		} else if (!self->headerReady) {
 			unsigned char header[kJournalHeaderSize];
@@ -387,7 +507,7 @@ int Write(sqlite3_file *file, const void *buffer, int amount, sqlite3_int64 offs
 			if (std::memcmp(header, kJournalMagic, 8) != 0) {
 				return SQLITE_IOERR_WRITE;
 			}
-			std::memcpy(self->salt.data(), header + 8, 16);
+			std::memcpy(self->salt.data(), header + kJournalNonceOffset, 16);
 			self->headerReady = true;
 		}
 	}
@@ -404,6 +524,8 @@ int Truncate(sqlite3_file *file, sqlite3_int64 size) {
 	case Kind::Journal:
 		if (!size) {
 			self->headerReady = false;
+			self->rejected = false;
+			self->verify = false;
 		}
 		return self->real->pMethods->xTruncate(self->real, size ? size + kJournalHeaderSize : 0);
 	default:
@@ -413,11 +535,23 @@ int Truncate(sqlite3_file *file, sqlite3_int64 size) {
 
 int Sync(sqlite3_file *file, int flags) {
 	auto self = Self(file);
+	if (self->kind == Kind::Journal && self->written && self->headerReady) {
+		if (const auto rc = UpdateJournalMac(*self); rc != SQLITE_OK) {
+			return rc;
+		}
+	}
 	return self->real->pMethods->xSync(self->real, flags);
 }
 
 int FileSize(sqlite3_file *file, sqlite3_int64 *size) {
 	auto self = Self(file);
+	if (self->kind == Kind::Journal) {
+		CheckJournal(*self);
+		if (self->rejected) {
+			*size = 0;
+			return SQLITE_OK;
+		}
+	}
 	const auto rc = self->real->pMethods->xFileSize(self->real, size);
 	if (rc != SQLITE_OK) {
 		return rc;
@@ -461,7 +595,10 @@ int SectorSize(sqlite3_file *file) {
 
 int DeviceCharacteristics(sqlite3_file *file) {
 	auto self = Self(file);
-	return self->real->pMethods->xDeviceCharacteristics(self->real) & ~SQLITE_IOCAP_ATOMIC;
+	// WHY: without the sequential flag every journal sync is done, and
+	// every sync seals the journal with its MAC.
+	return self->real->pMethods->xDeviceCharacteristics(self->real)
+		& ~(SQLITE_IOCAP_ATOMIC | SQLITE_IOCAP_SEQUENTIAL);
 }
 
 const sqlite3_io_methods Methods = {
@@ -522,6 +659,10 @@ int Open(sqlite3_vfs *, const char *name, sqlite3_file *file, int flags, int *ou
 		}
 	} else if (kind == Kind::Journal) {
 		self->key = Derive("journal-v1", nullptr, 0);
+		self->macKey = Derive("journal-mac-v1", nullptr, 0);
+		auto size = sqlite3_int64();
+		self->verify = (self->real->pMethods->xFileSize(self->real, &size) == SQLITE_OK)
+			&& (size > 0);
 	} else if (kind == Kind::Temp) {
 		RandomBytes(self->key.data(), self->key.size());
 		RandomBytes(self->salt.data(), 16);

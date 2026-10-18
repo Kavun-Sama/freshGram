@@ -70,7 +70,8 @@ bool IsSealed(const QByteArray &bytes) {
 QByteArray Seal(const QByteArray &plain) {
 	const auto key = GetKey();
 	if (!key) {
-		return plain;
+		// WHY: nothing is written open, the caller sees the failure.
+		return QByteArray();
 	}
 	auto descriptor = EncryptedDescriptor(plain.size() + sizeof(quint32));
 	descriptor.stream << plain;
@@ -111,12 +112,33 @@ bool Unseal(
 }
 
 bool WriteFile(const QString &path, const QByteArray &plain) {
+	const auto bytes = Seal(plain);
+	if (bytes.isEmpty()) {
+		return false;
+	}
 	auto file = QSaveFile(path);
 	if (!file.open(QIODevice::WriteOnly)) {
 		return false;
 	}
-	const auto bytes = Seal(plain);
 	return (file.write(bytes) == bytes.size()) && file.commit();
+}
+
+bool WipeFile(const QString &path) {
+	auto file = QFile(path);
+	if (file.open(QIODevice::ReadWrite)) {
+		constexpr auto kChunk = qint64(64 * 1024);
+		const auto zeros = QByteArray(int(kChunk), '\0');
+		for (auto left = file.size(); left > 0;) {
+			const auto chunk = std::min(left, kChunk);
+			if (file.write(zeros.constData(), chunk) != chunk) {
+				break;
+			}
+			left -= chunk;
+		}
+		file.flush();
+		file.close();
+	}
+	return QFile::remove(path) || !QFile::exists(path);
 }
 
 bool WriteSealedFile(const QString &path, const QByteArray &plain) {
@@ -195,6 +217,9 @@ bool WriteCompressedFile(const QString &path, const unsigned char *data, qint64 
 	for (auto offset = qint64(0); offset < size; offset += kBlockSize) {
 		const auto length = std::min(kBlockSize, size - offset);
 		const auto sealed = Seal(qCompress(data + offset, int(length), 3));
+		if (sealed.isEmpty()) {
+			return false;
+		}
 		auto head = QByteArray();
 		WriteNumber(head, quint64(sealed.size()), 4);
 		if (file.write(head) != head.size() || file.write(sealed) != sealed.size()) {

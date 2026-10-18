@@ -331,6 +331,7 @@ public:
 	[[nodiscard]] int keptSnapshotLimit() const { return _keptSnapshotLimit.current(); }
 	[[nodiscard]] int deletedMediaMaxSizeMb() const { return _deletedMediaMaxSizeMb.current(); }
 	[[nodiscard]] int keepDeletedDays() const { return _keepDeletedDays.current(); }
+	[[nodiscard]] bool deleteSavedFiles() const { return _deleteSavedFiles.current(); }
 	[[nodiscard]] int backupKeepCount() const { return _backupKeepCount.current(); }
 	[[nodiscard]] int backupIntervalHours() const { return _backupIntervalHours.current(); }
 	[[nodiscard]] int replyBackgroundOpacity() const { return _replyBackgroundOpacity.current(); }
@@ -486,6 +487,7 @@ public:
 	void setKeptSnapshotLimit(int val);
 	void setDeletedMediaMaxSizeMb(int val);
 	void setKeepDeletedDays(int val);
+	void setDeleteSavedFiles(bool val);
 	void setBackupKeepCount(int val);
 	void setBackupIntervalHours(int val);
 	void setReplyBackgroundOpacity(int val);
@@ -842,6 +844,7 @@ private:
 	rpl::variable<int> _keptSnapshotLimit = 100;
 	rpl::variable<int> _deletedMediaMaxSizeMb = 32;
 	rpl::variable<int> _keepDeletedDays = 0;
+	rpl::variable<bool> _deleteSavedFiles = true;
 	rpl::variable<int> _backupKeepCount = 5;
 	rpl::variable<int> _backupIntervalHours = 6;
 	rpl::variable<int> _replyBackgroundOpacity = 12;

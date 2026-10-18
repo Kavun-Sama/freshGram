@@ -893,6 +893,12 @@ void BuildStorage(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		[](int value) {
 			AyuSettings::getInstance().setKeepDeletedDays(value);
 		});
+	ayu.addSettingToggle({
+		.id = u"ayu/deleteSavedFiles"_q,
+		.title = tr::ayu_DeleteSavedFiles(),
+		.getter = &AyuSettings::deleteSavedFiles,
+		.setter = &AyuSettings::setDeleteSavedFiles,
+	});
 	AddStorageSlider(
 		ayu,
 		u"ayu/backupKeepCount"_q,
@@ -929,6 +935,8 @@ void BuildStorage(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	});
 	builder.addSkip();
 	builder.addDividerText(tr::ayu_StorageDescription());
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_DeleteSavedFilesAbout());
 }
 
 void BuildOther(SectionBuilder &builder, AyuSectionBuilder &ayu) {

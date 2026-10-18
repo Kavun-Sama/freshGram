@@ -50,7 +50,18 @@ void clearSavedMedia();
 void clearUserDatabase(ID userId);
 void clearUserMedia(ID userId);
 void clearOpenedMedia();
+// Drops the decrypted copies without waiting, the files are wiped on a thread.
+void releaseOpenedMedia();
+[[nodiscard]] QString openedMediaDirectory();
 bool prepareLargeMedia(not_null<DocumentData*> document);
+
+struct SavedFileKey {
+	ID userId = 0;
+	ID dialogId = 0;
+	ID messageId = 0;
+};
+// Thread safe, overwrites and removes the media saved for the messages.
+void removeSavedFiles(const std::vector<SavedFileKey> &keys);
 void clearEverything();
 
 }

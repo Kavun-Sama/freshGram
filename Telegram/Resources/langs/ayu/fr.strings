@@ -546,6 +546,8 @@
 "ayu_StashFilesLimit" = "Trop de fichiers ou fichiers trop volumineux pour être mis de côté.";
 "ayu_StashHint" = "Appuyez sur {shortcut} pour mettre ce brouillon de côté.";
 "ayu_KeepDeletedDays" = "Garder les messages supprimés et les modifications pendant";
+"ayu_DeleteSavedFiles" = "Supprimer les fichiers avec les messages enregistrés";
+"ayu_DeleteSavedFilesAbout" = "Quand des messages supprimés enregistrés sont retirés à la main ou après le délai, leurs médias sont effacés et ils sont aussi retirés des sauvegardes. La sauvegarde la plus complète n'est plus gardée au-delà du nombre de sauvegardes.";
 "ayu_BackupKeepCount" = "Sauvegardes de la base à conserver";
 "ayu_BackupInterval" = "Sauvegarde de la base toutes les";
 "ayu_StorageUnlimited" = "Illimité";
@@ -715,6 +717,9 @@
 "ayu_PasscodeWipeDeleteAll" = "Supprimer toutes les données";
 "ayu_PasscodeWipeAbout" = "Les échecs sur l'écran de verrouillage sont comptés à la suite et conservés après un redémarrage. Cela protège contre les essais dans l'application ; avec un accès au disque, le compteur peut être réinitialisé.";
 "ayu_PasscodeWiped" = "Trop d'échecs. Les données ont été supprimées.";
+"ayu_PasscodeKeyUnavailable" = "Impossible de vérifier le code : cette version n'a pas Argon2id ou la mémoire est insuffisante. La tentative n'a pas été comptée.";
+"ayu_PasscodeKdfFailed" = "Impossible de créer la nouvelle clé, rien n'a été modifié.";
+"ayu_PasscodeLockMinimizeWayland" = "Sous Wayland, la fenêtre ne sait pas si elle est réduite : l'application se verrouille si elle reste inactive pendant la durée choisie.";
 "ayu_PasscodeLockScreen" = "Écran de verrouillage";
 "ayu_PasscodeShowClock" = "Afficher l'horloge";
 "ayu_PasscodeLockOnSystemLock" = "Verrouiller quand l'ordinateur se verrouille ou se met en veille";

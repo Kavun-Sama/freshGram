@@ -538,6 +538,8 @@
 "ayu_StashFilesLimit" = "Zu viele oder zu große Dateien zum Ablegen.";
 "ayu_StashHint" = "Drücke {shortcut}, um diesen Entwurf abzulegen.";
 "ayu_KeepDeletedDays" = "Gelöschte Nachrichten und Bearbeitungen behalten für";
+"ayu_DeleteSavedFiles" = "Dateien mit gespeicherten Nachrichten löschen";
+"ayu_DeleteSavedFilesAbout" = "Werden gespeicherte gelöschte Nachrichten von Hand oder nach Ablauf der Frist entfernt, werden ihre Medien überschrieben und sie werden auch aus den Sicherungen entfernt. Die vollste Sicherung wird nicht mehr über die Anzahl der Sicherungen hinaus behalten.";
 "ayu_BackupKeepCount" = "Zu behaltende Datenbank-Backups";
 "ayu_BackupInterval" = "Datenbank-Backup alle";
 "ayu_StorageUnlimited" = "Unbegrenzt";
@@ -707,6 +709,9 @@
 "ayu_PasscodeWipeDeleteAll" = "Alle Daten löschen";
 "ayu_PasscodeWipeAbout" = "Fehlversuche auf dem Sperrbildschirm werden fortlaufend gezählt und bleiben nach einem Neustart erhalten. Das schützt vor Raten in der App; wer Zugriff auf die Festplatte hat, kann den Zähler zurücksetzen.";
 "ayu_PasscodeWiped" = "Zu viele Fehlversuche. Die Daten wurden gelöscht.";
+"ayu_PasscodeKeyUnavailable" = "Der Code konnte nicht geprüft werden: Diesem Build fehlt Argon2id oder es gibt nicht genug Speicher. Der Versuch wurde nicht gezählt.";
+"ayu_PasscodeKdfFailed" = "Der neue Schlüssel konnte nicht erzeugt werden, nichts wurde geändert.";
+"ayu_PasscodeLockMinimizeWayland" = "Unter Wayland weiß das Fenster nicht, ob es minimiert ist, daher sperrt die App, wenn sie für die gewählte Zeit inaktiv bleibt.";
 "ayu_PasscodeLockScreen" = "Sperrbildschirm";
 "ayu_PasscodeShowClock" = "Uhr anzeigen";
 "ayu_PasscodeLockOnSystemLock" = "Sperren, wenn der Computer gesperrt wird oder schläft";

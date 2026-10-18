@@ -546,6 +546,8 @@
 "ayu_StashFilesLimit" = "Troppi file o file troppo grandi da mettere da parte.";
 "ayu_StashHint" = "Premi {shortcut} per mettere da parte questa bozza.";
 "ayu_KeepDeletedDays" = "Conserva messaggi eliminati e modifiche per";
+"ayu_DeleteSavedFiles" = "Elimina i file con i messaggi salvati";
+"ayu_DeleteSavedFilesAbout" = "Quando i messaggi eliminati salvati vengono rimossi a mano o alla scadenza, i loro media vengono sovrascritti e vengono rimossi anche dai backup. Il backup più completo non viene più tenuto oltre il numero di backup.";
 "ayu_BackupKeepCount" = "Backup del database da conservare";
 "ayu_BackupInterval" = "Backup del database ogni";
 "ayu_StorageUnlimited" = "Nessun limite";
@@ -715,6 +717,9 @@
 "ayu_PasscodeWipeDeleteAll" = "Elimina tutti i dati";
 "ayu_PasscodeWipeAbout" = "I tentativi falliti nella schermata di blocco vengono contati di seguito e conservati tra i riavvii. Protegge dai tentativi nell'app; chi ha accesso al disco può azzerare il contatore.";
 "ayu_PasscodeWiped" = "Troppi tentativi falliti. I dati sono stati eliminati.";
+"ayu_PasscodeKeyUnavailable" = "Impossibile verificare il codice: questa build non ha Argon2id o la memoria non basta. Il tentativo non è stato contato.";
+"ayu_PasscodeKdfFailed" = "Impossibile creare la nuova chiave, non è stato cambiato nulla.";
+"ayu_PasscodeLockMinimizeWayland" = "Su Wayland la finestra non sa se è ridotta a icona, quindi l'app si blocca se resta inattiva per il tempo scelto.";
 "ayu_PasscodeLockScreen" = "Schermata di blocco";
 "ayu_PasscodeShowClock" = "Mostra l'orologio";
 "ayu_PasscodeLockOnSystemLock" = "Blocca quando il computer si blocca o va in sospensione";

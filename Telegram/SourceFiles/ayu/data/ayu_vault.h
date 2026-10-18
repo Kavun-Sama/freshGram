@@ -24,7 +24,10 @@ void SetKey(MTP::AuthKeyPtr key);
 	QByteArray &plain,
 	bool requireSealed = false);
 
+// Fails without the key, nothing is ever written open.
 bool WriteFile(const QString &path, const QByteArray &plain);
+// Overwrites the file with zeros before removing it.
+bool WipeFile(const QString &path);
 bool WriteSealedFile(const QString &path, const QByteArray &plain);
 // Packs the data by blocks and seals every block, only one block is held at a time.
 bool WriteCompressedFile(const QString &path, const unsigned char *data, qint64 size);

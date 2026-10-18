@@ -295,6 +295,7 @@ Application::~Application() {
 	closeAdditionalWindows();
 
 	_private->proxyRotation = nullptr;
+	AyuMessages::flushPending();
 	_domain->finish();
 	AyuDatabase::finish();
 	AyuMessages::clearOpenedMedia();
@@ -569,6 +570,8 @@ void Application::showOpenGLCrashNotification() {
 }
 
 void Application::startDomain() {
+	// WHY: the decrypted copies left by a crash go before anything else.
+	AyuMessages::releaseOpenedMedia();
 	const auto state = _domain->start(QByteArray());
 	if (state != Storage::StartResult::IncorrectPasscodeLegacy) {
 		// In case of non-legacy passcoded app all global settings are ready.
@@ -1359,6 +1362,7 @@ void Application::updateWindowTitles() {
 
 void Application::lockByPasscode() {
 	AyuFakePasscode::OnLock();
+	AyuMessages::releaseOpenedMedia();
 	_passcodeLock = true;
 	enumerateWindows([&](not_null<Window::Controller*> w) {
 		w->setupPasscodeLock();

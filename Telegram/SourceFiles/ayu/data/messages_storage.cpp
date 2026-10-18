@@ -42,10 +42,13 @@
 #include "ui/toast/toast.h"
 
 #include <QtCore/QBuffer>
+#include <QtCore/QCryptographicHash>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QSaveFile>
+#include <QtCore/QStandardPaths>
 
 #include <cstdlib>
 #include <optional>
@@ -129,7 +132,7 @@ bool WritePhotoBytes(
 	}
 	if (!bytes.isEmpty()) {
 		QDir().mkpath(QFileInfo(path).absolutePath());
-		AyuVault::WriteFile(path, bytes);
+		return AyuVault::WriteFile(path, bytes);
 	}
 	return true;
 }
@@ -198,7 +201,7 @@ bool WriteDocumentBytes(
 	const auto bytes = DocumentBytes(media);
 	if (!bytes.isEmpty()) {
 		QDir().mkpath(QFileInfo(path).absolutePath());
-		AyuVault::WriteFile(path, bytes);
+		return AyuVault::WriteFile(path, bytes);
 	}
 	return true;
 }
@@ -497,25 +500,152 @@ void PutPhotoBytesIntoCache(
 
 namespace {
 
+constexpr auto kOpenedFileLifetime = 30 * 60 * crl::time(1000);
+constexpr auto kOpenedMediaIdle = 60 * crl::time(1000);
+constexpr auto kOpenedCheckEach = 30 * crl::time(1000);
+
 struct LargeDocument {
 	DocumentId id = 0;
 	QString path;
+	std::shared_ptr<Data::DocumentMedia> media;
+	QString openedPath;
+	crl::time used = 0;
+};
+
+struct OpenedFile {
+	QString path;
+	crl::time created = 0;
 };
 
 base::flat_map<not_null<DocumentData*>, LargeDocument> LargeDocuments;
-base::flat_set<QString> PendingCopies;
+base::flat_set<DocumentId> PendingDecrypts;
+std::vector<OpenedFile> OpenedFiles;
+std::unique_ptr<base::Timer> OpenedTimer;
 
-[[nodiscard]] QString OpenedMediaDirectory() {
+[[nodiscard]] QString LegacyOpenedMediaDirectory() {
 	return QStringLiteral("./tdata/ayu_media_tmp");
 }
 
+// Played or shown inside the app, so the bytes stay in memory only.
+[[nodiscard]] bool OpensInside(not_null<DocumentData*> document) {
+	return document->isVideoFile()
+		|| document->isAnimation()
+		|| document->isAudioFile()
+		|| document->isVoiceMessage()
+		|| document->isVideoMessage()
+		|| document->isImage();
+}
+
+[[nodiscard]] QString OpenedTarget(
+		const QString &path,
+		not_null<DocumentData*> document) {
+	auto suffix = QFileInfo(document->filename()).suffix();
+	suffix.remove(QRegularExpression(u"[^A-Za-z0-9]"_q));
+	return QDir(openedMediaDirectory()).absoluteFilePath(
+		QFileInfo(path).completeBaseName()
+		+ (suffix.isEmpty() ? QString() : ('.' + suffix.left(16))));
+}
+
+[[nodiscard]] bool WriteOpenedFile(
+		const QString &target,
+		const QByteArray &bytes) {
+	const auto directory = openedMediaDirectory();
+	if (!QDir().mkpath(directory)) {
+		return false;
+	}
+	QFile::setPermissions(
+		directory,
+		QFileDevice::ReadOwner
+			| QFileDevice::WriteOwner
+			| QFileDevice::ExeOwner);
+	auto file = QSaveFile(target);
+	if (!file.open(QIODevice::WriteOnly)) {
+		return false;
+	}
+	file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+	return (file.write(bytes) == bytes.size()) && file.commit();
+}
+
+void CheckOpened() {
+	const auto now = crl::now();
+	for (auto &[document, entry] : LargeDocuments) {
+		if (entry.media
+			&& entry.media.use_count() == 1
+			&& now - entry.used >= kOpenedMediaIdle) {
+			entry.media = nullptr;
+		}
+	}
+	OpenedFiles.erase(ranges::remove_if(OpenedFiles, [&](
+			const OpenedFile &file) {
+		// A file that is still busy on Windows is tried again later.
+		return (now - file.created >= kOpenedFileLifetime)
+			&& AyuVault::WipeFile(file.path);
+	}), end(OpenedFiles));
+	const auto busy = !OpenedFiles.empty() || ranges::any_of(
+		LargeDocuments,
+		[](const auto &pair) { return pair.second.media != nullptr; });
+	if (!busy && OpenedTimer) {
+		OpenedTimer->cancel();
+	}
+}
+
+void WatchOpened() {
+	if (!OpenedTimer) {
+		OpenedTimer = std::make_unique<base::Timer>(CheckOpened);
+	}
+	if (!OpenedTimer->isActive()) {
+		OpenedTimer->callEach(kOpenedCheckEach);
+	}
+}
+
+void WipeOpenedFiles(bool wait) {
+	auto paths = QStringList();
+	for (const auto &info : QDir(openedMediaDirectory()).entryInfoList(
+			QDir::Files | QDir::Hidden)) {
+		paths.push_back(info.absoluteFilePath());
+	}
+	for (const auto &info : QDir(LegacyOpenedMediaDirectory()).entryInfoList(
+			QDir::Files | QDir::Hidden)) {
+		paths.push_back(info.absoluteFilePath());
+	}
+	OpenedFiles.clear();
+	const auto wipe = [=] {
+		for (const auto &path : paths) {
+			AyuVault::WipeFile(path);
+		}
+		QDir(LegacyOpenedMediaDirectory()).removeRecursively();
+	};
+	if (wait) {
+		wipe();
+	} else {
+		crl::async(wipe);
+	}
+}
+
 } // namespace
+
+QString openedMediaDirectory() {
+	static const auto result = [] {
+		// WHY: every copy of the app has its own folder, so one does not
+		// wipe the files that another one has opened.
+		const auto hash = QCryptographicHash::hash(
+			QDir(cWorkingDir()).absolutePath().toUtf8(),
+			QCryptographicHash::Sha256).toHex().left(12);
+		return QDir(QStandardPaths::writableLocation(
+			QStandardPaths::TempLocation)).absoluteFilePath(
+				u"freshgram-media-"_q + QString::fromLatin1(hash));
+	}();
+	return result;
+}
 
 void PutDocumentBytesIntoCache(
 		not_null<DocumentData*> document,
 		const QString &path) {
 	if (QFileInfo(path).size() > Storage::kMaxFileInMemory) {
-		LargeDocuments[document] = { document->id, path };
+		auto &entry = LargeDocuments[document];
+		if (entry.id != document->id || entry.path != path) {
+			entry = LargeDocument{ .id = document->id, .path = path };
+		}
 		return;
 	}
 	const auto read = AyuVault::ReadFile(path);
@@ -838,7 +968,25 @@ void removeDeletedMessage(not_null<HistoryItem*> item) {
 	flushPendingDeleted();
 	const auto peer = item->history()->peer;
 	const ID userId = peer->session().userId().bare & PeerId::kChatTypeMask;
-	AyuDatabase::removeDeletedMessage(userId, getDialogIdFromPeer(peer), item->id.bare);
+	const auto dialogId = getDialogIdFromPeer(peer);
+	AyuDatabase::removeDeletedMessage(userId, dialogId, item->id.bare);
+	if (AyuSettings::getInstance().deleteSavedFiles()) {
+		removeSavedFiles({ { userId, dialogId, ID(item->id.bare) } });
+	}
+}
+
+void removeSavedFiles(const std::vector<SavedFileKey> &keys) {
+	for (const auto &key : keys) {
+		const auto path = SavedMediaPath(
+			key.userId,
+			key.dialogId,
+			int(key.messageId));
+		for (const auto &file : { path, TtlMediaPath(path) }) {
+			if (QFile::exists(file)) {
+				AyuVault::WipeFile(file);
+			}
+		}
+	}
 }
 
 void clearAllDeleted() {
@@ -867,60 +1015,79 @@ void clearUserMedia(ID userId) {
 	for (const auto &name : dir.entryList(
 			QStringList() << (QString::number(userId) + "_*"),
 			QDir::Files)) {
-		QFile::remove(dir.absoluteFilePath(name));
+		AyuVault::WipeFile(dir.absoluteFilePath(name));
 	}
 }
 
 void clearOpenedMedia() {
-	QDir(OpenedMediaDirectory()).removeRecursively();
 	LargeDocuments.clear();
+	PendingDecrypts.clear();
+	OpenedTimer = nullptr;
+	WipeOpenedFiles(true);
 }
 
-// WHY: the cache takes up to 10 MB per value, so a bigger file is
-// decrypted on the click into a copy that is removed on exit.
+void releaseOpenedMedia() {
+	for (auto &[document, entry] : LargeDocuments) {
+		entry.media = nullptr;
+		entry.openedPath = QString();
+	}
+	WipeOpenedFiles(false);
+}
+
+// WHY: the cache takes up to 10 MB per value. A bigger media is decrypted
+// into memory on the click, another file into a private temporary folder.
 bool prepareLargeMedia(not_null<DocumentData*> document) {
 	const auto i = LargeDocuments.find(document);
 	if (i == LargeDocuments.end() || i->second.id != document->id) {
 		return false;
 	}
-	[[maybe_unused]] static const auto cleaned = [] {
-		QDir(OpenedMediaDirectory()).removeRecursively();
-		return true;
-	}();
-	const auto path = i->second.path;
-	const auto target = QDir(OpenedMediaDirectory()).absoluteFilePath(
-		QFileInfo(path).completeBaseName()
-		+ '.'
-		+ QFileInfo(document->filename()).suffix());
-	if (QFile::exists(target)) {
-		if (document->filepath().isEmpty()) {
-			document->setLocation(Core::FileLocation(target));
-			document->session().data().requestDocumentViewRepaint(document);
-			return true;
-		}
+	auto &entry = i->second;
+	if (entry.media && !entry.media->bytes().isEmpty()) {
+		entry.used = crl::now();
+		return false;
+	} else if (!entry.openedPath.isEmpty()
+		&& QFile::exists(entry.openedPath)
+		&& !document->filepath(true).isEmpty()) {
 		return false;
 	}
-	if (!PendingCopies.emplace(target).second) {
+	const auto id = document->id;
+	if (!PendingDecrypts.emplace(id).second) {
 		return true;
 	}
 	Ui::Toast::Show(tr::ayu_DeletedMediaDecrypting(tr::now));
+	const auto path = entry.path;
+	const auto inside = OpensInside(document);
+	const auto target = inside ? QString() : OpenedTarget(path, document);
 	crl::async([=, session = &document->session()] {
-		const auto read = AyuVault::ReadFile(path);
-		auto done = false;
-		if (read && !read->isEmpty()) {
-			QDir().mkpath(QFileInfo(target).absolutePath());
-			auto file = QSaveFile(target);
-			done = file.open(QIODevice::WriteOnly)
-				&& file.write(*read) == read->size()
-				&& file.commit();
+		auto read = AyuVault::ReadFile(path);
+		auto done = read && !read->isEmpty();
+		if (done && !inside) {
+			done = WriteOpenedFile(target, *read);
+			read = std::nullopt;
 		}
-		crl::on_main([=] { PendingCopies.remove(target); });
-		crl::on_main(session, [=] {
-			if (!done) {
+		crl::on_main([=] { PendingDecrypts.remove(id); });
+		crl::on_main(session, [=, read = std::move(read)] {
+			const auto i = LargeDocuments.find(document);
+			if (i == LargeDocuments.end() || i->second.id != id) {
+				if (!target.isEmpty()) {
+					AyuVault::WipeFile(target);
+				}
+				return;
+			} else if (!done) {
 				Ui::Toast::Show(tr::ayu_DeletedMediaDecryptFailed(tr::now));
 				return;
 			}
-			document->setLocation(Core::FileLocation(target));
+			auto &entry = i->second;
+			if (inside) {
+				entry.media = document->createMediaView();
+				entry.media->setBytes(*read);
+				entry.used = crl::now();
+			} else {
+				entry.openedPath = target;
+				OpenedFiles.push_back({ target, crl::now() });
+				document->setLocation(Core::FileLocation(target));
+			}
+			WatchOpened();
 			session->data().requestDocumentViewRepaint(document);
 		});
 	});
@@ -939,7 +1106,20 @@ void clearEverything() {
 void clearDeletedMessages(not_null<PeerData*> peer, ID topicId) {
 	flushPendingDeleted();
 	const ID userId = peer->session().userId().bare & PeerId::kChatTypeMask;
-	AyuDatabase::clearDeletedMessages(userId, getDialogIdFromPeer(peer), topicId);
+	const auto dialogId = getDialogIdFromPeer(peer);
+	auto keys = std::vector<SavedFileKey>();
+	if (AyuSettings::getInstance().deleteSavedFiles()) {
+		for (const auto messageId : AyuDatabase::getDeletedMessageIds(
+				userId,
+				dialogId,
+				topicId)) {
+			keys.push_back({ userId, dialogId, messageId });
+		}
+	}
+	AyuDatabase::clearDeletedMessages(userId, dialogId, topicId);
+	if (!keys.empty()) {
+		crl::async([=] { removeSavedFiles(keys); });
+	}
 }
 
 }

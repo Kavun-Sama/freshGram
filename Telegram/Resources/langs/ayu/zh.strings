@@ -530,6 +530,8 @@
 "ayu_StashFilesLimit" = "文件过多或过大，无法暂存。";
 "ayu_StashHint" = "按 {shortcut} 暂存此草稿。";
 "ayu_KeepDeletedDays" = "已删除消息和编辑记录保留时长";
+"ayu_DeleteSavedFiles" = "随已保存消息一起删除文件";
+"ayu_DeleteSavedFilesAbout" = "手动或按保留期限移除已保存的已删除消息时，其媒体会被覆盖擦除，并同时从备份中移除。最完整的备份不再超出备份数量保留。";
 "ayu_BackupKeepCount" = "保留的数据库备份数";
 "ayu_BackupInterval" = "数据库备份间隔";
 "ayu_StorageUnlimited" = "无限制";
@@ -694,6 +696,9 @@
 "ayu_PasscodeWipeDeleteAll" = "删除所有数据";
 "ayu_PasscodeWipeAbout" = "锁屏上的连续失败次数会被计数，并在重启后保留。这可以防止在应用内猜测；能访问磁盘的人可以重置计数。";
 "ayu_PasscodeWiped" = "失败次数过多。数据已删除。";
+"ayu_PasscodeKeyUnavailable" = "无法验证密码：此版本不支持 Argon2id 或内存不足。本次尝试未计入。";
+"ayu_PasscodeKdfFailed" = "无法生成新密钥，未做任何更改。";
+"ayu_PasscodeLockMinimizeWayland" = "在 Wayland 下窗口无法得知自己是否已最小化，因此应用在保持非活动状态达到所选时间后锁定。";
 "ayu_PasscodeLockScreen" = "锁屏";
 "ayu_PasscodeShowClock" = "显示时钟";
 "ayu_PasscodeLockOnSystemLock" = "电脑锁定或睡眠时锁定";

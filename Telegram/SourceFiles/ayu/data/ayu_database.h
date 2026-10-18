@@ -49,6 +49,7 @@ bool hasDeletedMessages(ID userId, ID dialogId, ID topicId);
 std::vector<ID> getDeletedDialogIds(ID userId);
 void removeDeletedMessage(ID userId, ID dialogId, ID messageId);
 void clearDeletedMessages(ID userId, ID dialogId, ID topicId);
+std::vector<ID> getDeletedMessageIds(ID userId, ID dialogId, ID topicId);
 void clearAllDeleted();
 
 void saveSecretChat(const SecretChatRow &chat);

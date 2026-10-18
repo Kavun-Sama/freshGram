@@ -422,6 +422,7 @@ void AyuSettings::load() {
 		AyuDatabaseBackup::configure(
 			settings.backupKeepCount(),
 			settings.backupIntervalHours());
+		AyuDatabaseBackup::setKeepRichest(!settings.deleteSavedFiles());
 		AyuDatabase::purgeOlderThan(settings.keepDeletedDays());
 		AyuNetworkPrivacy::SetEnabled(settings.reduceNetworkTracking());
 		AyuDebugLogging::SetEnabled(settings.enableDebugLogging());
@@ -933,6 +934,14 @@ void AyuSettings::setDeletedMediaMaxSizeMb(int val) {
 void AyuSettings::setKeepDeletedDays(int val) {
 	if (_keepDeletedDays.current() == val) return;
 	_keepDeletedDays = val;
+	AyuDatabase::purgeOlderThan(val);
+	save();
+}
+
+void AyuSettings::setDeleteSavedFiles(bool val) {
+	if (_deleteSavedFiles.current() == val) return;
+	_deleteSavedFiles = val;
+	AyuDatabaseBackup::setKeepRichest(!val);
 	save();
 }
 
@@ -1625,6 +1634,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"keptSnapshotLimit", s._keptSnapshotLimit.current()},
 		{"deletedMediaMaxSizeMb", s._deletedMediaMaxSizeMb.current()},
 		{"keepDeletedDays", s._keepDeletedDays.current()},
+		{"deleteSavedFiles", s._deleteSavedFiles.current()},
 		{"backupKeepCount", s._backupKeepCount.current()},
 		{"backupIntervalHours", s._backupIntervalHours.current()},
 		{"replyBackgroundOpacity", s._replyBackgroundOpacity.current()},
@@ -1789,6 +1799,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._keptSnapshotLimit = j.value("keptSnapshotLimit", defaults._keptSnapshotLimit.current());
 	s._deletedMediaMaxSizeMb = j.value("deletedMediaMaxSizeMb", defaults._deletedMediaMaxSizeMb.current());
 	s._keepDeletedDays = j.value("keepDeletedDays", defaults._keepDeletedDays.current());
+	s._deleteSavedFiles = j.value("deleteSavedFiles", defaults._deleteSavedFiles.current());
 	s._backupKeepCount = j.value("backupKeepCount", defaults._backupKeepCount.current());
 	s._backupIntervalHours = j.value("backupIntervalHours", defaults._backupIntervalHours.current());
 	s._replyBackgroundOpacity = j.value("replyBackgroundOpacity", defaults._replyBackgroundOpacity.current());

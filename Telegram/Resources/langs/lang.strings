@@ -9377,6 +9377,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_StashFilesLimit" = "Too many or too large files to stash.";
 "ayu_StashHint" = "Press {shortcut} to stash this draft.";
 "ayu_KeepDeletedDays" = "Keep deleted messages and edits for";
+"ayu_DeleteSavedFiles" = "Delete files with saved messages";
+"ayu_DeleteSavedFilesAbout" = "When saved deleted messages are removed by hand or by the time limit, their media is wiped and they are removed from the backups too. The fullest backup is no longer kept beyond the backup count.";
 "ayu_BackupKeepCount" = "Database backups to keep";
 "ayu_BackupInterval" = "Database backup every";
 "ayu_StorageUnlimited" = "No limit";
@@ -9501,6 +9503,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_PasscodeWipeDeleteAll" = "Delete all data";
 "ayu_PasscodeWipeAbout" = "Failed attempts on the lock screen are counted in a row and kept between restarts. This protects against guessing in the app; anyone with access to the disk can reset the counter.";
 "ayu_PasscodeWiped" = "Too many failed attempts. The data was removed.";
+"ayu_PasscodeKeyUnavailable" = "Could not check the passcode: this build has no Argon2id or there is not enough memory. The attempt was not counted.";
+"ayu_PasscodeKdfFailed" = "Could not derive the new key, nothing was changed.";
+"ayu_PasscodeLockMinimizeWayland" = "On Wayland the window cannot tell whether it is minimized, so the app locks when it stays inactive for the chosen time.";
 "ayu_PasscodeLockScreen" = "Lock screen";
 "ayu_PasscodeShowClock" = "Show clock";
 "ayu_PasscodeLockOnSystemLock" = "Lock when the computer locks or sleeps";
