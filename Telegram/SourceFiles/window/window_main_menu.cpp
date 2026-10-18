@@ -154,7 +154,9 @@ public:
 protected:
 	void paintEvent(QPaintEvent *e) override;
 
-	static constexpr auto kText = "110%";
+	[[nodiscard]] static QString Text() {
+		return QString::number(style::DefaultScale()) + '%';
+	}
 
 };
 
@@ -263,7 +265,7 @@ MainMenu::ResetScaleButton::ResetScaleButton(QWidget *parent)
 : AbstractButton(parent) {
 	const auto margin = st::mainMenuCloudButton.height
 		- st::mainMenuCloudSize;
-	const auto textWidth = st::mainMenuResetScaleFont->width(kText);
+	const auto textWidth = st::mainMenuResetScaleFont->width(Text());
 	const auto innerWidth = st::mainMenuResetScaleLeft
 		+ textWidth
 		+ st::mainMenuResetScaleRight;
@@ -278,7 +280,7 @@ void MainMenu::ResetScaleButton::paintEvent(QPaintEvent *e) {
 	const auto radius = innerHeight / 2;
 	const auto margin = st::mainMenuCloudButton.height
 		- st::mainMenuCloudSize;
-	const auto textWidth = st::mainMenuResetScaleFont->width(kText);
+	const auto textWidth = st::mainMenuResetScaleFont->width(Text());
 	const auto innerWidth = st::mainMenuResetScaleLeft
 		+ textWidth
 		+ st::mainMenuResetScaleRight;
@@ -300,7 +302,7 @@ void MainMenu::ResetScaleButton::paintEvent(QPaintEvent *e) {
 	p.drawText(
 		left + st::mainMenuResetScaleLeft,
 		top + st::mainMenuResetScaleTop + st::mainMenuResetScaleFont->ascent,
-		kText);
+		Text());
 }
 
 MainMenu::MainMenu(
@@ -1039,7 +1041,7 @@ void MainMenu::initResetScaleButton() {
 		} else {
 			_resetScaleButton.create(this);
 			_resetScaleButton->addClickHandler([] {
-				cSetConfigScale(style::kScaleDefault);
+				cSetConfigScale(style::DefaultScale());
 				Local::writeSettings();
 				Core::Restart();
 			});

@@ -12,6 +12,7 @@
 #include "ui/integration.h"
 #include "base/random.h"
 #include "base/flags.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include <QtCore/QBuffer>
 #include <QtCore/QFile>
@@ -38,6 +39,22 @@ bool SpoilersStatic = false;
 [[nodiscard]] SpoilerMessDescriptor DefaultDescriptorText() {
 	const auto ratio = style::DevicePixelRatio();
 	const auto size = style::ConvertScale(128) * ratio;
+	if (AyuUiSettings::isTelegramDesign()) {
+		return {
+			.particleFadeInDuration = crl::time(200),
+			.particleShownDuration = crl::time(200),
+			.particleFadeOutDuration = crl::time(200),
+			.particleSizeMin = style::ConvertScaleExact(1.5) * ratio,
+			.particleSizeMax = style::ConvertScaleExact(2.) * ratio,
+			.particleSpeedMin = style::ConvertScaleExact(4.),
+			.particleSpeedMax = style::ConvertScaleExact(8.),
+			.particleSpritesCount = 5,
+			.particlesCount = 9000,
+			.canvasSize = size,
+			.framesCount = kDefaultFramesCount,
+			.frameDuration = kDefaultFrameDuration,
+		};
+	}
 	return {
 		.particleFadeInDuration = crl::time(350),
 		.particleShownDuration = crl::time(200),
@@ -56,6 +73,22 @@ bool SpoilersStatic = false;
 
 [[nodiscard]] SpoilerMessDescriptor DefaultDescriptorImage() {
 	const auto ratio = style::DevicePixelRatio();
+	if (AyuUiSettings::isTelegramDesign()) {
+		return {
+			.particleFadeInDuration = crl::time(300),
+			.particleShownDuration = crl::time(0),
+			.particleFadeOutDuration = crl::time(300),
+			.particleSizeMin = style::ConvertScaleExact(1.5) * ratio,
+			.particleSizeMax = style::ConvertScaleExact(2.) * ratio,
+			.particleSpeedMin = style::ConvertScaleExact(10.),
+			.particleSpeedMax = style::ConvertScaleExact(20.),
+			.particleSpritesCount = 5,
+			.particlesCount = 3000,
+			.canvasSize = style::ConvertScale(128) * ratio,
+			.framesCount = kDefaultFramesCount,
+			.frameDuration = kDefaultFrameDuration,
+		};
+	}
 	const auto size = style::ConvertScale(256) * ratio;
 	return {
 		.particleFadeInDuration = crl::time(500),
@@ -348,7 +381,7 @@ void PrepareDefaultSpoiler(
 void PrepareTextSpoilerMask() {
 	PrepareDefaultSpoiler(
 		DefaultTextMask,
-		"text",
+		AyuUiSettings::isTelegramDesign() ? "text_tg" : "text",
 		DefaultDescriptorText,
 		[](std::unique_ptr<SpoilerMessCached> cached) { return cached; });
 }
@@ -922,7 +955,7 @@ void PreloadImageSpoiler() {
 	};
 	PrepareDefaultSpoiler(
 		DefaultImageCached,
-		"image",
+		AyuUiSettings::isTelegramDesign() ? "image_tg" : "image",
 		DefaultDescriptorImage,
 		postprocess);
 }

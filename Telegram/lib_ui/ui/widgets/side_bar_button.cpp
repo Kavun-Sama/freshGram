@@ -6,6 +6,8 @@
 //
 #include "ui/widgets/side_bar_button.h"
 
+#include "ayu/ayu_ui_settings.h"
+
 #include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
 #include "styles/style_widgets.h"
@@ -167,7 +169,8 @@ void SideBarButton::paintEvent(QPaintEvent *e) {
 	auto hq = PainterHighQualityEnabler(p);
 	const auto clip = e->rect();
 
-	const auto &bg = _st.textBg;
+	const auto material = !AyuUiSettings::isTelegramDesign();
+	const auto &bg = (_active && !material) ? _st.textBgActive : _st.textBg;
 	p.fillRect(clip, bg);
 
 	RippleButton::paintRipple(p, 0, 0);
@@ -180,7 +183,7 @@ void SideBarButton::paintEvent(QPaintEvent *e) {
 		const auto &icon = computeIcon();
 		const auto x = iconLeft();
 		const auto y = iconTop();
-		if (_active) {
+		if (_active && material) {
 			const int capsulePaddingH = 8;
 			const int capsulePaddingV = -4;
 			const int capsuleWidth = icon.width() + 2 * capsulePaddingH;

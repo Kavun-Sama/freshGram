@@ -28,6 +28,7 @@ void SetDevicePixelRatio(int ratio);
 [[nodiscard]] int Scale();
 void SetScale(int scale);
 
+[[nodiscard]] int DefaultScale();
 [[nodiscard]] int MaxScaleForRatio(int ratio);
 [[nodiscard]] int CheckScale(int scale);
 

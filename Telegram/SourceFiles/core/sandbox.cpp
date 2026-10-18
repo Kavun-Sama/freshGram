@@ -360,7 +360,7 @@ void Sandbox::setupScreenScale() {
 	LOG(("Computed screen scale: %1").arg(screenScale));
 	if (Platform::IsMac()) {
 		// 110% for Retina screens by default.
-		cSetScreenScale((useRatio == 2) ? 110 : style::kScaleDefault);
+		cSetScreenScale((useRatio == 2) ? 110 : style::DefaultScale());
 	} else {
 		cSetScreenScale(std::clamp(
 			screenScale,

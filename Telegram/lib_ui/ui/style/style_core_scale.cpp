@@ -6,6 +6,7 @@
 //
 #include "ui/style/style_core_scale.h"
 
+#include "ayu/ayu_ui_settings.h"
 #include "base/assertion.h"
 
 namespace style {
@@ -32,6 +33,10 @@ void SetScale(int scale) {
 	Expects(scale != 0);
 
 	ScaleValue = scale;
+}
+
+int DefaultScale() {
+	return AyuUiSettings::isTelegramDesign() ? 100 : kScaleDefault;
 }
 
 int MaxScaleForRatio(int ratio) {

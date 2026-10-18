@@ -6,6 +6,8 @@
 //
 #include "ui/widgets/buttons.h"
 
+#include "ayu/ayu_ui_settings.h"
+
 #include "ui/effects/ripple_animation.h"
 #include "ui/effects/cross_animation.h"
 #include "ui/effects/numbers_animation.h"
@@ -414,7 +416,16 @@ void RoundButton::setCornerRadii(
 }
 
 void RoundButton::resizeToText(const TextWithEntities &text) {
-	_text.setMarkedText(_st.style, text, kMarkupTextOptions, _context);
+	if (_transform == RoundButtonTextTransform::ToUpper
+		&& AyuUiSettings::isTelegramDesign()) {
+		_text.setMarkedText(
+			_st.style,
+			{ text.text.toUpper(), text.entities },
+			kMarkupTextOptions,
+			_context);
+	} else {
+		_text.setMarkedText(_st.style, text, kMarkupTextOptions, _context);
+	}
 	int innerWidth = _text.maxWidth() + addedWidth();
 	if (_fullWidthOverride > 0) {
 		const auto padding = _fullRadius
