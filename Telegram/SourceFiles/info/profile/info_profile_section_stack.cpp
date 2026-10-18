@@ -199,6 +199,8 @@ void SectionStack::finalize() {
 
 	Ui::AddSkip(_layout, st::infoProfileSkip);
 	if (FA::Ui::Enabled()) {
+		// The first card stands as far from the actions as cards from each other.
+		Ui::AddSkip(_layout, st::fagramProfileTopSkip);
 		// The blocks added below are joined into the rounded cards.
 		// The profile column is narrow, its cards keep closer to the edges.
 		FA::Ui::AttachCards(_layout, st::fagramProfileCardInset);
