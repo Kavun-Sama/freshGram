@@ -8,6 +8,7 @@
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
 #include "main/main_session.h"
+#include "mainwidget.h"
 #include "storage/storage_media_prepare.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
