@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_game.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "lang/lang_keys.h"
 #include "history/history_item_components.h"
@@ -137,7 +138,7 @@ QSize Game::countOptimalSize() {
 	minHeight += padding.top() + padding.bottom();
 
 	if (!_gameTagWidth) {
-		_gameTagWidth = st::msgDateFont->width(tr::lng_game_tag(tr::now));
+		_gameTagWidth = st::msgDateFont->width(AyuUiSettings::upperInTelegramDesign(tr::lng_game_tag(tr::now)));
 	}
 	return { maxWidth, minHeight };
 }
@@ -324,7 +325,7 @@ void Game::draw(Painter &p, const PaintContext &context) const {
 
 		p.setFont(st::msgDateFont);
 		p.setPen(st->msgDateImgFg());
-		p.drawTextLeft(gameX + st::msgDateImgPadding.x(), gameY + st::msgDateImgPadding.y(), pixwidth, tr::lng_game_tag(tr::now));
+		p.drawTextLeft(gameX + st::msgDateImgPadding.x(), gameY + st::msgDateImgPadding.y(), pixwidth, AyuUiSettings::upperInTelegramDesign(tr::lng_game_tag(tr::now)));
 
 		p.translate(-attachLeft, -attachTop);
 	}

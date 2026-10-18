@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_contact_status.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "lang/lang_keys.h"
 #include "ui/controls/userpic_button.h"
@@ -313,16 +314,16 @@ ContactStatus::Bar::Bar(
 	st::historyContactStatusButton)
 , _unarchive(
 	this,
-	tr::lng_new_contact_unarchive(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_new_contact_unarchive(tr::now)),
 	st::historyContactStatusButton)
 , _unarchiveIcon(MakeIconButton(this, st::menuIconUnarchive))
 , _block(
 	this,
-	tr::lng_new_contact_block(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_new_contact_block(tr::now)),
 	st::historyContactStatusBlock)
 , _share(
 	this,
-	tr::lng_new_contact_share(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_new_contact_share(tr::now)),
 	st::historyContactStatusButton)
 , _report(
 	this,
@@ -422,8 +423,8 @@ void ContactStatus::Bar::showState(
 	_emojiStatusInfo->setVisible(has);
 	_addWithName = (type == Type::Add);
 	_report->setText((type == Type::ReportSpam)
-		? tr::lng_report_spam_and_leave(tr::now)
-		: tr::lng_report_spam(tr::now));
+		? AyuUiSettings::upperInTelegramDesign(tr::lng_report_spam_and_leave(tr::now))
+		: AyuUiSettings::upperInTelegramDesign(tr::lng_report_spam(tr::now)));
 	_requestChatInfo->setMarkedText(
 		(state.requestChatIsBroadcast
 			? tr::lng_new_contact_from_request_channel
@@ -481,16 +482,17 @@ rpl::producer<> ContactStatus::Bar::setBotPhotoClicks() const {
 
 void ContactStatus::Bar::refreshAddText(int newWidth) {
 	const auto compose = [](const QString &name) {
-		return tr::lng_new_contact_add_name(tr::now, lt_user, name);
+		return AyuUiSettings::upperInTelegramDesign(
+			tr::lng_new_contact_add_name(tr::now, lt_user, name));
 	};
-	auto text = tr::lng_new_contact_add(tr::now);
+	auto text = AyuUiSettings::upperInTelegramDesign(tr::lng_new_contact_add(tr::now));
 	auto elided = false;
 	if (_addWithName) {
 		const auto font = st::historyContactStatusButton.font;
 		const auto available = newWidth
 			- _close->width()
 			- 2 * st::historyContactStatusMinSkip;
-		const auto name = _name;
+		const auto name = AyuUiSettings::upperInTelegramDesign(_name);
 		text = compose(name);
 		if (available > 0 && font->width(text) > available) {
 			elided = true;

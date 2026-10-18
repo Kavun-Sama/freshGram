@@ -73,6 +73,10 @@ bool isTelegramDesign() {
 	return (currentDesignStyle == DesignStyle::Telegram);
 }
 
+QString upperInTelegramDesign(const QString &text) {
+	return isTelegramDesign() ? text.toUpper() : text;
+}
+
 int getDesignValue(int material, int telegram) {
 	return (currentDesignStyle == DesignStyle::Materialgram)
 		? material

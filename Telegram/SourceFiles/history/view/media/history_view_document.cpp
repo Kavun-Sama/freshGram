@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_document.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "base/random.h"
 #include "lang/lang_keys.h"
@@ -1645,15 +1646,15 @@ void Document::setStatusSize(int64 newSize, TimeId realDuration) const {
 		realDuration);
 	if (auto thumbed = Get<HistoryDocumentThumbed>()) {
 		if (_statusSize == Ui::FileStatusSizeReady) {
-			thumbed->link = tr::lng_media_download(tr::now);
+			thumbed->link = AyuUiSettings::upperInTelegramDesign(tr::lng_media_download(tr::now));
 		} else if (_statusSize == Ui::FileStatusSizeLoaded) {
-			thumbed->link = tr::lng_media_open_with(tr::now);
+			thumbed->link = AyuUiSettings::upperInTelegramDesign(tr::lng_media_open_with(tr::now));
 		} else if (_statusSize == Ui::FileStatusSizeFailed) {
-			thumbed->link = tr::lng_media_download(tr::now);
+			thumbed->link = AyuUiSettings::upperInTelegramDesign(tr::lng_media_download(tr::now));
 		} else if (_statusSize >= 0) {
-			thumbed->link = tr::lng_media_cancel(tr::now);
+			thumbed->link = AyuUiSettings::upperInTelegramDesign(tr::lng_media_cancel(tr::now));
 		} else {
-			thumbed->link = tr::lng_media_open_with(tr::now);
+			thumbed->link = AyuUiSettings::upperInTelegramDesign(tr::lng_media_open_with(tr::now));
 		}
 		thumbed->linkw = st::semiboldFont->width(thumbed->link);
 	}

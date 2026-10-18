@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_pinned_section.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "history/view/history_view_top_bar_widget.h"
 #include "history/view/history_view_translate_bar.h"
@@ -512,12 +513,12 @@ void PinnedWidget::setMessagesCount(int count) {
 
 void PinnedWidget::refreshClearButtonText() {
 	const auto can = _history->peer->canPinMessages();
-	_clearButton->setText(can
+	_clearButton->setText(AyuUiSettings::upperInTelegramDesign(can
 		? tr::lng_pinned_unpin_all(
 			tr::now,
 			lt_count,
 			std::max(_messagesCount, 1))
-		: tr::lng_pinned_hide_all(tr::now));
+		: tr::lng_pinned_hide_all(tr::now)));
 }
 
 void PinnedWidget::updateControlsGeometry() {

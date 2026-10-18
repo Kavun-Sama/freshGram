@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_view_button.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "boxes/gift_premium_box.h"
 #include "core/application.h"
@@ -61,7 +62,7 @@ namespace {
 [[nodiscard]] QString MakeMediaButtonText(not_null<Data::Media*> media) {
 	Expects(media->giveawayStart() || media->giveawayResults());
 
-	return tr::lng_prizes_how_works(tr::now);
+	return AyuUiSettings::upperInTelegramDesign(tr::lng_prizes_how_works(tr::now));
 }
 
 [[nodiscard]] ClickHandlerPtr MakeRichMessageButtonClickHandler(

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "info/profile/info_profile_actions.h"
 
 #include "api/api_blocked_peers.h"
@@ -1066,7 +1067,7 @@ auto AddMainButton(
 		const style::SettingsButton &st = st::infoMainButton) {
 	const auto button = AddActionButton(
 		parent,
-		std::move(text),
+		std::move(text) | rpl::map(AyuUiSettings::upperInTelegramDesign),
 		std::move(toggleOn),
 		std::move(callback),
 		nullptr,

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ayu/secret/secret_peer.h"
+#include "ayu/ayu_ui_settings.h"
 #include "history/history_widget.h"
 
 #include "api/api_compose_with_ai.h"
@@ -329,19 +330,19 @@ HistoryWidget::HistoryWidget(
 , _translator(std::make_unique<Ayu::ComposeTranslator>())
 , _unblock(
 	this,
-	tr::lng_unblock_button(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_unblock_button(tr::now)),
 	st::historyUnblock)
 , _botStart(
 	this,
-	tr::lng_bot_start(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_bot_start(tr::now)),
 	st::historyComposeButton)
 , _joinChannel(
 	this,
-	tr::lng_profile_join_channel(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_profile_join_channel(tr::now)),
 	st::historyComposeButton)
 , _muteUnmute(
 	this,
-	tr::lng_channel_mute(tr::now),
+	AyuUiSettings::upperInTelegramDesign(tr::lng_channel_mute(tr::now)),
 	st::historyComposeButton)
 , _discuss(this,
 	tr::ayu_ChannelBottomButtonDiscuss(tr::now).toUpper(),
@@ -1384,7 +1385,7 @@ Dialogs::EntryState HistoryWidget::computeDialogsEntryState() const {
 
 void HistoryWidget::refreshJoinChannelText() {
 	if (const auto channel = _peer ? _peer->asChannel() : nullptr) {
-		_joinChannel->setText((channel->isBroadcast()
+		_joinChannel->setText(AyuUiSettings::upperInTelegramDesign(channel->isBroadcast()
 			? tr::lng_profile_join_channel(tr::now)
 			: (channel->requestToJoin() && !channel->amCreator())
 			? tr::lng_profile_apply_to_join_group(tr::now)
@@ -3585,7 +3586,7 @@ void HistoryWidget::showHistory(
 	initFieldAutocomplete();
 
 	if (_peer) {
-		_unblock->setText(((_peer->isUser()
+		_unblock->setText(AyuUiSettings::upperInTelegramDesign((_peer->isUser()
 			&& _peer->asUser()->isBot()
 			&& !_peer->asUser()->isSupport())
 				? tr::lng_restart_button(tr::now)
@@ -4108,7 +4109,7 @@ void HistoryWidget::updateNotifyControls() {
 		return;
 	}
 
-	_muteUnmute->setText((_history->muted()
+	_muteUnmute->setText(AyuUiSettings::upperInTelegramDesign(_history->muted()
 		? tr::lng_channel_unmute(tr::now)
 		: tr::lng_channel_mute(tr::now)));
 	if (!session().data().notifySettings().silentPostsUnknown(_peer)) {
@@ -11426,12 +11427,12 @@ void HistoryWidget::updateTopBarSelection() {
 		_reportMessages->setAttribute(transparent, false);
 		_reportMessages->setColorOverride(std::nullopt);
 	}
-	_reportMessages->setText(selectedState.count
+	_reportMessages->setText(AyuUiSettings::upperInTelegramDesign(selectedState.count
 		? tr::lng_report_messages_count(
 			tr::now,
 			lt_count,
 			selectedState.count)
-		: tr::lng_report_messages_none(tr::now));
+		: tr::lng_report_messages_none(tr::now)));
 	updateControlsVisibility();
 	updateHistoryGeometry();
 	if (!controller()->isLayerShown()

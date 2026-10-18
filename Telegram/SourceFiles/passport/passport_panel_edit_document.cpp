@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "passport/passport_panel_edit_document.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "passport/passport_panel_controller.h"
 #include "passport/passport_panel_edit_scans.h"
@@ -498,7 +499,7 @@ not_null<Ui::RpWidget*> PanelEditDocument::setupContent(
 		inner->add(
 			object_ptr<Ui::SettingsButton>(
 				inner,
-				std::move(*text),
+				std::move(*text) | rpl::map(AyuUiSettings::upperInTelegramDesign),
 				st::passportDeleteButton),
 			st::passportUploadButtonPadding
 		)->addClickHandler([=] {

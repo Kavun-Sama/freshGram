@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_web_page.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "base/unixtime.h"
 #include "core/application.h"
@@ -164,7 +165,7 @@ constexpr auto kLogEntryPreviewLines = 2;
 
 [[nodiscard]] TextWithEntities PageToPhrase(not_null<WebPageData*> page) {
 	const auto type = page->type;
-	const auto text = page->iv
+	const auto text = AyuUiSettings::upperInTelegramDesign(page->iv
 		? tr::lng_view_button_iv(tr::now)
 		: page->uniqueGift
 		? tr::lng_view_button_collectible(tr::now)
@@ -223,7 +224,7 @@ constexpr auto kLogEntryPreviewLines = 2;
 				> base::unixtime::now()))
 			? tr::lng_auction_bar_view(tr::now)
 			: tr::lng_auction_preview_join(tr::now))
-		: QString();
+		: QString());
 	if (page->iv) {
 		return Ui::Text::IconEmoji(&st::historyIvIcon).append(text);
 	}
@@ -430,7 +431,9 @@ QSize WebPage::countOptimalSize() {
 			kMarkupTextOptions,
 			context);
 	} else if (sponsored && !sponsored->buttonText.isEmpty()) {
-		auto phrase = TextWithEntities{ sponsored->buttonText };
+		auto phrase = TextWithEntities{
+			AyuUiSettings::upperInTelegramDesign(sponsored->buttonText),
+		};
 		if (!sponsored->isLinkInternal) {
 			phrase.append(st::historyExternalLinkIcon);
 		}

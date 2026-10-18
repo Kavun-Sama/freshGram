@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/polls/info_polls_results_inner_widget.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "info/polls/info_polls_results_widget.h"
 #include "lang/lang_keys.h"
@@ -662,7 +663,8 @@ ListController *CreateAnswerRows(
 				container,
 				tr::lng_polls_show_more(
 					lt_count_decimal,
-					controller->loadMoreCount() | rpl::map(_1 + 0.)),
+					controller->loadMoreCount() | rpl::map(_1 + 0.)
+				) | rpl::map(AyuUiSettings::upperInTelegramDesign),
 				st::pollResultsShowMore)));
 	more->entity()->setClickedCallback([=] {
 		controller->allowLoadMore();

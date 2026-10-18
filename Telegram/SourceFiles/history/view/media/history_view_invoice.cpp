@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_invoice.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "lang/lang_keys.h"
 #include "history/view/history_view_element.h"
@@ -85,7 +86,7 @@ void Invoice::fillFromData(not_null<Data::Invoice*> invoice) {
 			EntityType::Bold,
 			0,
 			int(statusText.text.size()) });
-		statusText.text += ' ' + labelText();
+		statusText.text += ' ' + AyuUiSettings::upperInTelegramDesign(labelText());
 		_status.setMarkedText(
 			st::defaultTextStyle,
 			statusText,

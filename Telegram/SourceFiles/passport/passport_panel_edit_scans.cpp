@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "passport/passport_panel_edit_scans.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "passport/passport_panel_controller.h"
 #include "passport/ui/passport_details_row.h"
@@ -224,7 +225,7 @@ Ui::SlideWrap<ScanButton> *EditScans::List::nonDeletedErrorRow() const {
 rpl::producer<QString> EditScans::List::uploadButtonText() const {
 	return (files.empty()
 		? tr::lng_passport_upload_scans
-		: tr::lng_passport_upload_more)();
+		: tr::lng_passport_upload_more)() | rpl::map(AyuUiSettings::upperInTelegramDesign);
 }
 
 void EditScans::List::hideError() {
