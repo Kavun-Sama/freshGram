@@ -41,6 +41,7 @@
 #include "storage/file_download.h"
 #include "ui/toast/toast.h"
 
+#include <QtCore/QBuffer>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
@@ -118,7 +119,14 @@ bool WritePhotoBytes(
 	if (!media->loaded()) {
 		return false;
 	}
-	const auto bytes = media->imageBytes(Data::PhotoSize::Large);
+	auto bytes = media->imageBytes(Data::PhotoSize::Large);
+	if (bytes.isEmpty()) {
+		// WHY: a sent photo keeps only the decoded image taken from the upload.
+		if (const auto image = media->image(Data::PhotoSize::Large)) {
+			auto buffer = QBuffer(&bytes);
+			image->original().save(&buffer, "JPG", 87);
+		}
+	}
 	if (!bytes.isEmpty()) {
 		QDir().mkpath(QFileInfo(path).absolutePath());
 		AyuVault::WriteFile(path, bytes);
