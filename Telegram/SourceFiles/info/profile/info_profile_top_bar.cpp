@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ayu/ayu_settings.h"
+#include "ayu/ui/fagram/fagram_design.h"
 #include "ayu/ayu_ui_settings.h"
 #include "info/profile/info_profile_top_bar.h"
 
@@ -877,7 +878,13 @@ void TopBar::finalizeActions(
 			const auto buttonRect = button->geometry().translated(
 				extend.left(),
 				extend.top());
-			shadow->paint(p, buttonRect, st::boxRadius, opacity);
+			shadow->paint(
+				p,
+				buttonRect,
+				(FA::Ui::Enabled()
+					? (buttonRect.height() / 2)
+					: st::boxRadius),
+				opacity);
 		}
 	}, shadowRaw->lifetime());
 

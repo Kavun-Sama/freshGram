@@ -184,8 +184,10 @@ void SideBarButton::paintEvent(QPaintEvent *e) {
 		const auto x = iconLeft();
 		const auto y = iconTop();
 		if (_active && material) {
-			const int capsulePaddingH = 8;
-			const int capsulePaddingV = -4;
+			const auto fagram = (AyuUiSettings::designStyle()
+				== AyuUiSettings::DesignStyle::Fagram);
+			const int capsulePaddingH = fagram ? 10 : 8;
+			const int capsulePaddingV = fagram ? -2 : -4;
 			const int capsuleWidth = icon.width() + 2 * capsulePaddingH;
 			const int capsuleHeight = icon.height() + 2 * capsulePaddingV;
 			const int radius = capsuleHeight / 2;

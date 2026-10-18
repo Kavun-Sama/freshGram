@@ -53,6 +53,7 @@ protected:
 	QPoint prepareRippleStartPosition() const override;
 
 private:
+	[[nodiscard]] int cornerRadius() const;
 	void setupLottie(const QString &lottieName);
 
 	QString _text;

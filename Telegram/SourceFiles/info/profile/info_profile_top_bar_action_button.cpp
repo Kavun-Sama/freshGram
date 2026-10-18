@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/info_profile_top_bar_action_button.h"
+#include "ayu/ui/fagram/fagram_design.h"
 
 #include "ui/effects/animation_value.h"
 #include "ui/effects/ripple_animation.h"
@@ -130,7 +131,7 @@ void TopBarActionButton::paintEvent(QPaintEvent *e) {
 	p.setBrush(_bgColor);
 	{
 		auto hq = PainterHighQualityEnabler(p);
-		p.drawRoundedRect(rect(), st::boxRadius, st::boxRadius);
+		p.drawRoundedRect(rect(), cornerRadius(), cornerRadius());
 
 		const auto hovered = _rippleColor
 			? _overAnimation.value(isOver() ? 1. : 0.)
@@ -138,7 +139,7 @@ void TopBarActionButton::paintEvent(QPaintEvent *e) {
 		if (hovered > 0.) {
 			p.setOpacity(progress * hovered);
 			p.setBrush(*_rippleColor);
-			p.drawRoundedRect(rect(), st::boxRadius, st::boxRadius);
+			p.drawRoundedRect(rect(), cornerRadius(), cornerRadius());
 			p.setOpacity(progress);
 		}
 	}
@@ -216,8 +217,12 @@ void TopBarActionButton::onStateChanged(
 	}
 }
 
+int TopBarActionButton::cornerRadius() const {
+	return FA::Ui::Enabled() ? (height() / 2) : st::boxRadius;
+}
+
 QImage TopBarActionButton::prepareRippleMask() const {
-	return Ui::RippleAnimation::RoundRectMask(size(), st::boxRadius);
+	return Ui::RippleAnimation::RoundRectMask(size(), cornerRadius());
 }
 
 QPoint TopBarActionButton::prepareRippleStartPosition() const {
