@@ -198,6 +198,17 @@ struct Metrics {
 	float64 ascent = 0.;
 	float64 height = 0.;
 };
+[[nodiscard]] QString BaseFamily() {
+	return AyuUiSettings::isTelegramDesign()
+		? u"Open Sans"_q
+		: u"Google Sans"_q;
+}
+
+[[nodiscard]] bool IsBaseFontFile(const QString &name) {
+	return name.startsWith(u"OpenSans-"_q)
+		== AyuUiSettings::isTelegramDesign();
+}
+
 [[nodiscard]] Metrics ComputeMetrics(QFont font, bool adjust) {
 	constexpr auto kMaxSizeShift = 8;
 
@@ -212,7 +223,7 @@ struct Metrics {
 	};
 
 	const auto family = font.family();
-	const auto basic = u"Google Sans"_q;
+	const auto basic = BaseFamily();
 	if (family == basic || !adjust) {
 		return simple();
 	}
@@ -498,7 +509,7 @@ struct BoldFace {
 	} else if (overriden) {
 		font.setFamily(family);
 	} else {
-		font.setFamily("Google Sans"_q);
+		font.setFamily(BaseFamily());
 	}
 	font.setPixelSize(size);
 
@@ -521,7 +532,15 @@ struct BoldFace {
 				font.setFamily(face->family);
 				font.setWeight(QFont::Weight(face->weight));
 			} else if (!overriden && !system) {
-				if (DatabaseFamilies().contains(u"Google Sans Medium"_q)) {
+				if (AyuUiSettings::isTelegramDesign()) {
+					font.setWeight(QFont::DemiBold);
+					const auto style = QFontInfo(font).styleName();
+					if (!style.isEmpty() && !style.startsWith(
+							"Semibold",
+							Qt::CaseInsensitive)) {
+						font.setBold(true);
+					}
+				} else if (DatabaseFamilies().contains(u"Google Sans Medium"_q)) {
 					font.setFamily(u"Google Sans Medium"_q);
 				} else {
 					font.setWeight(QFont::DemiBold);
@@ -559,9 +578,13 @@ void StartFonts() {
 
 	style_InitFontsResource();
 
-	const auto name = u"Google Sans"_q;
+	const auto name = BaseFamily();
 
 	for (const auto &file : QDir(u":/gui/fonts/"_q).entryInfoList()) {
+		const auto fileName = file.fileName();
+		if (!fileName.startsWith(u"Vazirmatn"_q) && !IsBaseFontFile(fileName)) {
+			continue;
+		}
 		const auto path = file.canonicalFilePath();
 #ifdef LIB_UI_USE_PANGO
 		LoadCustomFont(ExtractedFontPath(path));

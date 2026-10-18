@@ -6,6 +6,8 @@
 //
 #include "ui/style/style_core.h"
 
+#include "ayu/ayu_ui_settings.h"
+
 #include "ui/effects/animation_value.h"
 #include "ui/painter.h"
 #include "styles/style_basic.h"
@@ -61,7 +63,9 @@ void StopShortAnimation() {
 } // namespace internal
 
 void StartManager(int scale) {
-	internal::RegisterFontFamily("Google Sans");
+	internal::RegisterFontFamily(AyuUiSettings::isTelegramDesign()
+		? u"Open Sans"_q
+		: u"Google Sans"_q);
 	internal::StartModules(scale);
 }
 

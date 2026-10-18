@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ayu/ayu_infra.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "ayu/data/ayu_database.h"
 #include "ayu/data/messages_storage.h"
 #include "ayu/features/fake_passcode/fake_passcode.h"
@@ -332,6 +333,8 @@ void Application::run() {
 		AyuCrashTrace::Remove(traceDirectory);
 	}
 
+	// WHY: the design style picks the base font, so it is needed before the fonts start.
+	AyuUiSettings::setDesignStyle(AyuSettings::getInstance().designStyle());
 	style::SetCustomFont(settings().customFontFamily());
 	style::internal::StartFonts();
 
