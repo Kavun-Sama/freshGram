@@ -171,8 +171,7 @@
 			x: event.clientX,
 			y: event.clientY,
 			rootX: event.screenX,
-			rootY: event.screenY,
-			timeStamp: Math.round(event.timeStamp || 0)
+			rootY: event.screenY
 		};
 		if (extra && typeof extra === 'object') {
 			for (const key in extra) {
