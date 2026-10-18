@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_widget.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "intro/intro_phone.h"
 #include "intro/intro_qr.h"
@@ -105,7 +106,7 @@ Widget::Widget(
 
 	getData()->country = ComputeNewAccountCountry();
 
-	if (!Core::App().domain().accountsAuthedCount()) {
+	if (!Core::App().domain().accountsAuthedCount() && !AyuUiSettings::isTelegramDesign()) {
 		Window::Theme::Apply(u":/gui/Google Day.tdesktop-theme"_q);
 		Window::Theme::KeepApplied();
 	}

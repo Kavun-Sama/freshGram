@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/themes/window_themes_embedded.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "base/platform/base_platform_info.h"
 #include "lang/lang_keys.h"
@@ -28,6 +29,8 @@ namespace {
 constexpr auto kMaxAccentColors = 3;
 constexpr auto kDayBaseFile = ":/gui/Google Day.tdesktop-theme"_cs;
 constexpr auto kNightBaseFile = ":/gui/Google Dark.tdesktop-theme"_cs;
+constexpr auto kTelegramDayBaseFile = ":/gui/day-custom-base.tdesktop-theme"_cs;
+constexpr auto kTelegramNightBaseFile = ":/gui/night-custom-base.tdesktop-theme"_cs;
 
 const auto kColorizeIgnoredKeys = base::flat_set<QLatin1String>{ {
 	qstr("boxTextFgGood"),
@@ -124,7 +127,7 @@ style::colorizer ColorizerFrom(
 
 	auto result = style::colorizer();
 	result.ignoreKeys = kColorizeIgnoredKeys;
-	result.hueThreshold = 35;
+	result.hueThreshold = AyuUiSettings::isTelegramDesign() ? 15 : 35;
 	scheme.accentColor.getHsv(
 		&result.was.hue,
 		&result.was.saturation,
@@ -141,7 +144,24 @@ style::colorizer ColorizerFrom(
 		result.lightnessMax = 160;
 		break;
 	case EmbeddedType::Night:
-		result.lightnessMin = 115;
+		if (!AyuUiSettings::isTelegramDesign()) {
+			result.lightnessMin = 115;
+			break;
+		}
+		result.keepContrast = base::flat_map<QLatin1String, Pair>{ {
+			{ qstr("activeButtonFg"), Pair{ cColor("2f6ea5"), cColor("17212b") } }, // activeButtonBg
+			{ qstr("profileVerifiedCheckFg"), Pair{ cColor("5288c1"), cColor("17212b") } }, // profileVerifiedCheckBg
+			{ qstr("overviewCheckFgActive"), Pair{ cColor("5288c1"), cColor("17212b") } }, // overviewCheckBgActive
+			{ qstr("historyFileInIconFg"), Pair{ cColor("3f96d0"), cColor("182533") } }, // msgFileInBg, msgInBg
+			{ qstr("historyFileInIconFgSelected"), Pair{ cColor("6ab4f4"), cColor("2e70a5") } }, // msgFileInBgSelected, msgInBgSelected
+			{ qstr("historyFileInRadialFg"), Pair{ cColor("3f96d0"), cColor("182533") } }, // msgFileInBg, msgInBg
+			{ qstr("historyFileInRadialFgSelected"), Pair{ cColor("6ab4f4"), cColor("2e70a5") } }, // msgFileInBgSelected, msgInBgSelected
+			{ qstr("historyFileOutIconFg"), Pair{ cColor("4c9ce2"), cColor("2b5278") } }, // msgFileOutBg, msgOutBg
+			{ qstr("historyFileOutIconFgSelected"), Pair{ cColor("58abf3"), cColor("2e70a5") } }, // msgFileOutBgSelected, msgOutBgSelected
+			{ qstr("historyFileOutRadialFg"), Pair{ cColor("4c9ce2"), cColor("2b5278") } }, // msgFileOutBg, msgOutBg
+			{ qstr("historyFileOutRadialFgSelected"), Pair{ cColor("58abf3"), cColor("2e70a5") } }, // msgFileOutBgSelected, msgOutBgSelected
+		} };
+		result.lightnessMin = 64;
 		break;
 	case EmbeddedType::NightGreen:
 		result.keepContrast = base::flat_map<QLatin1String, Pair>{ {
@@ -230,6 +250,54 @@ std::vector<EmbeddedScheme> EmbeddedThemes() {
 	const auto name = [](auto key) {
 		return rpl::deferred([=] { return key(); });
 		};
+	if (AyuUiSettings::isTelegramDesign()) {
+		return {
+			EmbeddedScheme{
+				EmbeddedType::Default,
+				qColor("9bd494"),
+				qColor("eaffdc"),
+				qColor("ffffff"),
+				qColor("eaffdc"),
+				qColor("ffffff"),
+				name(tr::lng_settings_theme_classic),
+				QString(),
+				qColor("40a7e3")
+			},
+			EmbeddedScheme{
+				EmbeddedType::DayBlue,
+				qColor("7ec4ea"),
+				qColor("d7f0ff"),
+				qColor("ffffff"),
+				qColor("d7f0ff"),
+				qColor("ffffff"),
+				name(tr::lng_settings_theme_day),
+				":/gui/day-blue.tdesktop-theme",
+				qColor("40a7e3")
+			},
+			EmbeddedScheme{
+				EmbeddedType::Night,
+				qColor("485761"),
+				qColor("5ca7d4"),
+				qColor("6b808d"),
+				qColor("6b808d"),
+				qColor("5ca7d4"),
+				name(tr::lng_settings_theme_tinted),
+				":/gui/night.tdesktop-theme",
+				qColor("5288c1")
+			},
+			EmbeddedScheme{
+				EmbeddedType::NightGreen,
+				qColor("485761"),
+				qColor("6b808d"),
+				qColor("6b808d"),
+				qColor("6b808d"),
+				qColor("75bfb5"),
+				name(tr::lng_settings_theme_night),
+				":/gui/night-green.tdesktop-theme",
+				qColor("3fc1b0")
+			},
+		};
+	}
 	return {
 		EmbeddedScheme{
 			EmbeddedType::DayBlue,
@@ -284,6 +352,29 @@ std::vector<QColor> DefaultAccentColors(EmbeddedType type) {
 	const auto qColor = [](auto hex) {
 		return style::ColorFromHex(hex);
 	};
+	if (AyuUiSettings::isTelegramDesign() && (type == EmbeddedType::DayBlue)) {
+		return {
+			qColor("45bce7"),
+			qColor("52b440"),
+			qColor("d46c99"),
+			qColor("df8a49"),
+			qColor("9978c8"),
+			qColor("c55245"),
+			qColor("687b98"),
+			qColor("dea922"),
+		};
+	} else if (AyuUiSettings::isTelegramDesign() && (type == EmbeddedType::Night)) {
+		return {
+			qColor("58bfe8"),
+			qColor("466f42"),
+			qColor("aa6084"),
+			qColor("a46d3c"),
+			qColor("917bbd"),
+			qColor("ab5149"),
+			qColor("697b97"),
+			qColor("9b834b"),
+		};
+	}
 	switch (type) {
 	case EmbeddedType::DayBlue:
 		return {
@@ -341,7 +432,11 @@ Fn<void(style::palette&)> PreparePaletteCallback(
 		const auto &embedded = EmbeddedThemes();
 		const auto i = ranges::find(
 			embedded,
-			dark ? EmbeddedType::Night : EmbeddedType::DayBlue,
+			dark
+				? EmbeddedType::Night
+				: AyuUiSettings::isTelegramDesign()
+				? EmbeddedType::Default
+				: EmbeddedType::DayBlue,
 			&EmbeddedScheme::type);
 		Assert(i != end(embedded));
 		const auto colorizer = accent
@@ -350,7 +445,9 @@ Fn<void(style::palette&)> PreparePaletteCallback(
 
 		auto instance = Instance();
 		const auto loaded = LoadFromFile(
-			(dark ? kNightBaseFile : kDayBaseFile).utf16(),
+			(AyuUiSettings::isTelegramDesign()
+				? (dark ? kTelegramNightBaseFile : kTelegramDayBaseFile)
+				: (dark ? kNightBaseFile : kDayBaseFile)).utf16(),
 			&instance,
 			nullptr,
 			nullptr,

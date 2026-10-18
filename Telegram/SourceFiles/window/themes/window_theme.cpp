@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/themes/window_theme.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "window/themes/window_theme_preview.h"
 #include "window/themes/window_themes_chat.h"
@@ -1414,7 +1415,9 @@ void Revert() {
 }
 
 QString NightThemePath() {
-	return kNightThemeFile.utf16();
+	return AyuUiSettings::isTelegramDesign()
+		? u":/gui/night.tdesktop-theme"_q
+		: kNightThemeFile.utf16();
 }
 
 bool IsNonDefaultBackground() {
