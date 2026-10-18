@@ -8915,7 +8915,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DesignStyleTelegram" = "Default Telegram design";
 "ayu_DesignStyleMaterialgram" = "Materialgram design";
 "ayu_DesignStyleFagram" = "FagramDesktop design";
-"ayu_DesignStyleDescription" = "The design style sets paddings, sizes and the look of interface elements. The design style and the icons are applied after a restart. The Fagram design adds the pill top bar, the navigation drawer menu, the cards in settings and profile, and the sliders and switches in the Material 3 style, ported from FAgram Desktop.";
+"ayu_DesignStyleDescription" = "The design style sets paddings, sizes and the look of interface elements. The design style and the icons are applied after a restart. The Fagram design adds the pill top bar, the navigation drawer menu, the cards in settings and profile, and the sliders and switches in the Material 3 style, ported from FAgram Desktop. The Telegram design matches Telegram Desktop, including its font, themes and icon colors.";
 "ayu_ManageWhisperModels" = "Speech recognition models";
 "ayu_ManageOcrLanguages" = "Text recognition languages";
 "ayu_ModelEnabled" = "Enabled";

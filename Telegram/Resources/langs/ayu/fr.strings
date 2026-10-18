@@ -129,7 +129,7 @@
 "ayu_DesignStyleTelegram" = "Design Telegram par défaut";
 "ayu_DesignStyleMaterialgram" = "Design Materialgram";
 "ayu_DesignStyleFagram" = "Design FagramDesktop";
-"ayu_DesignStyleDescription" = "Le style de conception définit les marges, les tailles et l'aspect des éléments de l'interface. Le style et les icônes s'appliquent après un redémarrage. Le design Fagram ajoute la barre supérieure en pilule, le menu de navigation, les cartes des paramètres et du profil, ainsi que les curseurs et interrupteurs de style Material 3 issus de FAgram Desktop.";
+"ayu_DesignStyleDescription" = "Le style de conception définit les marges, les tailles et l'aspect des éléments de l'interface. Le style et les icônes s'appliquent après un redémarrage. Le design Fagram ajoute la barre supérieure en pilule, le menu de navigation, les cartes des paramètres et du profil, ainsi que les curseurs et interrupteurs de style Material 3 issus de FAgram Desktop. Le design Telegram reprend celui de Telegram Desktop, y compris la police, les thèmes et les couleurs des icônes.";
 "ayu_ManageWhisperModels" = "Modèles de reconnaissance vocale";
 "ayu_ManageOcrLanguages" = "Langues de reconnaissance de texte";
 "ayu_ModelEnabled" = "Activé";

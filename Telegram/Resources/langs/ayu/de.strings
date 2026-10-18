@@ -129,7 +129,7 @@
 "ayu_DesignStyleTelegram" = "Standard-Telegram-Design";
 "ayu_DesignStyleMaterialgram" = "Materialgram-Design";
 "ayu_DesignStyleFagram" = "FagramDesktop-Design";
-"ayu_DesignStyleDescription" = "Der Designstil legt Abstände, Größen und das Aussehen der Oberflächenelemente fest. Stil und Symbole werden nach einem Neustart wirksam. Das Fagram-Design bringt die Pillen-Kopfleiste, das Navigationsmenü, Karten in Einstellungen und Profil sowie Schieberegler und Schalter im Material-3-Stil aus FAgram Desktop.";
+"ayu_DesignStyleDescription" = "Der Designstil legt Abstände, Größen und das Aussehen der Oberflächenelemente fest. Stil und Symbole werden nach einem Neustart wirksam. Das Fagram-Design bringt die Pillen-Kopfleiste, das Navigationsmenü, Karten in Einstellungen und Profil sowie Schieberegler und Schalter im Material-3-Stil aus FAgram Desktop. Das Telegram-Design entspricht Telegram Desktop, einschließlich Schriftart, Themes und Symbolfarben.";
 "ayu_ManageWhisperModels" = "Modelle zur Spracherkennung";
 "ayu_ManageOcrLanguages" = "Sprachen der Texterkennung";
 "ayu_ModelEnabled" = "Aktiviert";
