@@ -1,6 +1,8 @@
 // This file is part of freshGram.
 #pragma once
 
+#include "storage/details/storage_passcode_kdf.h"
+
 namespace AyuFakePasscode {
 
 constexpr auto kMaxEntries = 8;
@@ -51,6 +53,11 @@ struct Match {
 	}
 };
 
+struct KdfInput {
+	QByteArray salt;
+	Storage::PasscodeKdf kdf;
+};
+[[nodiscard]] KdfInput MatchKdfInput();
 [[nodiscard]] std::optional<Match> TryMatch(const QByteArray &passcode);
 
 void SetPending(int id);

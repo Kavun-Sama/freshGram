@@ -10,7 +10,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/platform/base_platform_last_input.h"
 #include "base/platform/base_platform_info.h"
 #include "base/system_unlock.h"
+#include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/ui/boxes/fake_passcode_box.h"
+#include "ayu/ui/settings/passcode_security.h"
+#include "ayu/utils/passcode_strength.h"
 #include "boxes/auto_lock_box.h"
 #include "core/application.h"
 #include "core/core_settings.h"
@@ -44,7 +47,7 @@ using namespace Builder;
 void SetPasscode(
 		not_null<Window::SessionController*> controller,
 		const QString &pass) {
-	cSetPasscodeBadTries(0);
+	AyuPasscodeGuard::RegisterSuccess();
 	controller->session().domain().local().setPasscode(pass.toUtf8());
 	Core::App().localPasscodeChanged();
 }
@@ -166,6 +169,9 @@ void LocalPasscodeEnter::setupContent() {
 			? tr::lng_passcode_enter_first()
 			: tr::lng_passcode_enter(),
 		QString());
+	if (!isCheck) {
+		AyuUi::AddPasscodeStrength(content, newPasscode);
+	}
 
 	const auto reenterPasscode = isCheck
 		? (Ui::PasswordInput*)(nullptr)
@@ -201,6 +207,12 @@ void LocalPasscodeEnter::setupContent() {
 			} else if (reenterText.isEmpty()) {
 				reenterPasscode->setFocus();
 				reenterPasscode->showError();
+			} else if (const auto text = AyuPasscode::RequirementsError(newText)
+				; !text.isEmpty()) {
+				newPasscode->setFocus();
+				newPasscode->showError();
+				error->show();
+				error->setText(text);
 			} else if (newText != reenterText) {
 				reenterPasscode->setFocus();
 				reenterPasscode->showError();
@@ -240,7 +252,7 @@ void LocalPasscodeEnter::setupContent() {
 			}
 			const auto &domain = controller()->session().domain();
 			if (domain.local().checkPasscode(newText.toUtf8())) {
-				cSetPasscodeBadTries(0);
+				AyuPasscodeGuard::RegisterSuccess();
 				_showOther.fire(LocalPasscodeManageId());
 			} else {
 				cSetPasscodeBadTries(cPasscodeBadTries() + 1);
@@ -559,6 +571,8 @@ void BuildManageContent(SectionBuilder &builder) {
 				u"winhello"_q, u"fingerprint"_q },
 		};
 	});
+
+	AyuUi::AddPasscodeSecuritySettings(builder);
 
 	builder.add(nullptr, [] {
 		return SearchEntry{

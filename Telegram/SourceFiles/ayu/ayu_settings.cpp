@@ -656,6 +656,12 @@ void AyuSettings::validate() {
 	validateRange(_keptSnapshotLimit, 0, 100000, defaults._keptSnapshotLimit);
 	validateRange(_deletedMediaMaxSizeMb, 0, 4096, defaults._deletedMediaMaxSizeMb);
 	validateRange(_keepDeletedDays, 0, 3650, defaults._keepDeletedDays);
+	validateRange(_passcodeMinLength, 0, 32, defaults._passcodeMinLength);
+	validateRange(_passcodeWipeAttempts, 0, 50, defaults._passcodeWipeAttempts);
+	validateRange(_passcodeWipeAction, 0, 1, defaults._passcodeWipeAction);
+	validateRange(_lockOnMinimize, -1, 3600, defaults._lockOnMinimize);
+	validateRange(_hideFromCapture, 0, 2, defaults._hideFromCapture);
+	validateRange(_lockedNotifications, 0, 2, defaults._lockedNotifications);
 	validateRange(_backupKeepCount, 1, 100, defaults._backupKeepCount);
 	validateRange(_backupIntervalHours, 1, 168, defaults._backupIntervalHours);
 	validateRange(_replyBackgroundOpacity, 0, 50, defaults._replyBackgroundOpacity);
@@ -1162,6 +1168,60 @@ void AyuSettings::setShowNewStoryInDrawer(bool val) {
 	save();
 }
 
+void AyuSettings::setPasscodeMinLength(int val) {
+	if (_passcodeMinLength.current() == val) return;
+	_passcodeMinLength = val;
+	save();
+}
+
+void AyuSettings::setPasscodeRequireMixed(bool val) {
+	if (_passcodeRequireMixed.current() == val) return;
+	_passcodeRequireMixed = val;
+	save();
+}
+
+void AyuSettings::setPasscodeWipeAttempts(int val) {
+	if (_passcodeWipeAttempts.current() == val) return;
+	_passcodeWipeAttempts = val;
+	save();
+}
+
+void AyuSettings::setPasscodeWipeAction(int val) {
+	if (_passcodeWipeAction.current() == val) return;
+	_passcodeWipeAction = val;
+	save();
+}
+
+void AyuSettings::setLockScreenShowClock(bool val) {
+	if (_lockScreenShowClock.current() == val) return;
+	_lockScreenShowClock = val;
+	save();
+}
+
+void AyuSettings::setLockOnSystemLock(bool val) {
+	if (_lockOnSystemLock.current() == val) return;
+	_lockOnSystemLock = val;
+	save();
+}
+
+void AyuSettings::setLockOnMinimize(int val) {
+	if (_lockOnMinimize.current() == val) return;
+	_lockOnMinimize = val;
+	save();
+}
+
+void AyuSettings::setHideFromCapture(int val) {
+	if (_hideFromCapture.current() == val) return;
+	_hideFromCapture = val;
+	save();
+}
+
+void AyuSettings::setLockedNotifications(int val) {
+	if (_lockedNotifications.current() == val) return;
+	_lockedNotifications = val;
+	save();
+}
+
 void AyuSettings::setShowNewChannelInDrawer(bool val) {
 	if (_showNewChannelInDrawer.current() == val) return;
 	_showNewChannelInDrawer = val;
@@ -1598,6 +1658,15 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showNewGroupInDrawer", s._showNewGroupInDrawer.current()},
 		{"showNewChannelInDrawer", s._showNewChannelInDrawer.current()},
 		{"showNewStoryInDrawer", s._showNewStoryInDrawer.current()},
+		{"passcodeMinLength", s._passcodeMinLength.current()},
+		{"passcodeRequireMixed", s._passcodeRequireMixed.current()},
+		{"passcodeWipeAttempts", s._passcodeWipeAttempts.current()},
+		{"passcodeWipeAction", s._passcodeWipeAction.current()},
+		{"lockScreenShowClock", s._lockScreenShowClock.current()},
+		{"lockOnSystemLock", s._lockOnSystemLock.current()},
+		{"lockOnMinimize", s._lockOnMinimize.current()},
+		{"hideFromCapture", s._hideFromCapture.current()},
+		{"lockedNotifications", s._lockedNotifications.current()},
 		{"showContactsInDrawer", s._showContactsInDrawer.current()},
 		{"showCallsInDrawer", s._showCallsInDrawer.current()},
 		{"showSavedMessagesInDrawer", s._showSavedMessagesInDrawer.current()},
@@ -1752,6 +1821,15 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showNewGroupInDrawer = j.value("showNewGroupInDrawer", defaults._showNewGroupInDrawer.current());
 	s._showNewChannelInDrawer = j.value("showNewChannelInDrawer", defaults._showNewChannelInDrawer.current());
 	s._showNewStoryInDrawer = j.value("showNewStoryInDrawer", defaults._showNewStoryInDrawer.current());
+	s._passcodeMinLength = j.value("passcodeMinLength", defaults._passcodeMinLength.current());
+	s._passcodeRequireMixed = j.value("passcodeRequireMixed", defaults._passcodeRequireMixed.current());
+	s._passcodeWipeAttempts = j.value("passcodeWipeAttempts", defaults._passcodeWipeAttempts.current());
+	s._passcodeWipeAction = j.value("passcodeWipeAction", defaults._passcodeWipeAction.current());
+	s._lockScreenShowClock = j.value("lockScreenShowClock", defaults._lockScreenShowClock.current());
+	s._lockOnSystemLock = j.value("lockOnSystemLock", defaults._lockOnSystemLock.current());
+	s._lockOnMinimize = j.value("lockOnMinimize", defaults._lockOnMinimize.current());
+	s._hideFromCapture = j.value("hideFromCapture", defaults._hideFromCapture.current());
+	s._lockedNotifications = j.value("lockedNotifications", defaults._lockedNotifications.current());
 	s._showContactsInDrawer = j.value("showContactsInDrawer", defaults._showContactsInDrawer.current());
 	s._showCallsInDrawer = j.value("showCallsInDrawer", defaults._showCallsInDrawer.current());
 	s._showSavedMessagesInDrawer = j.value("showSavedMessagesInDrawer", defaults._showSavedMessagesInDrawer.current());

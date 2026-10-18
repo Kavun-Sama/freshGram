@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "storage/details/storage_passcode_kdf.h"
+
 namespace MTP {
 class Config;
 class AuthKey;
@@ -40,6 +42,17 @@ public:
 
 	[[nodiscard]] bool checkPasscode(const QByteArray &passcode) const;
 	void setPasscode(const QByteArray &passcode);
+	void setPasscode(const QByteArray &passcode, const PasscodeKdf &kdf);
+
+	struct PasscodeKdfInput {
+		QByteArray salt;
+		PasscodeKdf kdf;
+	};
+	// Reads the key file when the domain is not started yet.
+	[[nodiscard]] std::optional<PasscodeKdfInput> passcodeKdfInput() const;
+	[[nodiscard]] PasscodeKdf passcodeKdf() const {
+		return _passcodeKdf;
+	}
 
 	[[nodiscard]] int oldVersion() const;
 	void clearOldVersion();
@@ -72,6 +85,7 @@ private:
 	MTP::AuthKeyPtr _passcodeKey;
 	QByteArray _passcodeKeySalt;
 	QByteArray _passcodeKeyEncrypted;
+	PasscodeKdf _passcodeKdf;
 	int _oldVersion = 0;
 
 	bool _hasLocalPasscode = false;

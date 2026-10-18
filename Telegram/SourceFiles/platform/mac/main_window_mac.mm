@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <IOKit/hidsystem/ev_keymap.h>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/passcode_guard/lock_triggers.h"
 
 
 @interface MainWindowObserver : NSObject {
@@ -54,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #endif // Qt < 6.5.0
 - (void) screenIsLocked:(NSNotification *)aNotification;
 - (void) screenIsUnlocked:(NSNotification *)aNotification;
+- (void) systemWillSleep:(NSNotification *)aNotification;
 
 @end // @interface MainWindowObserver
 
@@ -131,6 +133,10 @@ private:
 	Core::App().setScreenIsLocked(false);
 }
 
+- (void) systemWillSleep:(NSNotification *)aNotification {
+	AyuLockTriggers::SystemLocked();
+}
+
 @end // @implementation MainWindowObserver
 
 namespace Platform {
@@ -161,6 +167,7 @@ MainWindow::Private::Private(not_null<MainWindow*> window)
 	@autoreleasepool {
 
 	[[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:_observer selector:@selector(activeSpaceDidChange:) name:NSWorkspaceActiveSpaceDidChangeNotification object:nil];
+	[[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:_observer selector:@selector(systemWillSleep:) name:NSWorkspaceWillSleepNotification object:nil];
 #if QT_VERSION < QT_VERSION_CHECK(6, 5, 0)
 	[[NSDistributedNotificationCenter defaultCenter] addObserver:_observer selector:@selector(darkModeChanged:) name:Q2NSString(strNotificationAboutThemeChange()) object:nil];
 #endif // Qt < 6.5.0

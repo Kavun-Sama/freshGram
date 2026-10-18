@@ -370,6 +370,15 @@ public:
 	[[nodiscard]] bool showNewGroupInDrawer() const { return _showNewGroupInDrawer.current(); }
 	[[nodiscard]] bool showNewChannelInDrawer() const { return _showNewChannelInDrawer.current(); }
 	[[nodiscard]] bool showNewStoryInDrawer() const { return _showNewStoryInDrawer.current(); }
+	[[nodiscard]] int passcodeMinLength() const { return _passcodeMinLength.current(); }
+	[[nodiscard]] bool passcodeRequireMixed() const { return _passcodeRequireMixed.current(); }
+	[[nodiscard]] int passcodeWipeAttempts() const { return _passcodeWipeAttempts.current(); }
+	[[nodiscard]] int passcodeWipeAction() const { return _passcodeWipeAction.current(); }
+	[[nodiscard]] bool lockScreenShowClock() const { return _lockScreenShowClock.current(); }
+	[[nodiscard]] bool lockOnSystemLock() const { return _lockOnSystemLock.current(); }
+	[[nodiscard]] int lockOnMinimize() const { return _lockOnMinimize.current(); }
+	[[nodiscard]] int hideFromCapture() const { return _hideFromCapture.current(); }
+	[[nodiscard]] int lockedNotifications() const { return _lockedNotifications.current(); }
 	[[nodiscard]] bool showContactsInDrawer() const { return _showContactsInDrawer.current(); }
 	[[nodiscard]] bool showCallsInDrawer() const { return _showCallsInDrawer.current(); }
 	[[nodiscard]] bool showSavedMessagesInDrawer() const { return _showSavedMessagesInDrawer.current(); }
@@ -515,6 +524,15 @@ public:
 	void setShowNewGroupInDrawer(bool val);
 	void setShowNewChannelInDrawer(bool val);
 	void setShowNewStoryInDrawer(bool val);
+	void setPasscodeMinLength(int val);
+	void setPasscodeRequireMixed(bool val);
+	void setPasscodeWipeAttempts(int val);
+	void setPasscodeWipeAction(int val);
+	void setLockScreenShowClock(bool val);
+	void setLockOnSystemLock(bool val);
+	void setLockOnMinimize(int val);
+	void setHideFromCapture(int val);
+	void setLockedNotifications(int val);
 	void setShowContactsInDrawer(bool val);
 	void setShowCallsInDrawer(bool val);
 	void setShowSavedMessagesInDrawer(bool val);
@@ -688,6 +706,15 @@ public:
 	[[nodiscard]] rpl::producer<bool> showNewChannelInDrawerChanges() const { return _showNewChannelInDrawer.changes(); }
 	[[nodiscard]] rpl::producer<bool> showNewStoryInDrawerValue() const { return _showNewStoryInDrawer.value(); }
 	[[nodiscard]] rpl::producer<bool> showNewStoryInDrawerChanges() const { return _showNewStoryInDrawer.changes(); }
+	[[nodiscard]] rpl::producer<int> passcodeMinLengthValue() const { return _passcodeMinLength.value(); }
+	[[nodiscard]] rpl::producer<bool> passcodeRequireMixedValue() const { return _passcodeRequireMixed.value(); }
+	[[nodiscard]] rpl::producer<int> passcodeWipeAttemptsValue() const { return _passcodeWipeAttempts.value(); }
+	[[nodiscard]] rpl::producer<int> passcodeWipeActionValue() const { return _passcodeWipeAction.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenShowClockValue() const { return _lockScreenShowClock.value(); }
+	[[nodiscard]] rpl::producer<bool> lockOnSystemLockValue() const { return _lockOnSystemLock.value(); }
+	[[nodiscard]] rpl::producer<int> lockOnMinimizeValue() const { return _lockOnMinimize.value(); }
+	[[nodiscard]] rpl::producer<int> hideFromCaptureValue() const { return _hideFromCapture.value(); }
+	[[nodiscard]] rpl::producer<int> lockedNotificationsValue() const { return _lockedNotifications.value(); }
 	[[nodiscard]] rpl::producer<bool> showContactsInDrawerValue() const { return _showContactsInDrawer.value(); }
 	[[nodiscard]] rpl::producer<bool> showContactsInDrawerChanges() const { return _showContactsInDrawer.changes(); }
 	[[nodiscard]] rpl::producer<bool> showCallsInDrawerValue() const { return _showCallsInDrawer.value(); }
@@ -850,6 +877,15 @@ private:
 	rpl::variable<bool> _showNewGroupInDrawer = true;
 	rpl::variable<bool> _showNewChannelInDrawer = true;
 	rpl::variable<bool> _showNewStoryInDrawer = true;
+	rpl::variable<int> _passcodeMinLength = 0;
+	rpl::variable<bool> _passcodeRequireMixed = false;
+	rpl::variable<int> _passcodeWipeAttempts = 0;
+	rpl::variable<int> _passcodeWipeAction = 0;
+	rpl::variable<bool> _lockScreenShowClock = true;
+	rpl::variable<bool> _lockOnSystemLock = false;
+	rpl::variable<int> _lockOnMinimize = -1;
+	rpl::variable<int> _hideFromCapture = 0;
+	rpl::variable<int> _lockedNotifications = 0;
 	rpl::variable<bool> _showContactsInDrawer = true;
 	rpl::variable<bool> _showCallsInDrawer = true;
 	rpl::variable<bool> _showSavedMessagesInDrawer = true;

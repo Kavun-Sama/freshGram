@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "core/application.h"
 #include "lang/lang_keys.h"
+#include "lang_auto.h"
 #include "lottie/lottie_icon.h"
 #include "settings/cloud_password/settings_cloud_password_common.h"
 #include "settings/settings_common.h"
@@ -47,31 +48,44 @@ void Submit(
 		not_null<Ui::PasswordInput*> field,
 		not_null<Ui::FlatLabel*> error,
 		Fn<void()> finish) {
-	const auto fail = [&](const QString &text) {
-		error->setText(text);
-		error->show();
-	};
-	switch (TryPasscode(field->text())) {
-	case PasscodeAttempt::Empty:
-		field->showError();
+	if (!field->isEnabled()) {
 		return;
-	case PasscodeAttempt::Flood:
-		field->showError();
-		fail(tr::lng_flood_error(tr::now));
-		return;
-	case PasscodeAttempt::Wrong:
-		field->selectAll();
-		field->showError();
-		fail(tr::lng_passcode_wrong(tr::now));
-		return;
-	case PasscodeAttempt::Correct:
-		break;
 	}
-	const auto weak = base::make_weak(box);
-	Core::App().unlockPasscode();
-	if (weak) {
-		finish();
-	}
+	field->setDisabled(true);
+	TryPasscodeAsync(field->text(), crl::guard(box, [=](
+			PasscodeAttempt result) {
+		field->setDisabled(false);
+		field->setFocusFast();
+		const auto fail = [&](const QString &text) {
+			error->setText(text);
+			error->show();
+		};
+		switch (result) {
+		case PasscodeAttempt::Empty:
+			field->showError();
+			return;
+		case PasscodeAttempt::Flood:
+			field->showError();
+			fail(tr::lng_flood_error(tr::now));
+			return;
+		case PasscodeAttempt::Wrong:
+			field->selectAll();
+			field->showError();
+			fail(tr::lng_passcode_wrong(tr::now));
+			return;
+		case PasscodeAttempt::Wiped:
+			field->clear();
+			fail(tr::ayu_PasscodeWiped(tr::now));
+			return;
+		case PasscodeAttempt::Correct:
+			break;
+		}
+		const auto weak = base::make_weak(box);
+		Core::App().unlockPasscode();
+		if (weak) {
+			finish();
+		}
+	}));
 }
 
 void UnlockPasscodeBox(

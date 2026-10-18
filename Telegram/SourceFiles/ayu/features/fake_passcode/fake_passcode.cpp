@@ -15,6 +15,7 @@
 #include "mtproto/mtproto_auth_key.h"
 #include "mtproto/mtproto_proxy_data.h"
 #include "storage/details/storage_file_utilities.h"
+#include "storage/details/storage_passcode_kdf.h"
 #include "storage/storage_domain.h"
 
 #include <QtCore/QDir>
@@ -38,6 +39,7 @@ constexpr auto kLogoutCheckEach = crl::time(300);
 struct State {
 	bool loaded = false;
 	QByteArray salt;
+	Storage::PasscodeKdf kdf;
 	std::vector<QByteArray> blobs;
 	Data data;
 	int pendingId = 0;
@@ -207,6 +209,7 @@ void WriteActions(QDataStream &stream, const Actions &actions) {
 
 [[nodiscard]] bool ReadPlain(
 		QByteArray &salt,
+		Storage::PasscodeKdf &kdf,
 		std::vector<QByteArray> &blobs,
 		QByteArray *encryptedData = nullptr) {
 	auto file = FileReadDescriptor();
@@ -215,10 +218,19 @@ void WriteActions(QDataStream &stream, const Actions &actions) {
 	}
 	auto packed = QByteArray();
 	auto encrypted = QByteArray();
+	auto kdfData = QByteArray();
 	file.stream >> salt >> packed >> encrypted;
+	if (!file.stream.atEnd()) {
+		file.stream >> kdfData;
+	}
 	if (!CheckStreamStatus(file.stream) || !UnpackBlobs(packed, blobs)) {
 		return false;
 	}
+	const auto parsed = Storage::DeserializePasscodeKdf(kdfData);
+	if (!parsed) {
+		return false;
+	}
+	kdf = *parsed;
 	if (encryptedData) {
 		*encryptedData = encrypted;
 	}
@@ -248,13 +260,15 @@ void Load() {
 	}
 	state.loaded = true;
 	state.salt = QByteArray();
+	state.kdf = Storage::PasscodeKdf();
 	state.blobs.clear();
 	state.data = Data();
 	RemoveFileNamed(LegacyFileName());
 
 	auto encrypted = QByteArray();
-	if (!ReadPlain(state.salt, state.blobs, &encrypted)) {
+	if (!ReadPlain(state.salt, state.kdf, state.blobs, &encrypted)) {
 		state.salt = QByteArray();
+		state.kdf = Storage::PasscodeKdf();
 		state.blobs.clear();
 		return;
 	}
@@ -294,6 +308,10 @@ void Load() {
 	auto encrypted = EncryptedDescriptor(packed.size() + sizeof(quint32));
 	encrypted.stream << packed;
 	file.writeEncrypted(encrypted, key);
+	if (const auto kdf = Storage::SerializePasscodeKdf(state.kdf)
+		; !kdf.isEmpty()) {
+		file.writeData(kdf);
+	}
 	return true;
 }
 
@@ -325,11 +343,13 @@ void Load() {
 [[nodiscard]] QByteArray MakeBlob(
 		const Entry &entry,
 		const QByteArray &realPasscode,
-		const QByteArray &salt) {
-	return MakeBlobWith(
-		entry,
-		realPasscode,
-		CreateLocalKey(entry.passcode.toUtf8(), salt));
+		const QByteArray &salt,
+		const Storage::PasscodeKdf &kdf) {
+	const auto key = Storage::DerivePasscodeKey(
+		entry.passcode.toUtf8(),
+		salt,
+		kdf);
+	return key ? MakeBlobWith(entry, realPasscode, key) : QByteArray();
 }
 
 [[nodiscard]] QByteArray MakeDecoy() {
@@ -345,9 +365,11 @@ void Load() {
 	auto &state = GetState();
 	state.salt.resize(kSaltSize);
 	base::RandomFill(state.salt.data(), state.salt.size());
+	// WHY: fake passcodes cost the same to check as the real one.
+	state.kdf = Core::App().domain().local().passcodeKdf();
 	state.blobs.clear();
 	for (const auto &entry : state.data.list) {
-		auto blob = MakeBlob(entry, realPasscode, state.salt);
+		auto blob = MakeBlob(entry, realPasscode, state.salt, state.kdf);
 		if (blob.isEmpty()) {
 			return false;
 		}
@@ -537,16 +559,32 @@ void Run(const Actions &actions) {
 
 } // namespace
 
+KdfInput MatchKdfInput() {
+	auto salt = QByteArray();
+	auto kdf = Storage::PasscodeKdf();
+	auto blobs = std::vector<QByteArray>();
+	if (ReadPlain(salt, kdf, blobs)) {
+		return { .salt = salt, .kdf = kdf };
+	}
+	return { .salt = QByteArray(kSaltSize, '\0') };
+}
+
 std::optional<Match> TryMatch(const QByteArray &passcode) {
 	if (passcode.isEmpty()) {
 		return std::nullopt;
 	}
 	auto salt = QByteArray();
+	auto kdf = Storage::PasscodeKdf();
 	auto blobs = std::vector<QByteArray>();
-	const auto valid = ReadPlain(salt, blobs);
-	const auto key = CreateLocalKey(
-		passcode,
-		valid ? salt : QByteArray(kSaltSize, '\0'));
+	if (!ReadPlain(salt, kdf, blobs)) {
+		salt = QByteArray(kSaltSize, '\0');
+		kdf = Storage::PasscodeKdf();
+		blobs.clear();
+	}
+	const auto key = Storage::DerivePasscodeKey(passcode, salt, kdf);
+	if (!key) {
+		return std::nullopt;
+	}
 	auto found = std::optional<Match>();
 	for (const auto &blob : blobs) {
 		auto decrypted = EncryptedDescriptor();
@@ -670,7 +708,7 @@ void Update(int id, QString name, Actions actions) {
 	updated.name = std::move(name);
 	updated.actions = std::move(actions);
 	if (!updated.unlocks) {
-		auto blob = MakeBlob(updated, QByteArray(), state.salt);
+		auto blob = MakeBlob(updated, QByteArray(), state.salt, state.kdf);
 		if (blob.isEmpty()) {
 			return;
 		}
@@ -712,7 +750,7 @@ void RealPasscodeChanged(const QByteArray &passcode) {
 	if (passcode.isEmpty()) {
 		state = State{ .loaded = true, .pendingId = state.pendingId };
 		RemoveFile();
-	} else if (!state.data.list.empty()) {
+	} else if (!state.data.list.empty() || !state.blobs.empty()) {
 		[[maybe_unused]] const auto written = Rebuild(passcode);
 	}
 }

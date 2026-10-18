@@ -7,7 +7,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_lock_widgets.h"
 
+#include "ayu/ayu_settings.h"
 #include "ayu/features/fake_passcode/fake_passcode.h"
+#include "ayu/features/passcode_guard/passcode_guard.h"
+#include "ayu/utils/caps_lock.h"
+#include "ayu/ayu_ui_settings.h"
+#include "lang_auto.h"
+#include "storage/details/storage_passcode_kdf.h"
+#include "ui/effects/shake_animation.h"
+#include "ui/painter.h"
 #include "base/platform/base_platform_info.h"
 #include "base/call_delayed.h"
 #include "base/system_unlock.h"
@@ -36,10 +44,12 @@ namespace Window {
 namespace {
 
 constexpr auto kSystemUnlockDelay = crl::time(1000);
+constexpr auto kAttemptsWarning = 3;
 
 } // namespace
 
 PasscodeAttempt TryPasscode(const QString &passcode) {
+	AyuPasscodeGuard::EnsureLoaded();
 	if (passcode.isEmpty()) {
 		return PasscodeAttempt::Empty;
 	} else if (!passcodeCanTry()) {
@@ -65,11 +75,35 @@ PasscodeAttempt TryPasscode(const QString &passcode) {
 		}
 	}
 	if (!correct) {
-		cSetPasscodeBadTries(cPasscodeBadTries() + 1);
-		cSetPasscodeLastTry(crl::now());
-		return PasscodeAttempt::Wrong;
+		return AyuPasscodeGuard::RegisterFailure()
+			? PasscodeAttempt::Wiped
+			: PasscodeAttempt::Wrong;
 	}
 	return PasscodeAttempt::Correct;
+}
+
+void TryPasscodeAsync(
+		const QString &passcode,
+		Fn<void(PasscodeAttempt)> done) {
+	AyuPasscodeGuard::EnsureLoaded();
+	if (passcode.isEmpty() || !passcodeCanTry()) {
+		done(TryPasscode(passcode));
+		return;
+	}
+	const auto utf8 = passcode.toUtf8();
+	const auto real = Core::App().domain().local().passcodeKdfInput();
+	const auto fake = AyuFakePasscode::MatchKdfInput();
+	crl::async([=] {
+		if (real) {
+			Storage::PrecomputePasscodeKey(utf8, real->salt, real->kdf);
+		}
+		Storage::PrecomputePasscodeKey(utf8, fake.salt, fake.kdf);
+		crl::on_main([=] {
+			const auto result = TryPasscode(passcode);
+			Storage::ClearPrecomputedPasscodeKeys();
+			done(result);
+		});
+	});
 }
 
 LockWidget::LockWidget(QWidget *parent, not_null<Controller*> window)
@@ -132,9 +166,21 @@ PasscodeLockWidget::PasscodeLockWidget(
 	QWidget *parent,
 	not_null<Controller*> window)
 : LockWidget(parent, window)
-, _passcode(this, st::passcodeInput, tr::lng_passcode_ph())
+, _passcode(this, st::passcodeInputWithButtons, tr::lng_passcode_ph())
 , _submit(this, tr::lng_passcode_submit(), st::passcodeSubmit)
-, _logout(this, tr::lng_passcode_logout(tr::now)) {
+, _logout(this, tr::lng_passcode_logout(tr::now))
+, _clockTimer([=] { updateClock(); })
+, _statusTimer([=] { updateStatus(); }) {
+	AyuPasscodeGuard::EnsureLoaded();
+	setupEye();
+	updateClock();
+	updateStatus();
+	_passcode->installEventFilter(this);
+	AyuSettings::getInstance().lockScreenShowClockValue(
+	) | rpl::skip(1) | rpl::on_next([=] {
+		updateLayout();
+		update();
+	}, lifetime());
 	connect(_passcode, &Ui::MaskedInputField::changed, [=] { changed(); });
 	connect(_passcode, &Ui::MaskedInputField::submitted, [=] { submit(); });
 	_submit->setClickedCallback([=] { submit(); });
@@ -223,7 +269,9 @@ void PasscodeLockWidget::setupSystemUnlock() {
 	button->showOn(_systemUnlockAllowed.value(
 	) | rpl::map(rpl::mappers::_1 != SystemUnlockType::None));
 	_passcode->sizeValue() | rpl::on_next([=](QSize size) {
-		button->moveToRight(0, size.height() - button->height());
+		button->moveToRight(
+			st::passcodeEye.width,
+			size.height() - button->height());
 	}, button->lifetime());
 	button->setClickedCallback([=] {
 		const auto delay = st::passcodeSystemUnlock.ripple.hideDuration;
@@ -273,61 +321,278 @@ void PasscodeLockWidget::systemUnlockDone(base::SystemUnlockResult result) {
 	if (result == base::SystemUnlockResult::FloodError) {
 		_error = tr::lng_flood_error(tr::now);
 		_passcode->setFocusFast();
-		update();
+		updateStatus();
 	}
+}
+
+void PasscodeLockWidget::setupEye() {
+	_eye = Ui::CreateChild<Ui::IconButton>(_passcode.data(), st::passcodeEye);
+	_passcode->sizeValue() | rpl::on_next([=](QSize size) {
+		_eye->moveToRight(0, size.height() - _eye->height());
+	}, _eye->lifetime());
+	_eye->setClickedCallback([=] {
+		const auto shown = (_passcode->echoMode() == QLineEdit::Normal);
+		_passcode->setEchoMode(shown
+			? QLineEdit::Password
+			: QLineEdit::Normal);
+		const auto icon = shown ? nullptr : &st::passcodeEyeHidden;
+		_eye->setIconOverride(icon, icon);
+		_passcode->setFocusFast();
+	});
+}
+
+void PasscodeLockWidget::updateClock() {
+	const auto now = QDateTime::currentDateTime();
+	_clock = QLocale().toString(now.time(), QLocale::ShortFormat);
+	_date = langDayOfWeekFull(now.date())
+		+ u", "_q
+		+ langDayOfMonthFull(now.date());
+	const auto seconds = now.time().second();
+	_clockTimer.callOnce((60 - seconds) * crl::time(1000));
+	update();
+}
+
+void PasscodeLockWidget::updateStatus() {
+	const auto wait = AyuPasscodeGuard::WaitLeft();
+	const auto left = AyuPasscodeGuard::AttemptsBeforeWipe();
+	_statusTimer.cancel();
+	if (_busy) {
+		_status = tr::ayu_PasscodeChecking(tr::now);
+		_statusError = false;
+	} else if (wait > 0) {
+		_status = tr::ayu_PasscodeRetryIn(
+			tr::now,
+			lt_seconds,
+			QString::number((wait + 999) / 1000));
+		_statusError = true;
+		_statusTimer.callOnce(((wait - 1) % 1000) + 1);
+	} else if (!_error.isEmpty()) {
+		_status = _error;
+		_statusError = true;
+	} else if (_capsLock) {
+		_status = tr::ayu_PasscodeCapsLock(tr::now);
+		_statusError = false;
+	} else {
+		_status = QString();
+		_statusError = false;
+	}
+	if (!_busy && left >= 0 && cPasscodeBadTries() > 0) {
+		const auto attempts = tr::ayu_PasscodeAttemptsLeft(
+			tr::now,
+			lt_attempts,
+			QString::number(left));
+		_status = _status.isEmpty() ? attempts : (_status + '\n' + attempts);
+		_statusError = _statusError || (left <= kAttemptsWarning);
+	}
+	update();
+}
+
+void PasscodeLockWidget::updateCapsLock() {
+	if (!AyuPlatform::CapsLockSupported()) {
+		return;
+	}
+	const auto on = AyuPlatform::CapsLockOn();
+	if (_capsLock != on) {
+		_capsLock = on;
+		updateStatus();
+	}
+}
+
+bool PasscodeLockWidget::eventFilter(QObject *o, QEvent *e) {
+	if (o == _passcode.data()) {
+		const auto type = e->type();
+		if (type == QEvent::KeyPress
+			|| type == QEvent::KeyRelease
+			|| type == QEvent::FocusIn) {
+			// WHY: the key state changes after the event is delivered.
+			crl::on_main(this, [=] { updateCapsLock(); });
+		}
+	}
+	return LockWidget::eventFilter(o, e);
+}
+
+void PasscodeLockWidget::setBusy(bool busy) {
+	if (_busy == busy) {
+		return;
+	}
+	_busy = busy;
+	_passcode->setDisabled(busy);
+	_submit->setDisabled(busy);
+	if (!busy) {
+		_passcode->setFocusFast();
+	}
+	updateStatus();
+}
+
+void PasscodeLockWidget::shake() {
+	_shakeAnimation.stop();
+	_shakeAnimation.start(Ui::DefaultShakeCallback([=](int shift) {
+		_shift = shift;
+		updateLayout();
+	}), 0., 1., st::shakeDuration);
 }
 
 void PasscodeLockWidget::paintContent(QPainter &p) {
 	LockWidget::paintContent(p);
 
+	auto hq = PainterHighQualityEnabler(p);
+	auto tint = st::activeButtonBg->c;
+	tint.setAlpha(40);
+	auto clear = tint;
+	clear.setAlpha(0);
+	auto gradient = QRadialGradient(
+		QPointF(width() / 2., height() * 0.3),
+		std::max(width(), height()) * 0.75);
+	gradient.setColorAt(0., tint);
+	gradient.setColorAt(1., clear);
+	p.fillRect(rect(), gradient);
+
+	if (_showClock) {
+		const auto &clock = st::passcodeClockFont;
+		p.setPen(st::windowFg);
+		p.setFont(clock);
+		p.drawText(
+			QRect(0, _clockTop, width(), clock->height),
+			_clock,
+			style::al_top);
+		p.setPen(st::windowSubTextFg);
+		p.setFont(st::passcodeDateFont);
+		p.drawText(
+			QRect(
+				0,
+				_clockTop + clock->height + st::passcodeClockSkip,
+				width(),
+				st::passcodeDateFont->height),
+			_date,
+			style::al_top);
+	}
+
+	const auto radius = AyuUiSettings::isTelegramDesign()
+		? st::passcodeCardRadius
+		: st::passcodeCardRadiusMaterial;
+	p.setPen(QPen(st::shadowFg->c, st::lineWidth));
+	p.setBrush(st::windowBg);
+	p.drawRoundedRect(_card, radius, radius);
+
+	const auto size = st::passcodeLockSize;
+	const auto lock = QRect((width() - size) / 2, _lockTop, size, size);
+	p.setPen(Qt::NoPen);
+	p.setBrush(st::activeButtonBg);
+	p.drawEllipse(lock);
+	st::passcodeLockIcon.paintInCenter(p, lock);
+
 	p.setFont(st::passcodeHeaderFont);
 	p.setPen(st::windowFg);
-	p.drawText(QRect(0, _passcode->y() - st::passcodeHeaderHeight, width(), st::passcodeHeaderHeight), tr::lng_passcode_enter(tr::now), style::al_center);
+	p.drawText(
+		QRect(_card.x(), _titleTop, _card.width(), st::passcodeHeaderFont->height),
+		tr::lng_passcode_enter(tr::now),
+		style::al_top);
 
-	if (!_error.isEmpty()) {
-		p.setFont(st::boxTextFont);
-		p.setPen(st::boxTextFgError);
-		p.drawText(QRect(0, _passcode->y() + _passcode->height(), width(), st::passcodeSubmitSkip), _error, style::al_center);
+	if (!_status.isEmpty()) {
+		p.setFont(st::passcodeStatusFont);
+		p.setPen(_statusError ? st::boxTextFgError : st::windowSubTextFg);
+		p.drawText(
+			QRect(_card.x(), _statusTop, _card.width(), st::passcodeStatusHeight),
+			_status,
+			style::al_center);
 	}
 }
 
 void PasscodeLockWidget::submit() {
-	switch (TryPasscode(_passcode->text())) {
-	case PasscodeAttempt::Empty:
-		_passcode->showError();
+	if (_busy) {
 		return;
-	case PasscodeAttempt::Flood:
-		_error = tr::lng_flood_error(tr::now);
-		_passcode->showError();
-		update();
-		return;
-	case PasscodeAttempt::Wrong:
-		error();
-		return;
-	case PasscodeAttempt::Correct:
-		break;
 	}
-	Core::App().unlockPasscode(); // Destroys this widget.
+	setBusy(true);
+	TryPasscodeAsync(_passcode->text(), crl::guard(this, [=](
+			PasscodeAttempt result) {
+		setBusy(false);
+		switch (result) {
+		case PasscodeAttempt::Empty:
+			_passcode->showError();
+			return;
+		case PasscodeAttempt::Flood:
+			_passcode->showError();
+			shake();
+			updateStatus();
+			return;
+		case PasscodeAttempt::Wrong:
+			error();
+			return;
+		case PasscodeAttempt::Wiped:
+			_error = tr::ayu_PasscodeWiped(tr::now);
+			_passcode->clear();
+			updateStatus();
+			return;
+		case PasscodeAttempt::Correct:
+			break;
+		}
+		Core::App().unlockPasscode(); // Destroys this widget.
+	}));
 }
 
 void PasscodeLockWidget::error() {
 	_error = tr::lng_passcode_wrong(tr::now);
 	_passcode->selectAll();
 	_passcode->showError();
-	update();
+	shake();
+	updateStatus();
 }
 
 void PasscodeLockWidget::changed() {
 	if (!_error.isEmpty()) {
 		_error = QString();
-		update();
+		updateStatus();
 	}
 }
 
 void PasscodeLockWidget::resizeEvent(QResizeEvent *e) {
-	_passcode->move((width() - _passcode->width()) / 2, (height() / 3));
-	_submit->move(_passcode->x(), _passcode->y() + _passcode->height() + st::passcodeSubmitSkip);
-	_logout->move(_passcode->x() + (_passcode->width() - _logout->width()) / 2, _submit->y() + _submit->height() + st::linkFont->ascent);
+	updateLayout();
+}
+
+void PasscodeLockWidget::updateLayout() {
+	const auto &padding = st::passcodeCardPadding;
+	const auto field = _passcode->size();
+	const auto headerHeight = st::passcodeHeaderFont->height;
+	const auto cardWidth = std::min(
+		field.width() + padding.left() + padding.right(),
+		width());
+	const auto cardHeight = padding.top()
+		+ st::passcodeLockSize
+		+ st::passcodeLockSkip
+		+ headerHeight
+		+ st::passcodeTitleSkip
+		+ field.height()
+		+ st::passcodeStatusHeight
+		+ _submit->height()
+		+ st::passcodeLogoutSkip
+		+ _logout->height()
+		+ padding.bottom();
+	const auto clockHeight = st::passcodeClockFont->height
+		+ st::passcodeClockSkip
+		+ st::passcodeDateFont->height
+		+ st::passcodeClockBottom;
+	_showClock = AyuSettings::getInstance().lockScreenShowClock()
+		&& (height() >= cardHeight + clockHeight + 2 * padding.top());
+	const auto total = cardHeight + (_showClock ? clockHeight : 0);
+	auto top = std::max((height() - total) / 2, 0);
+	if (_showClock) {
+		_clockTop = top;
+		top += clockHeight;
+	}
+	_card = QRect((width() - cardWidth) / 2, top, cardWidth, cardHeight);
+	auto y = top + padding.top();
+	_lockTop = y;
+	y += st::passcodeLockSize + st::passcodeLockSkip;
+	_titleTop = y;
+	y += headerHeight + st::passcodeTitleSkip;
+	_passcode->moveToLeft((width() - field.width()) / 2 + _shift, y);
+	y += field.height();
+	_statusTop = y;
+	y += st::passcodeStatusHeight;
+	_submit->moveToLeft((width() - _submit->width()) / 2, y);
+	y += _submit->height() + st::passcodeLogoutSkip;
+	_logout->moveToLeft((width() - _logout->width()) / 2, y);
+	update();
 }
 
 void PasscodeLockWidget::setInnerFocus() {

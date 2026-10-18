@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "platform/win/integration_win.h"
 
+#include "ayu/features/passcode_guard/lock_triggers.h"
 #include "base/platform/win/base_windows_winrt.h"
 #include "core/application.h"
 #include "core/core_settings.h"
@@ -187,6 +188,12 @@ bool WindowsIntegration::processEvent(
 
 	case WM_TIMECHANGE:
 		Core::App().checkAutoLockIn(100);
+		break;
+
+	case WM_POWERBROADCAST:
+		if (wParam == PBT_APMSUSPEND) {
+			AyuLockTriggers::SystemLocked();
+		}
 		break;
 
 	case WM_WTSSESSION_CHANGE:

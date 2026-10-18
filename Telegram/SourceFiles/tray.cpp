@@ -19,6 +19,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtWidgets/QApplication>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/passcode_guard/lock_triggers.h"
+#include "main/main_domain.h"
+#include "storage/storage_domain.h"
 #include "window/window_controller.h"
 #include "lang_auto.h"
 
@@ -62,6 +65,11 @@ void Tray::create() {
 	}, _tray.lifetime());
 
 	Core::App().passcodeLockChanges(
+	) | rpl::on_next([=] {
+		rebuildMenu();
+	}, _tray.lifetime());
+
+	Core::App().domain().local().localPasscodeChanged(
 	) | rpl::on_next([=] {
 		rebuildMenu();
 	}, _tray.lifetime());
@@ -117,6 +125,16 @@ void Tray::rebuildMenu() {
 		_tray.addAction(
 			std::move(notificationsText),
 			[=] { toggleSoundNotifications(); });
+
+		if (AyuLockTriggers::CanLock()) {
+			auto lockText = _textUpdates.events(
+			) | rpl::map([] {
+				return tr::ayu_PasscodeLockNow(tr::now);
+			});
+			_tray.addAction(std::move(lockText), [] {
+				AyuLockTriggers::Lock();
+			});
+		}
 	}
 
 	const auto &settings = AyuSettings::getInstance();

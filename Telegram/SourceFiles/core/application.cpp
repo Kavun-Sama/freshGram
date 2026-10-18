@@ -109,6 +109,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <ksandbox.h>
 
+#include "ayu/features/passcode_guard/lock_triggers.h"
+#include "ayu/features/passcode_guard/passcode_guard.h"
 #include "ayu/ayu_infra.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_ui_settings.h"
@@ -461,6 +463,7 @@ void Application::run() {
 
 	startDomain();
 	startTray();
+	AyuLockTriggers::Init();
 
 	_lastActivePrimaryWindow->firstShow();
 
@@ -1007,6 +1010,9 @@ void Application::startEmojiImageLoader() {
 
 void Application::setScreenIsLocked(bool locked) {
 	_screenIsLocked = locked;
+	if (locked) {
+		AyuLockTriggers::SystemLocked();
+	}
 }
 
 bool Application::screenIsLocked() const {
@@ -1378,7 +1384,7 @@ void Application::unlockPasscode() {
 }
 
 void Application::clearPasscodeLock() {
-	cSetPasscodeBadTries(0);
+	AyuPasscodeGuard::RegisterSuccess();
 	_passcodeLock = false;
 }
 

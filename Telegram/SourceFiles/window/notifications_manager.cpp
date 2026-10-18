@@ -457,6 +457,11 @@ void System::schedule(Data::ItemNotification notification) {
 		thread->popNotification(notification);
 		return;
 	}
+	if (Core::App().passcodeLocked()
+		&& AyuSettings::getInstance().lockedNotifications() == 2) {
+		thread->popNotification(notification);
+		return;
+	}
 	const auto ready = (skip.value != SkipState::Unknown)
 		&& item->notificationReady();
 
@@ -1560,6 +1565,10 @@ void Manager::notificationActionActivated(
 }
 
 void Manager::maybePlaySound(Fn<void()> playSound) {
+	if (Core::App().passcodeLocked()
+		&& AyuSettings::getInstance().lockedNotifications() != 0) {
+		return;
+	}
 	if (_system->volumeSupported()) {
 		doMaybePlaySound(std::move(playSound));
 	}

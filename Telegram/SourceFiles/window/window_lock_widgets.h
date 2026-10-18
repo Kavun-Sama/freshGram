@@ -21,6 +21,7 @@ namespace Ui {
 class PasswordInput;
 class LinkButton;
 class RoundButton;
+class IconButton;
 class CheckView;
 } // namespace Ui
 
@@ -37,6 +38,7 @@ enum class PasscodeAttempt : uchar {
 	Empty,
 	Flood,
 	Wrong,
+	Wiped,
 	Correct,
 };
 
@@ -44,6 +46,11 @@ enum class PasscodeAttempt : uchar {
 // Core::App().unlockPasscode() destroys the main lock screen widget, so
 // the caller runs it as its own last statement.
 [[nodiscard]] PasscodeAttempt TryPasscode(const QString &passcode);
+
+// Derives the keys on a thread, then runs TryPasscode on the main thread.
+void TryPasscodeAsync(
+	const QString &passcode,
+	Fn<void(PasscodeAttempt)> done);
 
 class LockWidget : public Ui::RpWidget {
 public:
@@ -75,6 +82,7 @@ public:
 
 protected:
 	void resizeEvent(QResizeEvent *e) override;
+	bool eventFilter(QObject *o, QEvent *e) override;
 
 private:
 	enum class SystemUnlockType : uchar {
@@ -93,13 +101,37 @@ private:
 	void changed();
 	void submit();
 	void error();
+	void setupEye();
+	void updateLayout();
+	void updateClock();
+	void updateStatus();
+	void updateCapsLock();
+	void setBusy(bool busy);
+	void shake();
 
 	rpl::variable<SystemUnlockType> _systemUnlockAvailable;
 	rpl::variable<SystemUnlockType> _systemUnlockAllowed;
 	object_ptr<Ui::PasswordInput> _passcode;
 	object_ptr<Ui::RoundButton> _submit;
 	object_ptr<Ui::LinkButton> _logout;
+	Ui::IconButton *_eye = nullptr;
 	QString _error;
+	QString _status;
+	QString _clock;
+	QString _date;
+	QRect _card;
+	int _clockTop = 0;
+	int _lockTop = 0;
+	int _titleTop = 0;
+	int _statusTop = 0;
+	int _shift = 0;
+	bool _statusError = false;
+	bool _capsLock = false;
+	bool _busy = false;
+	bool _showClock = false;
+	Ui::Animations::Simple _shakeAnimation;
+	base::Timer _clockTimer;
+	base::Timer _statusTimer;
 
 	rpl::lifetime _systemUnlockSuggested;
 	base::Timer _systemUnlockCooldown;

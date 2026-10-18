@@ -57,6 +57,7 @@ StartResult Domain::start(const QByteArray &passcode) {
 		_passcodeKey = nullptr;
 		_passcodeKeySalt = QByteArray();
 		_passcodeKeyEncrypted = QByteArray();
+		_passcodeKdf = PasscodeKdf();
 		_hasLocalPasscode = false;
 		startFromScratch();
 		return StartResult::Success;
@@ -117,9 +118,20 @@ void Domain::generateLocalKey() {
 }
 
 void Domain::encryptLocalKey(const QByteArray &passcode) {
+	if (passcode.isEmpty()) {
+		_passcodeKdf = PasscodeKdf();
+	}
 	_passcodeKeySalt.resize(LocalEncryptSaltSize);
 	base::RandomFill(_passcodeKeySalt.data(), _passcodeKeySalt.size());
-	_passcodeKey = CreateLocalKey(passcode, _passcodeKeySalt);
+	_passcodeKey = DerivePasscodeKey(passcode, _passcodeKeySalt, _passcodeKdf);
+	if (!_passcodeKey) {
+		LOG(("App Error: passcode KDF failed, falling back to PBKDF2."));
+		_passcodeKdf = PasscodeKdf();
+		_passcodeKey = DerivePasscodeKey(
+			passcode,
+			_passcodeKeySalt,
+			_passcodeKdf);
+	}
 
 	EncryptedDescriptor passKeyData(MTP::AuthKey::kSize);
 	_localKey->write(passKeyData.stream);
@@ -137,8 +149,11 @@ Domain::StartModernResult Domain::startModern(
 	}
 	LOG(("App Info: reading accounts info..."));
 
-	QByteArray salt, keyEncrypted, infoEncrypted;
+	QByteArray salt, keyEncrypted, infoEncrypted, kdfData;
 	keyData.stream >> salt >> keyEncrypted >> infoEncrypted;
+	if (!keyData.stream.atEnd()) {
+		keyData.stream >> kdfData;
+	}
 	if (!CheckStreamStatus(keyData.stream)) {
 		return StartModernResult::Failed;
 	}
@@ -147,10 +162,17 @@ Domain::StartModernResult Domain::startModern(
 		LOG(("App Error: bad salt in info file, size: %1").arg(salt.size()));
 		return StartModernResult::Failed;
 	}
-	_passcodeKey = CreateLocalKey(passcode, salt);
+	const auto kdf = DeserializePasscodeKdf(kdfData);
+	if (!kdf) {
+		// WHY: an unknown KDF must not wipe the data like a broken file does.
+		LOG(("App Error: unknown passcode KDF in info file."));
+		return StartModernResult::IncorrectPasscode;
+	}
+	_passcodeKey = DerivePasscodeKey(passcode, salt, *kdf);
 
 	EncryptedDescriptor keyInnerData, info;
-	if (!DecryptLocal(keyInnerData, keyEncrypted, _passcodeKey)) {
+	if (!_passcodeKey
+		|| !DecryptLocal(keyInnerData, keyEncrypted, _passcodeKey)) {
 		LOG(("App Info: could not decrypt pass-protected key from info file, "
 			"maybe bad password..."));
 		return StartModernResult::IncorrectPasscode;
@@ -167,6 +189,7 @@ Domain::StartModernResult Domain::startModern(
 
 	_passcodeKeyEncrypted = keyEncrypted;
 	_passcodeKeySalt = salt;
+	_passcodeKdf = *kdf;
 	_hasLocalPasscode = !passcode.isEmpty();
 
 	if (!DecryptLocal(info, infoEncrypted, _localKey)) {
@@ -250,6 +273,10 @@ void Domain::writeAccounts() {
 	}
 	keyData.stream << qint32(_owner->activeForStorage());
 	key.writeEncrypted(keyData, _localKey);
+
+	if (const auto kdf = SerializePasscodeKdf(_passcodeKdf); !kdf.isEmpty()) {
+		key.writeData(kdf);
+	}
 }
 
 void Domain::startFromScratch() {
@@ -262,8 +289,11 @@ bool Domain::checkPasscode(const QByteArray &passcode) const {
 	Expects(!_passcodeKeySalt.isEmpty());
 	Expects(_passcodeKey != nullptr);
 
-	const auto checkKey = CreateLocalKey(passcode, _passcodeKeySalt);
-	return checkKey->equals(_passcodeKey);
+	const auto checkKey = DerivePasscodeKey(
+		passcode,
+		_passcodeKeySalt,
+		_passcodeKdf);
+	return checkKey && checkKey->equals(_passcodeKey);
 }
 
 void Domain::setPasscode(const QByteArray &passcode) {
@@ -275,6 +305,35 @@ void Domain::setPasscode(const QByteArray &passcode) {
 	AyuFakePasscode::RealPasscodeChanged(passcode);
 
 	_passcodeKeyChanged.fire({});
+}
+
+void Domain::setPasscode(const QByteArray &passcode, const PasscodeKdf &kdf) {
+	_passcodeKdf = kdf;
+	setPasscode(passcode);
+}
+
+auto Domain::passcodeKdfInput() const -> std::optional<PasscodeKdfInput> {
+	if (_localKey) {
+		return PasscodeKdfInput{ _passcodeKeySalt, _passcodeKdf };
+	}
+	FileReadDescriptor keyData;
+	if (!ReadFile(keyData, ComputeKeyName(_dataName), BaseGlobalPath())) {
+		return std::nullopt;
+	}
+	QByteArray salt, keyEncrypted, infoEncrypted, kdfData;
+	keyData.stream >> salt >> keyEncrypted >> infoEncrypted;
+	if (!keyData.stream.atEnd()) {
+		keyData.stream >> kdfData;
+	}
+	if (keyData.stream.status() != QDataStream::Ok
+		|| salt.size() != LocalEncryptSaltSize) {
+		return std::nullopt;
+	}
+	const auto kdf = DeserializePasscodeKdf(kdfData);
+	if (!kdf) {
+		return std::nullopt;
+	}
+	return PasscodeKdfInput{ salt, *kdf };
 }
 
 int Domain::oldVersion() const {

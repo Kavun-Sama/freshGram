@@ -138,6 +138,10 @@ set(ayugram_files
         ayu/features/compose_stash/compose_stash_storage.cpp
         ayu/features/compose_stash/compose_stash_storage.h
         ayu/features/fake_passcode/fake_passcode.h
+        ayu/features/passcode_guard/lock_triggers.cpp
+        ayu/features/passcode_guard/lock_triggers.h
+        ayu/features/passcode_guard/passcode_guard.cpp
+        ayu/features/passcode_guard/passcode_guard.h
         ayu/features/recognition/local_transcribe.cpp
         ayu/features/recognition/local_transcribe.h
         ayu/features/recognition/recognition_audio.cpp
@@ -182,6 +186,10 @@ set(ayugram_files
         ayu/utils/qt_key_modifiers_extended.h
         ayu/utils/telegram_helpers.cpp
         ayu/utils/telegram_helpers.h
+        ayu/utils/caps_lock.cpp
+        ayu/utils/caps_lock.h
+        ayu/utils/passcode_strength.cpp
+        ayu/utils/passcode_strength.h
         ayu/utils/windows_utils.cpp
         ayu/utils/windows_utils.h
         ayu/ui/status_marquee.cpp
@@ -206,6 +214,8 @@ set(ayugram_files
         ayu/ui/settings/ayu_builder.h
         ayu/ui/settings/settings_appearance.cpp
         ayu/ui/settings/settings_appearance.h
+        ayu/ui/settings/passcode_security.cpp
+        ayu/ui/settings/passcode_security.h
         ayu/ui/settings/settings_ayu_utils.cpp
         ayu/ui/settings/settings_ayu_utils.h
         ayu/ui/settings/settings_chats.cpp
@@ -2176,6 +2186,8 @@ PRIVATE
     settings/sections/settings_websites.h
     storage/details/storage_file_utilities.cpp
     storage/details/storage_file_utilities.h
+    storage/details/storage_passcode_kdf.cpp
+    storage/details/storage_passcode_kdf.h
     storage/details/storage_settings_scheme.cpp
     storage/details/storage_settings_scheme.h
     storage/download_manager_mtproto.cpp
