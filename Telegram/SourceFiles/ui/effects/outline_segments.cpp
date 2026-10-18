@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/outline_segments.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "ayu/ui/ayu_userpic.h"
 
@@ -107,7 +108,7 @@ QLinearGradient UnreadStoryOutlineGradient(QRectF rect) {
 	return UnreadStoryOutlineGradient(
 		std::move(rect),
 		st::groupCallLive1->c,
-		st::groupCallLive1->c);
+		AyuUiSettings::isTelegramDesign() ? st::groupCallMuted1->c : st::groupCallLive1->c);
 }
 
 } // namespace Ui

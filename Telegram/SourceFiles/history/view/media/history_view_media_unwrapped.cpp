@@ -89,7 +89,7 @@ QSize UnwrappedMedia::countCurrentSize(int newWidth) {
 	if (_parent->hasRightLayout()) {
 		const auto infoHeight = bottomInfoHeight();
 		const auto minimal = std::min(
-			st::largeEmojiSize,
+			st::largeEmojiSize + 2 * st::largeEmojiOutline,
 			_contentSize.height());
 		accumulate_max(
 			newHeight,

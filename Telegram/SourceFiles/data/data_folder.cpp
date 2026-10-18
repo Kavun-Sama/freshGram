@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwidget.h"
 #include "styles/style_dialogs.h"
 
+#include "ayu/ayu_ui_settings.h"
 #include "ayu/ui/ayu_userpic.h"
 
 
@@ -269,7 +270,11 @@ void Folder::paintUserpic(
 		const style::color *overrideBg,
 		const style::color *overrideFg) const {
 	p.setPen(Qt::NoPen);
-	p.setBrush(overrideBg ? *overrideBg : st::sideBarBg);
+	p.setBrush(overrideBg
+		? *overrideBg
+		: AyuUiSettings::isTelegramDesign()
+		? st::historyPeerArchiveUserpicBg
+		: st::sideBarBg);
 	{
 		PainterHighQualityEnabler hq(p);
 		AyuUserpic::PaintShape(p, x, y, size);

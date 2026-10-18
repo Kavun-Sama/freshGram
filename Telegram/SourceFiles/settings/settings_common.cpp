@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/settings_common.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "ayu/ui/fagram/fagram_design.h"
 #include "base/timer.h"
@@ -37,6 +38,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QAction>
 
 namespace Settings {
+
+const style::color *RoundAddIconBg() {
+	return AyuUiSettings::isTelegramDesign()
+		? &st::windowBgActive
+		: &st::sideBarBg;
+}
+
 namespace {
 
 [[nodiscard]] HighlightArgs MaybeFillFromRipple(

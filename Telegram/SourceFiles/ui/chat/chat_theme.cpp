@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/chat_theme.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "ui/color_contrast.h"
 #include "ui/emoji_config.h"
@@ -34,7 +35,9 @@ constexpr auto kMaxContrastValue = 21.;
 constexpr auto kMinAcceptableContrast = 1.14;// 4.5;
 
 [[nodiscard]] QColor DefaultBackgroundColor() {
-	return QColor(255, 255, 255);
+	return AyuUiSettings::isTelegramDesign()
+		? QColor(213, 223, 233)
+		: QColor(255, 255, 255);
 }
 
 [[nodiscard]] int ComputeRealRotation(const CacheBackgroundRequest &request) {

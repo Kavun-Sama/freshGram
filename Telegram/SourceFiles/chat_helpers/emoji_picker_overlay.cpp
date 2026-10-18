@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "chat_helpers/emoji_picker_overlay.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "chat_helpers/emoji_keywords.h"
 #include "chat_helpers/stickers_list_footer.h"
@@ -368,7 +369,9 @@ void EmojiPickerOverlay::Grid::leaveEventHook(QEvent *e) {
 
 EmojiPickerOverlay::Metrics EmojiPickerOverlay::EstimateMetrics(
 		const QString &aboutText) {
-	const auto tailHeight = 0;
+	const auto tailHeight = AyuUiSettings::isTelegramDesign()
+		? st::stickersEmojiPickerStripBubble.height()
+		: 0;
 	const auto shadowExtent = Ui::BoxShadow::ExtendFor(
 		st::stickersEmojiPickerBoxShadow);
 	const auto &pad = st::stickersEmojiPickerPadding;
@@ -627,6 +630,28 @@ void EmojiPickerOverlay::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::stickersEmojiPickerBg);
 	p.drawRoundedRect(shown, radius, radius);
+
+	if (progress < 1. && AyuUiSettings::isTelegramDesign()) {
+		paintTailBubble(p, shown, 1. - progress);
+	}
+}
+
+void EmojiPickerOverlay::paintTailBubble(
+		QPainter &p,
+		const QRect &bubble,
+		float64 opacity) {
+	const auto &icon = st::stickersEmojiPickerStripBubble;
+	const auto offsetRight = st::stickersEmojiPickerStripBubbleRight;
+	const auto x = bubble.right() + 1 - offsetRight - icon.width();
+	const auto y = bubble.bottom() + 1;
+	if (opacity >= 1.) {
+		icon.paint(p, x, y, width());
+	} else {
+		p.save();
+		p.setOpacity(opacity);
+		icon.paint(p, x, y, width());
+		p.restore();
+	}
 }
 
 void EmojiPickerOverlay::resizeEvent(QResizeEvent *e) {
@@ -653,7 +678,9 @@ void EmojiPickerOverlay::keyPressEvent(QKeyEvent *e) {
 }
 
 int EmojiPickerOverlay::tailHeight() const {
-	return 0;
+	return AyuUiSettings::isTelegramDesign()
+		? st::stickersEmojiPickerStripBubble.height()
+		: 0;
 }
 
 void EmojiPickerOverlay::relayout() {

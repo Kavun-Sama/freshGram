@@ -223,6 +223,8 @@ enum class IconType {
 	Simple,
 };
 
+[[nodiscard]] const style::color *RoundAddIconBg();
+
 struct IconDescriptor {
 	const style::icon *icon = nullptr;
 	IconType type = IconType::Rounded;

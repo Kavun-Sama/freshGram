@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtSvg/QSvgRenderer>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "ayu/ui/ayu_userpic.h"
 
 
@@ -52,6 +53,36 @@ namespace {
 	return bg;
 }
 
+
+[[nodiscard]] QBrush GradientBrush(
+		int y,
+		int size,
+		const style::color &color1,
+		const style::color &color2) {
+	auto gradient = QLinearGradient(0, y, 0, y + size);
+	gradient.setStops({
+		{ 0., color1->c },
+		{ 1., color2->c }
+	});
+	return QBrush(gradient);
+}
+
+[[nodiscard]] QBrush SpecialUserpicBg(
+		int y,
+		int size,
+		const style::color &color1,
+		const style::color &color2) {
+	return AyuUiSettings::isTelegramDesign()
+		? GradientBrush(y, size, color1, color2)
+		: QBrush(UserpicBgColor());
+}
+
+[[nodiscard]] const style::color &SpecialUserpicFg(
+		const style::color &telegram) {
+	return AyuUiSettings::isTelegramDesign()
+		? telegram
+		: st::windowBgActive;
+}
 
 [[nodiscard]] bool IsExternal(const QString &name) {
 	return !name.isEmpty()
@@ -84,7 +115,8 @@ void PaintSavedMessagesInner(
 	// X XX          XX X   |      |
 	// XX              XX  ---    ---
 
-	const auto thinkness = base::SafeRound(size * 0.045);
+	const auto thinkness = base::SafeRound(
+		size * (AyuUiSettings::isTelegramDesign() ? 0.055 : 0.045));
 	const auto increment = int(thinkness) % 2 + (size % 2);
 	const auto width = base::SafeRound(size * 0.15) * 2 + increment;
 	const auto height = base::SafeRound(size * 0.19) * 2 + increment;
@@ -331,26 +363,24 @@ void EmptyUserpic::paint(
 	font.setPixelSize(fontsize);
 
 	PainterHighQualityEnabler hq(p);
-	{
-		auto bg = UserpicBgColor();
-		p.setBrush(bg);
-	}
+	p.setBrush(SpecialUserpicBg(y, size, _colors.color1, _colors.color2));
 	p.setPen(Qt::NoPen);
 	paintBackground();
 
+	const auto &fg = SpecialUserpicFg(st::historyPeerUserpicFg);
 	if (IsExternal(_string)) {
-		PaintExternalMessagesInner(p, x, y, size, st::windowBgActive);
+		PaintExternalMessagesInner(p, x, y, size, fg);
 	} else if (IsInaccessible(_string)) {
 		PaintInaccessibleAccountInner(
 			p,
 			x,
 			y,
 			size,
-			st::windowBgActive);
+			fg);
 	} else {
 		p.setFont(font);
 		p.setBrush(Qt::NoBrush);
-		p.setPen(st::windowBgActive);
+		p.setPen(fg);
 		p.drawText(
 			QRect(x, y, size, size),
 			_string,
@@ -417,9 +447,13 @@ void EmptyUserpic::PaintSavedMessages(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = UserpicBgColor();
-	const auto &fg = st::windowBgActive;
-	PaintSavedMessages(p, x, y, outerWidth, size, QBrush(bg), fg);
+	const auto bg = SpecialUserpicBg(
+		y,
+		size,
+		st::historyPeerSavedMessagesBg,
+		st::historyPeerSavedMessagesBg2);
+	const auto &fg = SpecialUserpicFg(st::historyPeerUserpicFg);
+	PaintSavedMessages(p, x, y, outerWidth, size, bg, fg);
 }
 
 void EmptyUserpic::PaintSavedMessages(
@@ -452,9 +486,13 @@ void EmptyUserpic::PaintRepliesMessages(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = UserpicBgColor();
-	const auto &fg = st::windowBgActive;
-	PaintRepliesMessages(p, x, y, outerWidth, size, QBrush(bg), fg);
+	const auto bg = SpecialUserpicBg(
+		y,
+		size,
+		st::historyPeerSavedMessagesBg,
+		st::historyPeerSavedMessagesBg2);
+	const auto &fg = SpecialUserpicFg(st::historyPeerUserpicFg);
+	PaintRepliesMessages(p, x, y, outerWidth, size, bg, fg);
 }
 
 void EmptyUserpic::PaintRepliesMessages(
@@ -487,9 +525,13 @@ void EmptyUserpic::PaintHiddenAuthor(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = UserpicBgColor();
-	const auto &fg = st::windowBgActive;
-	PaintHiddenAuthor(p, x, y, outerWidth, size, QBrush(bg), fg);
+	const auto bg = SpecialUserpicBg(
+		y,
+		size,
+		st::premiumButtonBg2,
+		st::premiumButtonBg3);
+	const auto &fg = SpecialUserpicFg(st::premiumButtonFg);
+	PaintHiddenAuthor(p, x, y, outerWidth, size, bg, fg);
 }
 
 void EmptyUserpic::PaintHiddenAuthor(
@@ -522,9 +564,13 @@ void EmptyUserpic::PaintMyNotes(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = UserpicBgColor();
-	const auto &fg = st::windowBgActive;
-	PaintMyNotes(p, x, y, outerWidth, size, QBrush(bg), fg);
+	const auto bg = SpecialUserpicBg(
+		y,
+		size,
+		st::historyPeerSavedMessagesBg,
+		st::historyPeerSavedMessagesBg2);
+	const auto &fg = SpecialUserpicFg(st::historyPeerUserpicFg);
+	PaintMyNotes(p, x, y, outerWidth, size, bg, fg);
 }
 
 void EmptyUserpic::PaintMyNotes(

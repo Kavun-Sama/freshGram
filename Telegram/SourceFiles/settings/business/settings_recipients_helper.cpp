@@ -211,7 +211,7 @@ void AddBusinessRecipientsSelector(
 		excludeInner,
 		tr::lng_chatbots_exclude_button(),
 		st::settingsChatbotsAdd,
-		{ &st::settingsIconRemove, IconType::Round, &st::sideBarBg });
+		{ &st::settingsIconRemove, IconType::Round, Settings::RoundAddIconBg() });
 	const auto addExcluded = [=] {
 		const auto save = [=](Data::BusinessChats value) {
 			change([&](Data::BusinessRecipients &data) {
@@ -271,7 +271,7 @@ void AddBusinessRecipientsSelector(
 		includeInner,
 		tr::lng_chatbots_include_button(),
 		st::settingsChatbotsAdd,
-		{ &st::settingsIconAdd, IconType::Round, &st::sideBarBg });
+		{ &st::settingsIconAdd, IconType::Round, Settings::RoundAddIconBg() });
 	const auto addIncluded = [=] {
 		const auto save = [=](Data::BusinessChats value) {
 			change([&](Data::BusinessRecipients &data) {

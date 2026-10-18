@@ -912,7 +912,7 @@ void CreateGiveawayBox(
 			channelsContainer,
 			tr::lng_giveaway_channels_add(),
 			st::giveawayGiftCodeChannelsAddButton,
-			{ &st::settingsIconAdd, IconType::Round, &st::sideBarBg }
+			{ &st::settingsIconAdd, IconType::Round, Settings::RoundAddIconBg() }
 		)->setClickedCallback([=] {
 			auto initBox = [=](not_null<PeerListBox*> peersBox) {
 				peersBox->setTitle(tr::lng_giveaway_channels_add());

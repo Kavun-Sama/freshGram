@@ -566,7 +566,7 @@ not_null<Ui::VerticalLayout*> SetupFoldersList(
 		container,
 		tr::lng_filters_create(),
 		st::settingsButtonActive,
-		{ &st::settingsIconAdd, IconType::Round, &st::sideBarBg });
+		{ &st::settingsIconAdd, IconType::Round, Settings::RoundAddIconBg() });
 	if (highlights) {
 		highlights->push_back({ u"folders/create"_q, { createButton.get() } });
 	}

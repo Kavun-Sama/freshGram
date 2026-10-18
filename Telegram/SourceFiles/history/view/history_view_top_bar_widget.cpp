@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ayu/data/kept_dialogs.h"
+#include "ayu/ayu_ui_settings.h"
 #include "ayu/features/peek/peek_online.h"
 #include "ayu/secret/secret_bridge.h"
 #include "ayu/secret/secret_peer.h"
@@ -163,10 +164,12 @@ TopBarWidget::TopBarWidget(
 	_delete->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 	_messageShot->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 
-	_clear->setFullRadius(true);
-	_forward->setFullRadius(true);
-	_sendNow->setFullRadius(true);
-	_delete->setFullRadius(true);
+	if (!AyuUiSettings::isTelegramDesign()) {
+		_clear->setFullRadius(true);
+		_forward->setFullRadius(true);
+		_sendNow->setFullRadius(true);
+		_delete->setFullRadius(true);
+	}
 
 	Lang::Updated(
 	) | rpl::on_next([=] {

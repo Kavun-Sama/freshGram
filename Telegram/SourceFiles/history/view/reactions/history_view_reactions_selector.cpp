@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/reactions/history_view_reactions_selector.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
@@ -503,7 +504,10 @@ void Selector::initGeometry(int innerTop) {
 		- margins.top()
 		- (_useTransparency ? _collapsedTopSkip : 0);
 	_outer = QRect(0, _collapsedTopSkip - _aboutExtend, width, height);
-	_outerWithBubble = _outer.marginsAdded({ 0, 0, 0, 0 });
+	const auto add = (_useTransparency && AyuUiSettings::isTelegramDesign())
+		? (_st.icons.stripBubble.height() - margins.bottom())
+		: 0;
+	_outerWithBubble = _outer.marginsAdded({ 0, 0, 0, add });
 	setGeometry(_outerWithBubble.marginsAdded(
 		{ 0, _outer.y(), 0, 0}
 	).translated(left, top));
@@ -614,6 +618,7 @@ void Selector::paintAppearing(QPainter &p) {
 		QRect{ 0, size.height(), width(), height() - size.height() },
 		Qt::transparent);
 	q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	paintBubble(q, appearedWidth);
 	q.end();
 
 	p.drawImage(
@@ -658,13 +663,15 @@ void Selector::paintBackgroundToBuffer() {
 	if (!fill.isEmpty()) {
 		p.fillRect(fill, _st.bg);
 	}
+	paintBubble(p, _inner.width());
 }
 
 int Selector::skipYBubbleUpShift() const {
 	if (!_bubbleUp) {
 		return 0;
 	}
-	return marginsForShadow().bottom();
+	return (AyuUiSettings::isTelegramDesign() ? -_st.icons.stripBubble.height() : 0)
+		+ marginsForShadow().bottom();
 }
 
 void Selector::paintCollapsed(QPainter &p) {
@@ -853,6 +860,18 @@ void Selector::finishExpand() {
 }
 
 void Selector::paintBubble(QPainter &p, int innerWidth) {
+	if (!AyuUiSettings::isTelegramDesign()) {
+		return;
+	}
+	const auto &bubble = _st.icons.stripBubble;
+	const auto bubbleRight = std::min(
+		st::reactStripBubbleRight,
+		(innerWidth - bubble.width()) / 2);
+	bubble.paint(
+		p,
+		_inner.x() + innerWidth - bubbleRight - bubble.width(),
+		_inner.y() + _inner.height() - _outer.y(),
+		width());
 }
 
 void Selector::paintEvent(QPaintEvent *e) {

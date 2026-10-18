@@ -76,6 +76,8 @@
     <file alias="uploading.tgs">../../icons/poll/uploading.tgs</file>
 
     <file alias="ban.tgs">../../animations/ban.tgs</file>
+    <file alias="profile_muting.tgs">../../animations/profile/profile_muting.tgs</file>
+    <file alias="profile_unmuting.tgs">../../animations/profile/profile_unmuting.tgs</file>
 
     <file alias="dice_idle.tgs">../../animations/dice/dice_idle.tgs</file>
     <file alias="dart_idle.tgs">../../animations/dice/dart_idle.tgs</file>

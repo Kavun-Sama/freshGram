@@ -293,7 +293,7 @@ void RingtonesBox(
 			{
 				&st::settingsIconAdd,
 				Settings::IconType::Round,
-				&st::sideBarBg
+				Settings::RoundAddIconBg()
 			}),
 		style::margins());
 	upload->addClickHandler([=] {

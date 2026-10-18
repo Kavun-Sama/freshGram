@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_qr.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "boxes/abstract_box.h"
 #include "data/components/passkeys.h"
@@ -61,7 +62,9 @@ namespace {
 }
 
 [[nodiscard]] QColor QrActiveColor() {
-	return QColor(87, 101, 26);
+	return AyuUiSettings::isTelegramDesign()
+		? QColor(0x40, 0xA7, 0xE3) // Default windowBgActive.
+		: QColor(87, 101, 26);
 }
 
 [[nodiscard]] not_null<Ui::RpWidget*> PrepareQrWidget(

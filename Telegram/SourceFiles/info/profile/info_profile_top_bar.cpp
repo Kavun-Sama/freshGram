@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "info/profile/info_profile_top_bar.h"
 
 #include "ayu/features/streamer_mode/streamer_mode.h"
@@ -1056,11 +1057,13 @@ void TopBar::setupActions(not_null<Window::SessionController*> controller) {
 			tr::lng_profile_action_short_mute(tr::now),
 			st::infoProfileTopBarActionMessage);
 		notifications->setAccessibleName(tr::lng_profile_action_short_mute(tr::now));
+		const auto animated = AyuUiSettings::isTelegramDesign()
+			&& (AyuUiSettings::iconSet() == AyuUiSettings::IconSet::Telegram);
 		notifications->convertToToggle(
 			st::infoProfileTopBarActionUnmute,
 			st::infoProfileTopBarActionMute,
-			QString(),
-			QString());
+			animated ? u"profile_muting"_q : QString(),
+			animated ? u"profile_unmuting"_q : QString());
 
 		const auto topicRootId = topic ? topic->rootId() : MsgId();
 		const auto makeThread = [=] {

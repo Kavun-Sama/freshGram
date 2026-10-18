@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/reactions_settings_box.h"
+#include "ayu/ayu_ui_settings.h"
 
 #include "chat_helpers/emoji_list_widget.h"
 #include "chat_helpers/tabbed_selector.h"
@@ -246,6 +247,7 @@ int StripPreview::resizeGetHeight(int newWidth) {
 		+ st::reactionCornerShadow.top()
 		+ st::reactStripHeight
 		+ st::reactionCornerShadow.bottom()
+		+ (AyuUiSettings::isTelegramDesign() ? _st.icons.stripBubble.height() : 0)
 		+ padding.bottom()
 		+ margin.bottom();
 }
@@ -332,6 +334,18 @@ void StripPreview::paintEvent(QPaintEvent *e) {
 	const auto inner = innerRect();
 	const auto outer = inner.marginsAdded(st::reactionCornerShadow);
 	p.drawImage(outer.topLeft(), _pillCache);
+
+	if (AyuUiSettings::isTelegramDesign()) {
+		const auto &bubble = _st.icons.stripBubble;
+		const auto bubbleRight = std::min(
+			st::reactStripBubbleRight,
+			(inner.width() - bubble.width()) / 2);
+		bubble.paint(
+			p,
+			inner.x() + inner.width() - bubbleRight - bubble.width(),
+			inner.y() + inner.height(),
+			width());
+	}
 
 	auto hq = PainterHighQualityEnabler(p);
 	const auto count = std::min(int(_list.size()), _columns);
