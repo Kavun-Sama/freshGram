@@ -20,6 +20,7 @@ namespace FA::Ui {
 // one rounded card. Call it before adding the rows, it narrows them by
 // the card inset.
 void AttachCards(not_null<::Ui::VerticalLayout*> container);
+void AttachCards(not_null<::Ui::VerticalLayout*> container, int inset);
 
 // Makes the whole widget a single row of the cards, buttons inside it
 // are drawn without a background.

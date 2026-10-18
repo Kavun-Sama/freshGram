@@ -9,6 +9,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "boxes/peer_list_section_headers.h"
 #include "boxes/peer_list_section_index.h"
+#include "ayu/ayu_card_segment.h"
+#include "ayu/ayu_ui_settings.h"
 #include "history/history.h" // chatListNameSortKey.
 #include "main/session/session_show.h"
 #include "main/main_session.h"
@@ -1689,7 +1691,11 @@ void PeerListContent::paintEvent(QPaintEvent *e) {
 	const auto yFrom = clip.y() - rowsTopCached;
 	const auto yTo = clip.y() + clip.height() - rowsTopCached;
 	const auto count = shownRowsCount();
-	if (_mode != Mode::Custom) {
+	// Inside a Fagram card the card paints the background of the rows.
+	_inCards = (AyuUiSettings::designStyle()
+			== AyuUiSettings::DesignStyle::Fagram)
+		&& AyuUiSettings::InCards(this);
+	if (_mode != Mode::Custom && !_inCards) {
 		auto fill = QRegion(clip);
 		if (count > 0 && !sectionsShown()) {
 			const auto [from, to] = Ui::RowsInRange(
@@ -2068,7 +2074,9 @@ crl::time PeerListContent::paintRow(
 	}
 
 	const auto activeElement = (active.index == index) ? active.element : 0;
+	// The opaque scroll cache would cover the card under the rows.
 	if (_rowsScrollCache.scrolling()
+		&& !_inCards
 		&& !selected
 		&& !activeElement
 		&& !row->elementsAnimating()
@@ -2123,7 +2131,13 @@ void PeerListContent::paintRowContent(
 		}
 	});
 
-	p.fillRect(0, 0, outerWidth, _rowHeight, bg);
+	if (!_inCards) {
+		p.fillRect(0, 0, outerWidth, _rowHeight, bg);
+	} else if (selected) {
+		p.setOpacity(opacity * 0.5);
+		p.fillRect(0, 0, outerWidth, _rowHeight, st.button.ripple.color);
+		p.setOpacity(opacity);
+	}
 	row->paintRipple(p, st, 0, 0, outerWidth);
 	row->paintUserpic(
 		p,

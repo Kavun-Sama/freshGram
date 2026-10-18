@@ -200,7 +200,8 @@ void SectionStack::finalize() {
 	Ui::AddSkip(_layout, st::infoProfileSkip);
 	if (FA::Ui::Enabled()) {
 		// The blocks added below are joined into the rounded cards.
-		FA::Ui::AttachCards(_layout);
+		// The profile column is narrow, its cards keep closer to the edges.
+		FA::Ui::AttachCards(_layout, st::fagramProfileCardInset);
 	}
 
 	const auto count = int(_rows.size());

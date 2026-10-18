@@ -262,11 +262,14 @@ private:
 } // namespace
 
 void AttachCards(not_null<::Ui::VerticalLayout*> container) {
+	AttachCards(container, st::fagramCardInset);
+}
+
+void AttachCards(not_null<::Ui::VerticalLayout*> container, int inset) {
 	if (InCards(container)) {
 		return;
 	}
 	container->setProperty("fa_cards", true);
-	const auto inset = st::fagramCardInset;
 	container->setRowInset(inset);
 	::Ui::CreateChild<Backdrop>(container.get(), container, inset);
 }

@@ -951,6 +951,7 @@ private:
 	Selected _contexted;
 	rpl::variable<int> _selectedIndex = -1;
 	bool _mouseSelection = false;
+	bool _inCards = false;
 	std::optional<QPoint> _lastMousePosition;
 	Qt::MouseButton _pressButton = Qt::LeftButton;
 	std::optional<QPoint> _trackPressStart;
