@@ -8,6 +8,8 @@
 #include "lang_auto.h"
 #include "main/main_app_config.h"
 #include "main/main_session.h"
+#include "storage/storage_media_prepare.h"
+#include "ui/chat/attach/attach_prepare.h"
 #include "ui/layers/generic_box.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
@@ -176,9 +178,12 @@ void FillStoryComposeBox(
 		}
 		state->busy = true;
 		controller->showToast(tr::ayu_StoryPosting(tr::now));
+		auto list = Ui::PreparedList();
+		list.files.push_back(std::move(*file));
+		Storage::ApplyModifications(list);
 		auto draft = AyuStories::Draft{
 			.peer = peer,
-			.file = std::move(*file),
+			.file = std::move(list.files.front()),
 			.caption = caption->getTextWithTags(),
 			.audience = peer->isSelf()
 				? AyuStories::Audience(audience->current())
