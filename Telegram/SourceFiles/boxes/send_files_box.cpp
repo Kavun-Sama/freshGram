@@ -85,6 +85,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QMimeData>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/translator/compose_translate.h"
 #include "base/unixtime.h"
 #include "ayu/utils/telegram_helpers.h"
 #include <QApplication>
@@ -2160,6 +2161,11 @@ void SendFilesBox::setupCaption() {
 	rpl::single(rpl::empty_value()) | rpl::then(
 		_caption->changes()
 	) | rpl::on_next([=] {
+		_captionsTranslated = false;
+		if (_translator && _translator->busy()) {
+			_translator->cancel();
+			_translating = false;
+		}
 		checkCharsLimitation();
 		refreshMessagesCount();
 	}, _caption->lifetime());
@@ -2644,9 +2650,93 @@ bool SendFilesBox::validateLength(const QString &text) const {
 	return false;
 }
 
+bool SendFilesBox::translateCaptions(
+		Api::SendOptions options,
+		bool ctrlShiftEnter) {
+	const auto &settings = AyuSettings::getInstance();
+	if (!_confirmedCallback
+		|| _captionsTranslated
+		|| !settings.autoTranslateOutgoing()
+		|| !settings.showTranslateButtonInMessageField()) {
+		return false;
+	}
+	const auto entitiesOf = [](const TextWithTags &text) {
+		return TextWithEntities{
+			text.text,
+			TextUtilities::ConvertTextTagsToEntities(text.tags),
+		};
+	};
+	const auto way = _sendWay.current();
+	auto indices = std::vector<int>();
+	if (Ayu::WorthTranslating(entitiesOf(fieldText()))) {
+		indices.push_back(-1);
+	}
+	for (auto i = 0; i != int(_list.files.size()); ++i) {
+		const auto &file = _list.files[i];
+		if (!SkipCaption(file, way)
+			&& Ayu::WorthTranslating(entitiesOf(file.caption))) {
+			indices.push_back(i);
+		}
+	}
+	if (indices.empty()) {
+		return false;
+	} else if (_translating || (_translator && _translator->busy())) {
+		return true;
+	}
+	if (!_translator) {
+		_translator = std::make_unique<Ayu::ComposeTranslator>();
+	}
+	_translating = true;
+	translateCaptionAt(std::move(indices), 0, options, ctrlShiftEnter);
+	return true;
+}
+
+void SendFilesBox::translateCaptionAt(
+		std::vector<int> indices,
+		int position,
+		Api::SendOptions options,
+		bool ctrlShiftEnter) {
+	if (position == int(indices.size())) {
+		_translating = false;
+		_captionsTranslated = true;
+		send(options, ctrlShiftEnter);
+		return;
+	}
+	const auto index = indices[position];
+	if (index < 0 ? _caption->isHidden() : (index >= int(_list.files.size()))) {
+		_translating = false;
+		return;
+	}
+	const auto source = (index < 0) ? fieldText() : _list.files[index].caption;
+	_translator->start(_show, _toPeer, TextWithEntities{
+		source.text,
+		TextUtilities::ConvertTextTagsToEntities(source.tags),
+	}, crl::guard(this, [=](std::optional<TextWithEntities> result) {
+		if (!result) {
+			_translating = false;
+			return;
+		}
+		auto translated = TextWithTags{
+			result->text,
+			TextUtilities::ConvertEntitiesToTextTags(result->entities),
+		};
+		if (index < 0) {
+			_caption->setTextWithTags(
+				std::move(translated),
+				Ui::InputField::HistoryAction::NewEntry);
+		} else if (index < int(_list.files.size())) {
+			_list.files[index].caption = std::move(translated);
+		}
+		translateCaptionAt(indices, position + 1, options, ctrlShiftEnter);
+	}), true);
+}
+
 void SendFilesBox::send(
 		Api::SendOptions options,
 		bool ctrlShiftEnter) {
+	if (_translating || translateCaptions(options, ctrlShiftEnter)) {
+		return;
+	}
 	const auto sumSize = ranges::accumulate(
 		_list.files, int64(0),
 		[](int64 sum, const auto &file) { return sum + file.size; });

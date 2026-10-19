@@ -649,6 +649,7 @@
 "ayu_MessageFieldElementTranslate" = "Traduci";
 "ayu_TranslateComposeTo" = "Traduci il testo digitato in";
 "ayu_AutoTranslateOutgoing" = "Traduci automaticamente all'invio";
+"ayu_AutoTranslateFailed" = "Traduzione non riuscita, il messaggio non è stato inviato.";
 "ayu_TranslateComposeFailed" = "Traduzione non riuscita.";
 "ayu_TranslateComposeProgress" = "Traduzione…";
 "ayu_TranslateComposeDone" = "Traduzione completata.";

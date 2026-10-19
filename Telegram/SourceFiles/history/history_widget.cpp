@@ -2433,6 +2433,8 @@ void HistoryWidget::fieldChanged() {
 	});
 
 	checkCharsCount();
+	_translator->cancel();
+	_translator->textChanged(_field->getLastText());
 
 	updateSendButtonType();
 	if (!fieldHasSendText()) {
@@ -3809,6 +3811,7 @@ void HistoryWidget::setHistory(History *history) {
 	if (_history == history) {
 		return;
 	}
+	_translator->cancel();
 	_pullToNext->setHistory(history);
 
 	const auto &settings = AyuSettings::getInstance();
@@ -7737,45 +7740,54 @@ void HistoryWidget::initTranslateButton() {
 	}, _translate->lifetime());
 }
 
-void HistoryWidget::translateField(Fn<void()> done) {
+void HistoryWidget::translateField(bool silent, Fn<void()> done) {
 	if (!_peer || _translator->busy()) {
 		return;
 	}
+	const auto peer = _peer;
+	const auto editId = _editMsgId;
 	const auto original = prepareTextForEditMsg();
 	_translator->start(controller()->uiShow(), _peer, original, crl::guard(this, [=](
 			std::optional<TextWithEntities> result) {
-		if (!result || prepareTextForEditMsg() != original) {
+		if (!result
+			|| _peer != peer
+			|| _editMsgId != editId
+			|| prepareTextForEditMsg() != original) {
 			return;
 		}
 		setFieldText({
 			result->text,
 			TextUtilities::ConvertEntitiesToTextTags(result->entities),
 		}, TextUpdateEvent::SaveDraft, Ui::InputField::HistoryAction::NewEntry);
+		_translator->remember(_field->getLastText());
 		if (done) {
 			done();
 		}
-	}));
+	}), silent);
 }
 
 bool HistoryWidget::autoTranslateBeforeSend(Api::SendOptions options) {
-	if (_autoTranslateBypass) {
-		_autoTranslateBypass = false;
-		return false;
-	} else if (!AyuSettings::getInstance().autoTranslateOutgoing()
-		|| !AyuSettings::getInstance().showTranslateButtonInMessageField()
+	const auto &settings = AyuSettings::getInstance();
+	if (!settings.autoTranslateOutgoing()
+		|| !settings.showTranslateButtonInMessageField()
 		|| !_peer
+		|| !_canSendMessages
 		|| _editMsgId
 		|| _voiceRecordBar->isListenState()
 		|| shownRichMessage()
-		|| _translator->busy()
+		|| session().supportMode()
 		|| !HasSendText(_field)) {
 		return false;
 	}
-	translateField(crl::guard(this, [=] {
-		_autoTranslateBypass = true;
-		send(options);
-		_autoTranslateBypass = false;
-	}));
+	if (_translator->isRemembered(_field->getLastText())
+		|| !Ayu::WorthTranslating(prepareTextForEditMsg())) {
+		return false;
+	}
+	if (!_translator->busy()) {
+		translateField(true, crl::guard(this, [=] {
+			send(options);
+		}));
+	}
 	return true;
 }
 

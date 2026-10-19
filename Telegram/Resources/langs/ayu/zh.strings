@@ -628,6 +628,7 @@
 "ayu_MessageFieldElementTranslate" = "翻译";
 "ayu_TranslateComposeTo" = "将输入的文本翻译为";
 "ayu_AutoTranslateOutgoing" = "发送时自动翻译";
+"ayu_AutoTranslateFailed" = "翻译失败，消息未发送。";
 "ayu_TranslateComposeFailed" = "翻译失败。";
 "ayu_TranslateComposeProgress" = "正在翻译…";
 "ayu_TranslateComposeDone" = "翻译完成。";

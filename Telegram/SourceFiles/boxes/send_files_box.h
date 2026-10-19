@@ -25,6 +25,10 @@ namespace Window {
 class SessionController;
 } // namespace Window
 
+namespace Ayu {
+class ComposeTranslator;
+} // namespace Ayu
+
 namespace Api {
 struct SendOptions;
 enum class SendType;
@@ -261,6 +265,14 @@ private:
 	void generatePreviewFrom(int fromBlock);
 
 	void send(Api::SendOptions options, bool ctrlShiftEnter = false);
+	[[nodiscard]] bool translateCaptions(
+		Api::SendOptions options,
+		bool ctrlShiftEnter);
+	void translateCaptionAt(
+		std::vector<int> indices,
+		int position,
+		Api::SendOptions options,
+		bool ctrlShiftEnter);
 	void stash();
 	[[nodiscard]] Fn<void(Api::SendOptions)> sendCallback();
 	void captionResized();
@@ -334,6 +346,9 @@ private:
 	bool _stashed = false;
 	bool _textTaken = false;
 	bool _invertCaption = false;
+	std::unique_ptr<Ayu::ComposeTranslator> _translator;
+	bool _captionsTranslated = false;
+	bool _translating = false;
 
 	const object_ptr<Ui::InputField> _caption;
 	std::unique_ptr<ChatHelpers::FieldAutocomplete> _autocomplete;

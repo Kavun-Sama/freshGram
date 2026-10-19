@@ -1541,6 +1541,7 @@ void ComposeControls::setHistory(SetHistoryArgs &&args) {
 	if (_history == history) {
 		return;
 	}
+	_translator->cancel();
 	untrackThreadFieldVisibility();
 	unregisterDraftSources();
 	_history = history;
@@ -3548,6 +3549,8 @@ void ComposeControls::fieldChanged() {
 	const auto silentVisible = _silent && !_silent->isHidden();
 	const auto scheduledVisible = _scheduled && !_scheduled->isHidden();
 	const auto ttlVisible = _ttlInfo && _ttlInfo->isVisible();
+	_translator->cancel();
+	_translator->textChanged(_field->getLastText());
 	updateSendButtonType();
 	_hasSendText = _field->isVisible() && HasSendText(_field);
 	const auto commandShown = updateBotCommandShown();
@@ -4727,46 +4730,52 @@ void ComposeControls::initTranslateButton() {
 	}, _translate->lifetime());
 }
 
-void ComposeControls::translateField(Fn<void()> done) {
+void ComposeControls::translateField(bool silent, Fn<void()> done) {
 	if (!_history || _translator->busy()) {
 		return;
 	}
+	const auto history = _history;
 	const auto original = prepareTextForEditMsg();
-	_translator->start(_show, _history->peer, original, crl::guard(_wrap.get(), [=](
+	_translator->start(_show, history->peer, original, crl::guard(_wrap.get(), [=](
 			std::optional<TextWithEntities> result) {
-		if (!result || prepareTextForEditMsg() != original) {
+		if (!result
+			|| _history != history
+			|| prepareTextForEditMsg() != original) {
 			return;
 		}
 		setFieldText({
 			result->text,
 			TextUtilities::ConvertEntitiesToTextTags(result->entities),
 		}, TextUpdateEvent::SaveDraft, Ui::InputField::HistoryAction::NewEntry);
+		_translator->remember(_field->getLastText());
 		if (done) {
 			done();
 		}
-	}));
+	}), silent);
 }
 
 bool ComposeControls::autoTranslateBeforeSend(Api::SendOptions options) {
-	if (_autoTranslateBypass) {
-		_autoTranslateBypass = false;
-		return false;
-	} else if (!_translate
-		|| !AyuSettings::getInstance().autoTranslateOutgoing()
-		|| !AyuSettings::getInstance().showTranslateButtonInMessageField()
+	const auto &settings = AyuSettings::getInstance();
+	if (!_translate
+		|| !settings.autoTranslateOutgoing()
+		|| !settings.showTranslateButtonInMessageField()
 		|| !_history
 		|| isEditingMessage()
 		|| _voiceRecordBar->isListenState()
 		|| shouldShowRichDraftPreview()
-		|| _translator->busy()
+		|| session().supportMode()
 		|| !hasVisibleSendText()) {
 		return false;
 	}
-	translateField(crl::guard(_wrap.get(), [=] {
-		_autoTranslateBypass = true;
-		_sendCustomRequests.fire_copy(options);
-		_autoTranslateBypass = false;
-	}));
+	if (_translator->isRemembered(_field->getLastText())
+		|| !Ayu::WorthTranslating(prepareTextForEditMsg())) {
+		return false;
+	}
+	if (!_translator->busy()) {
+		translateField(true, crl::guard(_wrap.get(), [=] {
+			_sendCustomRequests.fire_copy(options);
+		}));
+	}
 	return true;
 }
 
