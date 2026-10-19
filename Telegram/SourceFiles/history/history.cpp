@@ -3135,6 +3135,15 @@ void History::clearSharedMedia() {
 		Storage::SharedMediaRemoveAll(peer->id));
 }
 
+void History::applyNoServerEntry() {
+	if (!lastServerMessageKnown()) {
+		setLastServerMessage(nullptr);
+	}
+	if (!lastMessageKnown()) {
+		setLastMessage(nullptr);
+	}
+}
+
 void History::setLastServerMessage(HistoryItem *item) {
 	_lastServerMessage = item;
 	if (_lastMessage

@@ -126,15 +126,21 @@ private:
 #endif // Qt < 6.5.0
 
 - (void) screenIsLocked:(NSNotification *)aNotification {
-	Core::App().setScreenIsLocked(true);
+	Core::Sandbox::Instance().customEnterFromEventLoop([&] {
+		Core::App().setScreenIsLocked(true);
+	});
 }
 
 - (void) screenIsUnlocked:(NSNotification *)aNotification {
-	Core::App().setScreenIsLocked(false);
+	Core::Sandbox::Instance().customEnterFromEventLoop([&] {
+		Core::App().setScreenIsLocked(false);
+	});
 }
 
 - (void) systemWillSleep:(NSNotification *)aNotification {
-	AyuLockTriggers::SystemLocked();
+	Core::Sandbox::Instance().customEnterFromEventLoop([&] {
+		AyuLockTriggers::SystemLocked();
+	});
 }
 
 @end // @implementation MainWindowObserver

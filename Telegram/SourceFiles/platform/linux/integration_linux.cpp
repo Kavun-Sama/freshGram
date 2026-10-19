@@ -221,13 +221,14 @@ void LinuxIntegration::initInhibit() {
 			return;
 		}
 
-		Core::App().setScreenIsLocked(
-			GLib::VariantDict::new_(
-				state
-			).lookup_value(
-				"screensaver-active"
-			).get_boolean()
-		);
+		const auto locked = GLib::VariantDict::new_(
+			state
+		).lookup_value(
+			"screensaver-active"
+		).get_boolean();
+		Core::Sandbox::Instance().customEnterFromEventLoop([&] {
+			Core::App().setScreenIsLocked(locked);
+		});
 	});
 
 	inhibit().call_create_monitor(

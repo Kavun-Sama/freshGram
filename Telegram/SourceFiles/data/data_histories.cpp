@@ -422,6 +422,9 @@ void Histories::requestDialogEntry(
 				? history->peer->asChat()->isForbidden()
 				: (history->peer->asChannel()->flags()
 					& ChannelDataFlag::Forbidden)))) {
+		// WHY: the server gives nothing for these, and an unknown last
+		// message makes the callback request the entry again forever.
+		history->applyNoServerEntry();
 		if (callback) {
 			callback();
 		}

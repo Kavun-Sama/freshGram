@@ -1737,6 +1737,7 @@ void Session::deleteConversationLocally(not_null<PeerData*> peer) {
 		}
 	}
 	AyuKept::forget(peer);
+	AyuLocalPins::forget(this, peer->id);
 	const auto markLeft = [&] {
 		if (const auto channel = peer->asMegagroup()) {
 			channel->addFlags(ChannelDataFlag::Left);

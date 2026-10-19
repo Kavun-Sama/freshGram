@@ -252,9 +252,10 @@ void RestoreDeletedTopics(not_null<History*> history) {
 	const auto userId = AyuMessages::storageUserId(peer);
 	const auto dialogId = getDialogIdFromPeer(peer);
 	const auto weak = base::make_weak(history.get());
+	const auto session = &history->session();
 	crl::async([=] {
 		auto rows = AyuDatabase::getKeptTopics(userId, dialogId);
-		crl::on_main(&history->session(), [=, rows = std::move(rows)] {
+		crl::on_main(session, [=, rows = std::move(rows)] {
 			const auto strong = weak.get();
 			const auto forum = strong ? strong->peer->forum() : nullptr;
 			if (!forum) {

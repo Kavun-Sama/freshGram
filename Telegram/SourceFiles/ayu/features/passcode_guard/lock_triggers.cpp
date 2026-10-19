@@ -132,9 +132,12 @@ void Lock() {
 }
 
 void SystemLocked() {
-	if (AyuSettings::getInstance().lockOnSystemLock()) {
-		Lock();
-	}
+	// WHY: it comes from a system callback, outside of the Qt event loop.
+	crl::on_main(&Core::App(), [] {
+		if (AyuSettings::getInstance().lockOnSystemLock()) {
+			Lock();
+		}
+	});
 }
 
 } // namespace AyuLockTriggers
