@@ -16,6 +16,7 @@
 #include "ui/style/style_core_scale.h"
 #include "styles/palette.h"
 
+#include <QtCore/QVariant>
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
 #include <QtWidgets/QWidget>
