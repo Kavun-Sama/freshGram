@@ -47,6 +47,62 @@ namespace {
 constexpr auto kSystemUnlockDelay = crl::time(1000);
 constexpr auto kAttemptsWarning = 3;
 
+[[nodiscard]] QColor TextOver(const QColor &background) {
+	const auto luma = 0.299 * background.redF()
+		+ 0.587 * background.greenF()
+		+ 0.114 * background.blueF();
+	return (luma < 0.55) ? QColor(255, 255, 255) : QColor(20, 20, 20);
+}
+
+[[nodiscard]] style::font ClockFontOf(int size) {
+	const auto &base = st::passcodeClockFont;
+	const auto percent = (size == 0) ? 70 : (size == 2) ? 130 : 100;
+	return style::font(
+		std::max(base->size() * percent / 100, 1),
+		base->flags(),
+		base->family());
+}
+
+[[nodiscard]] QString ClockText(QTime time, int format, bool seconds) {
+	const auto locale = QLocale();
+	if (format == 0 && !seconds) {
+		return locale.toString(time, QLocale::ShortFormat);
+	}
+	const auto twelve = (format == 2)
+		|| (format == 0
+			&& locale.timeFormat(QLocale::ShortFormat).contains(
+				u"ap"_q,
+				Qt::CaseInsensitive));
+	return locale.toString(time, twelve
+		? (seconds ? u"h:mm:ss AP"_q : u"h:mm AP"_q)
+		: (seconds ? u"HH:mm:ss"_q : u"HH:mm"_q));
+}
+
+[[nodiscard]] QPainterPath ShapePath(QRect rect, int shape) {
+	auto result = QPainterPath();
+	if (shape == 1) {
+		const auto radius = rect.width() / 4.;
+		result.addRoundedRect(rect, radius, radius);
+	} else if (shape == 2) {
+		result.addRect(rect);
+	} else {
+		result.addEllipse(rect);
+	}
+	return result;
+}
+
+[[nodiscard]] int CardRadiusOf(int setting) {
+	return (setting == 1)
+		? 0
+		: (setting == 2)
+		? st::passcodeCardRadius
+		: (setting == 3)
+		? st::passcodeCardRadius * 3
+		: AyuUiSettings::isTelegramDesign()
+		? st::passcodeCardRadius
+		: st::passcodeCardRadiusMaterial;
+}
+
 } // namespace
 
 namespace {
@@ -235,6 +291,7 @@ PasscodeLockWidget::PasscodeLockWidget(
 , _clockTimer([=] { updateClock(); })
 , _statusTimer([=] { updateStatus(); })
 , _preview(preview) {
+	_clockFont = st::passcodeClockFont;
 	AyuPasscodeGuard::EnsureLoaded();
 	setupEye();
 	updateClock();
@@ -290,7 +347,19 @@ void PasscodeLockWidget::setupSettings() {
 		settings.lockScreenShowLogoutValue() | rpl::to_empty,
 		settings.lockScreenShowEyeValue() | rpl::to_empty,
 		settings.lockScreenColor1Value() | rpl::to_empty,
-		settings.lockScreenColor2Value() | rpl::to_empty
+		settings.lockScreenColor2Value() | rpl::to_empty,
+		settings.lockScreenAvatarValue() | rpl::to_empty,
+		settings.lockScreenAvatarShapeValue() | rpl::to_empty,
+		settings.lockScreenCardOpacityValue() | rpl::to_empty,
+		settings.lockScreenCardRadiusValue() | rpl::to_empty,
+		settings.lockScreenCardBorderValue() | rpl::to_empty,
+		settings.lockScreenClockFormatValue() | rpl::to_empty,
+		settings.lockScreenClockSecondsValue() | rpl::to_empty,
+		settings.lockScreenClockSizeValue() | rpl::to_empty,
+		settings.lockScreenClockColorValue() | rpl::to_empty,
+		settings.lockScreenTitleValue() | rpl::to_empty,
+		settings.lockScreenSubmitTextValue() | rpl::to_empty,
+		settings.lockScreenAccentValue() | rpl::to_empty
 	) | rpl::on_next([=] {
 		applySettings();
 	}, lifetime());
@@ -311,6 +380,28 @@ void PasscodeLockWidget::applySettings() {
 	const auto text = settings.lockScreenText();
 	_text->setText(text);
 	_textShown = !text.isEmpty();
+
+	_clockFont = ClockFontOf(settings.lockScreenClockSize());
+	updateClock();
+
+	_title = _telegramStyle ? QString() : settings.lockScreenTitle();
+	const auto submit = _telegramStyle
+		? QString()
+		: settings.lockScreenSubmitText();
+	if (submit.isEmpty()) {
+		_submit->setText(tr::lng_passcode_submit());
+	} else {
+		_submit->setText(rpl::single(submit));
+	}
+	const auto accent = settings.lockScreenAccent();
+	if (accent && !_telegramStyle) {
+		const auto color = QColor::fromRgba(accent);
+		_submit->setBrushOverride(QBrush(color));
+		_submit->setTextFgOverride(TextOver(color));
+	} else {
+		_submit->setBrushOverride(std::nullopt);
+		_submit->setTextFgOverride(std::nullopt);
+	}
 	restoreChildrenVisibility();
 	updateLayout();
 	update();
@@ -457,13 +548,19 @@ void PasscodeLockWidget::setupEye() {
 }
 
 void PasscodeLockWidget::updateClock() {
+	const auto &settings = AyuSettings::getInstance();
+	const auto seconds = settings.lockScreenClockSeconds();
 	const auto now = QDateTime::currentDateTime();
-	_clock = QLocale().toString(now.time(), QLocale::ShortFormat);
+	_clock = ClockText(
+		now.time(),
+		settings.lockScreenClockFormat(),
+		seconds);
 	_date = langDayOfWeekFull(now.date())
 		+ u", "_q
 		+ langDayOfMonthFull(now.date());
-	const auto seconds = now.time().second();
-	_clockTimer.callOnce((60 - seconds) * crl::time(1000));
+	_clockTimer.callOnce(seconds
+		? (1000 - now.time().msec())
+		: ((60 - now.time().second()) * crl::time(1000)));
 	update();
 }
 
@@ -568,13 +665,6 @@ void PasscodeLockWidget::paintContent(QPainter &p) {
 	}
 }
 
-[[nodiscard]] static QColor TextOver(const QColor &background) {
-	const auto luma = 0.299 * background.redF()
-		+ 0.587 * background.greenF()
-		+ 0.114 * background.blueF();
-	return (luma < 0.55) ? QColor(255, 255, 255) : QColor(20, 20, 20);
-}
-
 void PasscodeLockWidget::paintBackground(QPainter &p) {
 	LockWidget::paintContent(p);
 	_imageShown = false;
@@ -651,19 +741,24 @@ void PasscodeLockWidget::paintCentered(
 
 void PasscodeLockWidget::paintCardContent(QPainter &p) {
 	auto hq = PainterHighQualityEnabler(p);
+	const auto &settings = AyuSettings::getInstance();
 	const auto full = QRect(0, 0, width(), 0);
+	const auto customClock = settings.lockScreenClockColor();
+	const auto textOver = customClock
+		? std::make_optional(QColor::fromRgba(customClock))
+		: _backdropText;
 	if (_clockShown) {
-		p.setPen(_backdropText
-			? *_backdropText
+		p.setPen(textOver
+			? *textOver
 			: _imageShown
 			? QColor(255, 255, 255)
 			: st::windowFg->c);
-		paintCentered(p, st::passcodeClockFont, full.translated(0, _clockTop), _clock);
+		paintCentered(p, _clockFont, full.translated(0, _clockTop), _clock);
 	}
 	if (_dateShown) {
-		auto subtle = _backdropText.value_or(QColor());
+		auto subtle = textOver.value_or(QColor());
 		subtle.setAlpha(210);
-		p.setPen(_backdropText
+		p.setPen(textOver
 			? subtle
 			: _imageShown
 			? QColor(255, 255, 255, 210)
@@ -671,26 +766,42 @@ void PasscodeLockWidget::paintCardContent(QPainter &p) {
 		paintCentered(p, st::passcodeDateFont, full.translated(0, _dateTop), _date);
 	}
 
-	const auto radius = AyuUiSettings::isTelegramDesign()
-		? st::passcodeCardRadius
-		: st::passcodeCardRadiusMaterial;
-	p.setPen(QPen(st::shadowFg->c, st::lineWidth));
-	p.setBrush(st::windowBg);
+	const auto radius = CardRadiusOf(settings.lockScreenCardRadius());
+	auto cardColor = st::windowBg->c;
+	cardColor.setAlpha(255 * settings.lockScreenCardOpacity() / 100);
+	if (settings.lockScreenCardBorder()) {
+		p.setPen(QPen(st::shadowFg->c, st::lineWidth));
+	} else {
+		p.setPen(Qt::NoPen);
+	}
+	p.setBrush(cardColor);
 	p.drawRoundedRect(_card, radius, radius);
 
 	const auto size = st::passcodeLockSize;
 	const auto lock = QRect((width() - size) / 2, _lockTop, size, size);
+	const auto shape = ShapePath(lock, settings.lockScreenAvatarShape());
+	const auto accent = settings.lockScreenAccent();
+	const auto avatar = settings.lockScreenAvatar()
+		? AyuLockBackground::PreparedAvatar(size * style::DevicePixelRatio())
+		: QImage();
 	p.setPen(Qt::NoPen);
-	p.setBrush(st::activeButtonBg);
-	p.drawEllipse(lock);
-	st::passcodeLockIcon.paintInCenter(p, lock);
+	if (!avatar.isNull()) {
+		p.save();
+		p.setClipPath(shape);
+		p.drawImage(lock, avatar);
+		p.restore();
+	} else {
+		p.setBrush(accent ? QColor::fromRgba(accent) : st::activeButtonBg->c);
+		p.drawPath(shape);
+		st::passcodeLockIcon.paintInCenter(p, lock);
+	}
 
 	p.setPen(st::windowFg);
 	paintCentered(
 		p,
 		st::passcodeHeaderFont,
 		QRect(_card.x(), _titleTop, _card.width(), 0),
-		tr::lng_passcode_enter(tr::now));
+		_title.isEmpty() ? tr::lng_passcode_enter(tr::now) : _title);
 
 	if (!_status.isEmpty()) {
 		p.setFont(st::passcodeStatusFont);
@@ -833,7 +944,7 @@ void PasscodeLockWidget::updateCardLayout() {
 		+ padding.bottom();
 	const auto clock = settings.lockScreenShowClock();
 	const auto date = settings.lockScreenShowDate();
-	auto clockHeight = (clock ? st::passcodeClockFont->height : 0)
+	auto clockHeight = (clock ? _clockFont->height : 0)
 		+ ((clock && date) ? st::passcodeClockSkip : 0)
 		+ (date ? st::passcodeDateFont->height : 0);
 	if (clockHeight > 0) {
@@ -848,7 +959,7 @@ void PasscodeLockWidget::updateCardLayout() {
 	if (fits) {
 		_clockTop = top;
 		_dateTop = top + (clock
-			? (st::passcodeClockFont->height + st::passcodeClockSkip)
+			? (_clockFont->height + st::passcodeClockSkip)
 			: 0);
 		top += clockHeight;
 	}

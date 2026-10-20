@@ -461,6 +461,7 @@ void WipeSessionFiles() {
 		u"key_data*"_q,
 		u"ayu_accounts*"_q,
 		u"lock_background*"_q,
+		u"lock_avatar*"_q,
 		FileName() + '*',
 		LegacyFileName() + '*',
 		hex + '*',
@@ -555,6 +556,7 @@ void Run(const Actions &actions) {
 	if (actions.deleteAll) {
 		AyuMessages::clearEverything();
 		AyuLockBackground::Remove();
+		AyuLockBackground::RemoveAvatar();
 	} else {
 		for (const auto userId : userIds) {
 			if (actions.logoutDb) {

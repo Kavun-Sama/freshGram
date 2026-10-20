@@ -387,7 +387,20 @@ public:
 	[[nodiscard]] bool lockScreenShowEye() const { return _lockScreenShowEye.current(); }
 	[[nodiscard]] uint32 lockScreenColor1() const { return _lockScreenColor1.current(); }
 	[[nodiscard]] uint32 lockScreenColor2() const { return _lockScreenColor2.current(); }
+	[[nodiscard]] bool lockScreenAvatar() const { return _lockScreenAvatar.current(); }
+	[[nodiscard]] int lockScreenAvatarShape() const { return _lockScreenAvatarShape.current(); }
+	[[nodiscard]] int lockScreenCardOpacity() const { return _lockScreenCardOpacity.current(); }
+	[[nodiscard]] int lockScreenCardRadius() const { return _lockScreenCardRadius.current(); }
+	[[nodiscard]] bool lockScreenCardBorder() const { return _lockScreenCardBorder.current(); }
+	[[nodiscard]] int lockScreenClockFormat() const { return _lockScreenClockFormat.current(); }
+	[[nodiscard]] bool lockScreenClockSeconds() const { return _lockScreenClockSeconds.current(); }
+	[[nodiscard]] int lockScreenClockSize() const { return _lockScreenClockSize.current(); }
+	[[nodiscard]] uint32 lockScreenClockColor() const { return _lockScreenClockColor.current(); }
+	[[nodiscard]] QString lockScreenTitle() const { return _lockScreenTitle.current(); }
+	[[nodiscard]] QString lockScreenSubmitText() const { return _lockScreenSubmitText.current(); }
+	[[nodiscard]] uint32 lockScreenAccent() const { return _lockScreenAccent.current(); }
 	[[nodiscard]] static QString sanitizeLockScreenText(QString text);
+	[[nodiscard]] static QString sanitizeLockScreenLine(QString text, int maxLength);
 	[[nodiscard]] bool lockOnSystemLock() const { return _lockOnSystemLock.current(); }
 	[[nodiscard]] int lockOnMinimize() const { return _lockOnMinimize.current(); }
 	[[nodiscard]] int hideFromCapture() const { return _hideFromCapture.current(); }
@@ -552,6 +565,18 @@ public:
 	void setLockScreenShowEye(bool val);
 	void setLockScreenColor1(uint32 val);
 	void setLockScreenColor2(uint32 val);
+	void setLockScreenAvatar(bool val);
+	void setLockScreenAvatarShape(int val);
+	void setLockScreenCardOpacity(int val);
+	void setLockScreenCardRadius(int val);
+	void setLockScreenCardBorder(bool val);
+	void setLockScreenClockFormat(int val);
+	void setLockScreenClockSeconds(bool val);
+	void setLockScreenClockSize(int val);
+	void setLockScreenClockColor(uint32 val);
+	void setLockScreenTitle(QString val);
+	void setLockScreenSubmitText(QString val);
+	void setLockScreenAccent(uint32 val);
 	void setLockOnSystemLock(bool val);
 	void setLockOnMinimize(int val);
 	void setHideFromCapture(int val);
@@ -744,6 +769,18 @@ public:
 	[[nodiscard]] rpl::producer<bool> lockScreenShowEyeValue() const { return _lockScreenShowEye.value(); }
 	[[nodiscard]] rpl::producer<uint32> lockScreenColor1Value() const { return _lockScreenColor1.value(); }
 	[[nodiscard]] rpl::producer<uint32> lockScreenColor2Value() const { return _lockScreenColor2.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenAvatarValue() const { return _lockScreenAvatar.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenAvatarShapeValue() const { return _lockScreenAvatarShape.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenCardOpacityValue() const { return _lockScreenCardOpacity.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenCardRadiusValue() const { return _lockScreenCardRadius.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenCardBorderValue() const { return _lockScreenCardBorder.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenClockFormatValue() const { return _lockScreenClockFormat.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenClockSecondsValue() const { return _lockScreenClockSeconds.value(); }
+	[[nodiscard]] rpl::producer<int> lockScreenClockSizeValue() const { return _lockScreenClockSize.value(); }
+	[[nodiscard]] rpl::producer<uint32> lockScreenClockColorValue() const { return _lockScreenClockColor.value(); }
+	[[nodiscard]] rpl::producer<QString> lockScreenTitleValue() const { return _lockScreenTitle.value(); }
+	[[nodiscard]] rpl::producer<QString> lockScreenSubmitTextValue() const { return _lockScreenSubmitText.value(); }
+	[[nodiscard]] rpl::producer<uint32> lockScreenAccentValue() const { return _lockScreenAccent.value(); }
 	[[nodiscard]] rpl::producer<bool> lockOnSystemLockValue() const { return _lockOnSystemLock.value(); }
 	[[nodiscard]] rpl::producer<int> lockOnMinimizeValue() const { return _lockOnMinimize.value(); }
 	[[nodiscard]] rpl::producer<int> hideFromCaptureValue() const { return _hideFromCapture.value(); }
@@ -925,6 +962,18 @@ private:
 	rpl::variable<bool> _lockScreenShowEye = true;
 	rpl::variable<uint32> _lockScreenColor1 = uint32(0);
 	rpl::variable<uint32> _lockScreenColor2 = uint32(0);
+	rpl::variable<bool> _lockScreenAvatar = false;
+	rpl::variable<int> _lockScreenAvatarShape = 0;
+	rpl::variable<int> _lockScreenCardOpacity = 100;
+	rpl::variable<int> _lockScreenCardRadius = 0;
+	rpl::variable<bool> _lockScreenCardBorder = true;
+	rpl::variable<int> _lockScreenClockFormat = 0;
+	rpl::variable<bool> _lockScreenClockSeconds = false;
+	rpl::variable<int> _lockScreenClockSize = 1;
+	rpl::variable<uint32> _lockScreenClockColor = uint32(0);
+	rpl::variable<QString> _lockScreenTitle;
+	rpl::variable<QString> _lockScreenSubmitText;
+	rpl::variable<uint32> _lockScreenAccent = uint32(0);
 	rpl::variable<bool> _lockOnSystemLock = false;
 	rpl::variable<int> _lockOnMinimize = -1;
 	rpl::variable<int> _hideFromCapture = 0;

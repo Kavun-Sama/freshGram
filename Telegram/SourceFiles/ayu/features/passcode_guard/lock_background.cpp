@@ -19,6 +19,7 @@ constexpr auto kMaxSourceSide = 16384;
 constexpr auto kMaxSourcePixels = qint64(40'000'000);
 constexpr auto kBlurDownscale = 4;
 constexpr auto kBlurRadius = 12;
+constexpr auto kAvatarSide = 512;
 
 struct State {
 	QImage source;
@@ -33,8 +34,23 @@ struct State {
 	rpl::event_stream<> updates;
 };
 
+struct AvatarState {
+	QImage source;
+	bool loading = false;
+	bool failed = false;
+	QImage prepared;
+	int preparedSide = 0;
+	bool preparing = false;
+	int generation = 0;
+};
+
 [[nodiscard]] State &GetState() {
 	static auto result = State();
+	return result;
+}
+
+[[nodiscard]] AvatarState &GetAvatarState() {
+	static auto result = AvatarState();
 	return result;
 }
 
@@ -42,9 +58,25 @@ struct State {
 	return cWorkingDir() + u"tdata/lock_background.jpg"_q;
 }
 
+[[nodiscard]] QString AvatarPath() {
+	return cWorkingDir() + u"tdata/lock_avatar.jpg"_q;
+}
+
+[[nodiscard]] QImage CropSquare(const QImage &image) {
+	const auto side = std::min(image.width(), image.height());
+	return image.copy(
+		(image.width() - side) / 2,
+		(image.height() - side) / 2,
+		side,
+		side);
+}
+
 // WHY: the file is read before the passcode is entered, so only the
 // JPEG decoder is ever used and the sizes are checked before decoding.
-[[nodiscard]] QImage Read(const QString &path, const QByteArray &format) {
+[[nodiscard]] QImage Read(
+		const QString &path,
+		const QByteArray &format,
+		int maxSide = kMaxSide) {
 	if (QFileInfo(path).size() > kMaxFileSize) {
 		return QImage();
 	}
@@ -68,20 +100,20 @@ struct State {
 		|| qint64(size.width()) * size.height() > kMaxSourcePixels) {
 		return QImage();
 	}
-	if (size.width() > kMaxSide || size.height() > kMaxSide) {
+	if (size.width() > maxSide || size.height() > maxSide) {
 		reader.setScaledSize(size.scaled(
-			kMaxSide,
-			kMaxSide,
+			maxSide,
+			maxSide,
 			Qt::KeepAspectRatio));
 	}
 	auto result = reader.read();
 	if (result.isNull()) {
 		return QImage();
 	}
-	if (result.width() > kMaxSide || result.height() > kMaxSide) {
+	if (result.width() > maxSide || result.height() > maxSide) {
 		result = result.scaled(
-			kMaxSide,
-			kMaxSide,
+			maxSide,
+			maxSide,
 			Qt::KeepAspectRatio,
 			Qt::SmoothTransformation);
 	}
@@ -146,6 +178,28 @@ void Load() {
 	});
 }
 
+void LoadAvatar() {
+	auto &state = GetAvatarState();
+	if (state.loading || state.failed || !state.source.isNull()) {
+		return;
+	}
+	state.loading = true;
+	const auto generation = state.generation;
+	crl::async([=, path = AvatarPath()] {
+		auto image = Read(path, "jpg", kAvatarSide);
+		crl::on_main([=, image = std::move(image)]() mutable {
+			auto &state = GetAvatarState();
+			if (state.generation != generation) {
+				return;
+			}
+			state.loading = false;
+			state.failed = image.isNull();
+			state.source = std::move(image);
+			GetState().updates.fire({});
+		});
+	});
+}
+
 } // namespace
 
 void Import(const QString &path, Fn<void(bool)> done) {
@@ -173,6 +227,48 @@ void Import(const QString &path, Fn<void(bool)> done) {
 			done(ok);
 		});
 	});
+}
+
+void ImportAvatar(const QString &path, Fn<void(bool)> done) {
+	crl::async([=, target = AvatarPath()] {
+		auto image = Read(path, QByteArray(), kAvatarSide * 2);
+		auto ok = !image.isNull();
+		if (ok) {
+			image = CropSquare(image);
+			if (image.width() > kAvatarSide) {
+				image = image.scaled(
+					kAvatarSide,
+					kAvatarSide,
+					Qt::IgnoreAspectRatio,
+					Qt::SmoothTransformation);
+			}
+			const auto temp = target + u".new"_q;
+			auto writer = QImageWriter(temp, "jpg");
+			writer.setQuality(92);
+			ok = writer.write(image);
+			if (ok) {
+				QFile::remove(target);
+				ok = QFile::rename(temp, target);
+			}
+			if (!ok) {
+				QFile::remove(temp);
+			}
+		}
+		crl::on_main([=] {
+			if (ok) {
+				ClearAvatar();
+				GetState().updates.fire({});
+			}
+			done(ok);
+		});
+	});
+}
+
+void RemoveAvatar() {
+	QFile::remove(AvatarPath());
+	AyuSettings::getInstance().setLockScreenAvatar(false);
+	ClearAvatar();
+	GetState().updates.fire({});
 }
 
 void Remove() {
@@ -219,6 +315,50 @@ QImage Prepared(QSize size, bool blur, int dim) {
 	return state.prepared;
 }
 
+QImage PreparedAvatar(int side) {
+	auto &state = GetAvatarState();
+	if (side <= 0) {
+		return QImage();
+	} else if (state.source.isNull()) {
+		LoadAvatar();
+		return QImage();
+	}
+	if (state.preparedSide != side && !state.preparing) {
+		state.preparing = true;
+		const auto generation = state.generation;
+		crl::async([=, source = state.source] {
+			auto image = source.scaled(
+				side,
+				side,
+				Qt::KeepAspectRatioByExpanding,
+				Qt::SmoothTransformation
+			).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+			crl::on_main([=, image = std::move(image)]() mutable {
+				auto &state = GetAvatarState();
+				if (state.generation != generation) {
+					return;
+				}
+				state.preparing = false;
+				state.prepared = std::move(image);
+				state.preparedSide = side;
+				GetState().updates.fire({});
+			});
+		});
+	}
+	return state.prepared;
+}
+
+void ClearAvatar() {
+	auto &state = GetAvatarState();
+	++state.generation;
+	state.source = QImage();
+	state.prepared = QImage();
+	state.preparedSide = 0;
+	state.loading = false;
+	state.failed = false;
+	state.preparing = false;
+}
+
 rpl::producer<> Updates() {
 	return GetState().updates.events();
 }
@@ -232,6 +372,7 @@ void Clear() {
 	state.loading = false;
 	state.failed = false;
 	state.preparing = false;
+	ClearAvatar();
 }
 
 } // namespace AyuLockBackground

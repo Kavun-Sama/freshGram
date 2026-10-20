@@ -140,6 +140,8 @@ private:
 	QString _error;
 	QString _status;
 	QString _clock;
+	QString _title;
+	style::font _clockFont;
 	QString _date;
 	QRect _card;
 	rpl::variable<int> _contentBottom = 0;

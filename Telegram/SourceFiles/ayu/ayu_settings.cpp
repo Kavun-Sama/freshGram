@@ -666,6 +666,21 @@ void AyuSettings::validate() {
 	validateRange(_lockScreenStyle, 0, 1, defaults._lockScreenStyle);
 	validateRange(_lockScreenBackground, 0, 2, defaults._lockScreenBackground);
 	validateRange(_lockScreenDim, 0, 75, defaults._lockScreenDim);
+	validateRange(_lockScreenAvatarShape, 0, 2, defaults._lockScreenAvatarShape);
+	validateRange(_lockScreenCardOpacity, 40, 100, defaults._lockScreenCardOpacity);
+	validateRange(_lockScreenCardRadius, 0, 3, defaults._lockScreenCardRadius);
+	validateRange(_lockScreenClockFormat, 0, 2, defaults._lockScreenClockFormat);
+	validateRange(_lockScreenClockSize, 0, 2, defaults._lockScreenClockSize);
+	if (const auto title = sanitizeLockScreenLine(_lockScreenTitle.current(), 40)
+		; title != _lockScreenTitle.current()) {
+		_lockScreenTitle = title;
+		modified = true;
+	}
+	if (const auto text = sanitizeLockScreenLine(_lockScreenSubmitText.current(), 24)
+		; text != _lockScreenSubmitText.current()) {
+		_lockScreenSubmitText = text;
+		modified = true;
+	}
 	if (const auto text = sanitizeLockScreenText(_lockScreenText.current())
 		; text != _lockScreenText.current()) {
 		_lockScreenText = text;
@@ -1241,6 +1256,17 @@ void AyuSettings::setLockScreenShowDate(bool val) {
 	save();
 }
 
+QString AyuSettings::sanitizeLockScreenLine(QString text, int maxLength) {
+	text.replace(QChar('\r'), QChar(' '));
+	text.replace(QChar('\n'), QChar(' '));
+	for (auto &ch : text) {
+		if (ch.category() == QChar::Other_Control) {
+			ch = QChar(' ');
+		}
+	}
+	return text.trimmed().left(maxLength);
+}
+
 QString AyuSettings::sanitizeLockScreenText(QString text) {
 	constexpr auto kMaxLength = 120;
 	constexpr auto kMaxLines = 3;
@@ -1296,6 +1322,80 @@ void AyuSettings::setLockScreenColor1(uint32 val) {
 void AyuSettings::setLockScreenColor2(uint32 val) {
 	if (_lockScreenColor2.current() == val) return;
 	_lockScreenColor2 = val;
+	save();
+}
+
+void AyuSettings::setLockScreenAvatar(bool val) {
+	if (_lockScreenAvatar.current() == val) return;
+	_lockScreenAvatar = val;
+	save();
+}
+
+void AyuSettings::setLockScreenAvatarShape(int val) {
+	if (_lockScreenAvatarShape.current() == val) return;
+	_lockScreenAvatarShape = val;
+	save();
+}
+
+void AyuSettings::setLockScreenCardOpacity(int val) {
+	if (_lockScreenCardOpacity.current() == val) return;
+	_lockScreenCardOpacity = val;
+	save();
+}
+
+void AyuSettings::setLockScreenCardRadius(int val) {
+	if (_lockScreenCardRadius.current() == val) return;
+	_lockScreenCardRadius = val;
+	save();
+}
+
+void AyuSettings::setLockScreenCardBorder(bool val) {
+	if (_lockScreenCardBorder.current() == val) return;
+	_lockScreenCardBorder = val;
+	save();
+}
+
+void AyuSettings::setLockScreenClockFormat(int val) {
+	if (_lockScreenClockFormat.current() == val) return;
+	_lockScreenClockFormat = val;
+	save();
+}
+
+void AyuSettings::setLockScreenClockSeconds(bool val) {
+	if (_lockScreenClockSeconds.current() == val) return;
+	_lockScreenClockSeconds = val;
+	save();
+}
+
+void AyuSettings::setLockScreenClockSize(int val) {
+	if (_lockScreenClockSize.current() == val) return;
+	_lockScreenClockSize = val;
+	save();
+}
+
+void AyuSettings::setLockScreenClockColor(uint32 val) {
+	if (_lockScreenClockColor.current() == val) return;
+	_lockScreenClockColor = val;
+	save();
+}
+
+void AyuSettings::setLockScreenTitle(QString val) {
+	val = sanitizeLockScreenLine(std::move(val), 40);
+	if (_lockScreenTitle.current() == val) return;
+	_lockScreenTitle = val;
+	save();
+}
+
+void AyuSettings::setLockScreenSubmitText(QString val) {
+	val = sanitizeLockScreenLine(std::move(val), 24);
+	if (_lockScreenSubmitText.current() == val) return;
+	_lockScreenSubmitText = val;
+	save();
+}
+
+void AyuSettings::setLockScreenAccent(uint32 val) {
+	if (_lockScreenAccent.current() == val) return;
+	_lockScreenAccent = val;
 	save();
 }
 
@@ -1776,6 +1876,18 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"lockScreenShowEye", s._lockScreenShowEye.current()},
 		{"lockScreenColor1", s._lockScreenColor1.current()},
 		{"lockScreenColor2", s._lockScreenColor2.current()},
+		{"lockScreenAvatar", s._lockScreenAvatar.current()},
+		{"lockScreenAvatarShape", s._lockScreenAvatarShape.current()},
+		{"lockScreenCardOpacity", s._lockScreenCardOpacity.current()},
+		{"lockScreenCardRadius", s._lockScreenCardRadius.current()},
+		{"lockScreenCardBorder", s._lockScreenCardBorder.current()},
+		{"lockScreenClockFormat", s._lockScreenClockFormat.current()},
+		{"lockScreenClockSeconds", s._lockScreenClockSeconds.current()},
+		{"lockScreenClockSize", s._lockScreenClockSize.current()},
+		{"lockScreenClockColor", s._lockScreenClockColor.current()},
+		{"lockScreenTitle", s._lockScreenTitle.current()},
+		{"lockScreenSubmitText", s._lockScreenSubmitText.current()},
+		{"lockScreenAccent", s._lockScreenAccent.current()},
 		{"lockOnSystemLock", s._lockOnSystemLock.current()},
 		{"lockOnMinimize", s._lockOnMinimize.current()},
 		{"hideFromCapture", s._hideFromCapture.current()},
@@ -1949,6 +2061,18 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._lockScreenShowEye = j.value("lockScreenShowEye", defaults._lockScreenShowEye.current());
 	s._lockScreenColor1 = j.value("lockScreenColor1", defaults._lockScreenColor1.current());
 	s._lockScreenColor2 = j.value("lockScreenColor2", defaults._lockScreenColor2.current());
+	s._lockScreenAvatar = j.value("lockScreenAvatar", defaults._lockScreenAvatar.current());
+	s._lockScreenAvatarShape = j.value("lockScreenAvatarShape", defaults._lockScreenAvatarShape.current());
+	s._lockScreenCardOpacity = j.value("lockScreenCardOpacity", defaults._lockScreenCardOpacity.current());
+	s._lockScreenCardRadius = j.value("lockScreenCardRadius", defaults._lockScreenCardRadius.current());
+	s._lockScreenCardBorder = j.value("lockScreenCardBorder", defaults._lockScreenCardBorder.current());
+	s._lockScreenClockFormat = j.value("lockScreenClockFormat", defaults._lockScreenClockFormat.current());
+	s._lockScreenClockSeconds = j.value("lockScreenClockSeconds", defaults._lockScreenClockSeconds.current());
+	s._lockScreenClockSize = j.value("lockScreenClockSize", defaults._lockScreenClockSize.current());
+	s._lockScreenClockColor = j.value("lockScreenClockColor", defaults._lockScreenClockColor.current());
+	s._lockScreenTitle = j.value("lockScreenTitle", defaults._lockScreenTitle.current());
+	s._lockScreenSubmitText = j.value("lockScreenSubmitText", defaults._lockScreenSubmitText.current());
+	s._lockScreenAccent = j.value("lockScreenAccent", defaults._lockScreenAccent.current());
 	s._lockOnSystemLock = j.value("lockOnSystemLock", defaults._lockOnSystemLock.current());
 	s._lockOnMinimize = j.value("lockOnMinimize", defaults._lockOnMinimize.current());
 	s._hideFromCapture = j.value("hideFromCapture", defaults._hideFromCapture.current());
