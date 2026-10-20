@@ -32,6 +32,7 @@ constexpr auto kModelsChannel = "freshgram_models"_cs;
 constexpr auto kFallbackManifestPostId = 22;
 constexpr auto kMaxWhisperSize = int64(1200) * 1024 * 1024;
 constexpr auto kMaxTesseractSize = int64(200) * 1024 * 1024;
+constexpr auto kMaxTranslateSize = int64(200) * 1024 * 1024;
 constexpr auto kSha256Length = 64;
 
 std::vector<Model> ModelsList;
@@ -134,11 +135,15 @@ rpl::event_stream<int> DownloadFinishedStream;
 			model.kind = ModelKind::Tesseract;
 		} else if (kind == u"tesseract-aux"_q) {
 			model.kind = ModelKind::TesseractAux;
+		} else if (kind == u"translate"_q) {
+			model.kind = ModelKind::Translate;
 		} else {
 			continue;
 		}
 		const auto maxSize = (model.kind == ModelKind::Whisper)
 			? kMaxWhisperSize
+			: (model.kind == ModelKind::Translate)
+			? kMaxTranslateSize
 			: kMaxTesseractSize;
 		if (!model.id
 			|| model.size <= 0
@@ -149,6 +154,8 @@ rpl::event_stream<int> DownloadFinishedStream;
 			|| (model.kind != ModelKind::Whisper
 				&& (!IsSafeFileName(model.code)
 					|| model.code.contains('+')))
+			|| (model.kind == ModelKind::Translate
+				&& !IsTranslateCode(model.code))
 			|| !ParseLocation(
 				object.value(u"location"_q).toString(),
 				model.channel,
