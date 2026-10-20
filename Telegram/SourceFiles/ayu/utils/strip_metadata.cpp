@@ -6,6 +6,8 @@
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QTemporaryFile>
+#include <QtGui/QColorSpace>
+#include <QtGui/QImage>
 
 #include <algorithm>
 #include <array>
@@ -514,6 +516,23 @@ std::optional<QByteArray> StripImage(const QByteArray &bytes) {
 		return StripWebp(bytes);
 	}
 	return std::nullopt;
+}
+
+// WHY: a pasted image has no bytes, its text chunks live in QImage::text().
+QImage StripImageText(const QImage &image) {
+	if (image.isNull() || image.textKeys().isEmpty()) {
+		return image;
+	}
+	auto result = QImage(
+		image.constBits(),
+		image.width(),
+		image.height(),
+		image.bytesPerLine(),
+		image.format()).copy();
+	result.setColorTable(image.colorTable());
+	result.setColorSpace(image.colorSpace());
+	result.setDevicePixelRatio(image.devicePixelRatio());
+	return result;
 }
 
 bool StripVideo(const QString &source, const QString &target) {

@@ -2670,6 +2670,16 @@ bool SendFilesBox::validateLength(const QString &text) const {
 
 namespace {
 
+// A pasted image has neither a path nor bytes, only the decoded QImage.
+[[nodiscard]] bool IsRawImage(const Ui::PreparedFile &file) {
+	if (!file.path.isEmpty() || !file.content.isEmpty()) {
+		return false;
+	}
+	const auto image = std::get_if<Ui::PreparedFileInformation::Image>(
+		&file.information->media);
+	return image && image->bytes.isEmpty() && !image->data.isNull();
+}
+
 [[nodiscard]] AyuMetadata::MediaKind MetadataKindOf(
 		const Ui::PreparedFile &file) {
 	if (file.animationJob || !file.information) {
@@ -2679,6 +2689,8 @@ namespace {
 		&file.information->media);
 	if (image && image->modifications) {
 		return AyuMetadata::MediaKind::None;
+	} else if (IsRawImage(file)) {
+		return AyuMetadata::MediaKind::Image;
 	}
 	return AyuMetadata::KindOf(
 		file.path.isEmpty() ? file.displayName : file.path,
@@ -2688,8 +2700,10 @@ namespace {
 struct CleanedFile {
 	int index = 0;
 	bool ok = true;
+	bool raw = false;
 	QByteArray bytes;
 	QString path;
+	QImage image;
 };
 
 } // namespace
@@ -2718,6 +2732,7 @@ bool SendFilesBox::clearMetadata(
 		QByteArray content;
 		QString target;
 		QString name;
+		QImage image;
 	};
 	auto jobs = std::vector<Job>();
 	for (auto i = 0; i != int(_list.files.size()); ++i) {
@@ -2728,6 +2743,7 @@ bool SendFilesBox::clearMetadata(
 				&& file.path.startsWith(QDir::tempPath() + u"/tdclean/"_q))) {
 			continue;
 		}
+		const auto raw = IsRawImage(file);
 		jobs.push_back({
 			.index = i,
 			.kind = kind,
@@ -2738,6 +2754,10 @@ bool SendFilesBox::clearMetadata(
 					QFileInfo(file.path).suffix().toLower())
 				: QString(),
 			.name = file.displayName,
+			.image = raw
+				? std::get<Ui::PreparedFileInformation::Image>(
+					file.information->media).data
+				: QImage(),
 		});
 	}
 	if (jobs.empty()) {
@@ -2749,7 +2769,10 @@ bool SendFilesBox::clearMetadata(
 		auto results = std::vector<CleanedFile>();
 		for (const auto &job : jobs) {
 			auto result = CleanedFile{ .index = job.index };
-			if (job.kind == AyuMetadata::MediaKind::Video) {
+			if (!job.image.isNull()) {
+				result.raw = true;
+				result.image = AyuMetadata::StripImageText(job.image);
+			} else if (job.kind == AyuMetadata::MediaKind::Video) {
 				result.ok = !job.target.isEmpty()
 					&& AyuMetadata::StripVideo(job.path, job.target);
 				result.path = job.target;
@@ -2785,7 +2808,14 @@ bool SendFilesBox::clearMetadata(
 						file.displayName));
 					return;
 				}
-				if (!result.path.isEmpty()) {
+				if (result.raw) {
+					const auto image = std::get_if<
+						Ui::PreparedFileInformation::Image>(
+							&file.information->media);
+					if (image) {
+						image->data = result.image;
+					}
+				} else if (!result.path.isEmpty()) {
 					file.path = result.path;
 					file.content = QByteArray();
 				} else {

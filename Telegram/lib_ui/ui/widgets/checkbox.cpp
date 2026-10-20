@@ -663,7 +663,6 @@ void Checkbox::setMarkedText(const TextWithEntities &text) {
 	_text.setMarkedText(_st.style, text);
 	accessibilityNameChanged();
 	resizeToText();
-	setMouseTracking(_text.hasLinks());
 	update();
 }
 

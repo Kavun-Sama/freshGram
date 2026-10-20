@@ -15,6 +15,8 @@ enum class MediaKind : uchar {
 
 [[nodiscard]] std::optional<QByteArray> StripImage(const QByteArray &bytes);
 
+[[nodiscard]] QImage StripImageText(const QImage &image);
+
 [[nodiscard]] bool StripVideo(const QString &source, const QString &target);
 
 [[nodiscard]] QString NewTempVideoPath(const QString &extension);
