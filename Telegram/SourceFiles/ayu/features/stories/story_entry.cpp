@@ -5,6 +5,9 @@
 #include "ayu/ui/boxes/story_compose_box.h"
 #include "core/file_utilities.h"
 #include "data/data_peer.h"
+#include "data/data_session.h"
+#include "data/data_stories.h"
+#include "data/data_user.h"
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
 #include "main/main_session.h"
@@ -17,10 +20,13 @@
 namespace AyuStories {
 namespace {
 
-[[nodiscard]] QString ErrorText(const QString &type) {
-	return (type == u"STORIES_TOO_MUCH"_q)
-		? tr::ayu_StoryLimit(tr::now)
-		: type;
+[[nodiscard]] bool OneMedia(const Ui::PreparedList &list) {
+	if (list.files.size() != 1) {
+		return false;
+	}
+	const auto type = list.files.front().type;
+	return (type == Ui::PreparedFile::Type::Photo)
+		|| (type == Ui::PreparedFile::Type::Video);
 }
 
 void ChooseFile(
@@ -28,14 +34,7 @@ void ChooseFile(
 		not_null<PeerData*> peer) {
 	const auto callback = crl::guard(controller, [=](
 			FileDialog::OpenResult &&result) {
-		const auto check = [](const Ui::PreparedList &list) {
-			if (list.files.size() != 1) {
-				return false;
-			}
-			const auto type = list.files.front().type;
-			return (type == Ui::PreparedFile::Type::Photo)
-				|| (type == Ui::PreparedFile::Type::Video);
-		};
+		const auto check = OneMedia;
 		const auto showError = [=](tr::phrase<> text) {
 			controller->showToast(text(tr::now));
 		};
@@ -70,6 +69,46 @@ void StartPosting(
 		peer,
 		crl::guard(controller, [=] {
 			ChooseFile(controller, peer);
+		}),
+		crl::guard(controller, [=](QString type) {
+			controller->showToast(ErrorText(type));
+		}));
+}
+
+bool HandleStoriesClick(
+		not_null<Window::SessionController*> controller,
+		uint64 id) {
+	const auto self = controller->session().user();
+	if (PeerId(int64(id)) != self->id
+		|| controller->session().data().stories().source(self->id)) {
+		return false;
+	}
+	StartPosting(controller, self);
+	return true;
+}
+
+void StartPostingFromUrls(
+		not_null<Window::SessionController*> controller,
+		const QList<QUrl> &urls) {
+	const auto self = controller->session().user();
+	if (!self->canPostStories()) {
+		return;
+	}
+	auto list = Storage::PrepareMediaList(
+		urls,
+		st::sendMediaPreviewSize,
+		controller->session().premium());
+	if (list.error != Ui::PreparedList::Error::None || !OneMedia(list)) {
+		controller->showToast(tr::ayu_StoryChoose(tr::now));
+		return;
+	}
+	const auto file = std::make_shared<Ui::PreparedFile>(
+		std::move(list.files.front()));
+	CheckCanPost(
+		&controller->session(),
+		self,
+		crl::guard(controller, [=] {
+			AyuUi::ShowStoryComposeBox(controller, self, std::move(*file));
 		}),
 		crl::guard(controller, [=](QString type) {
 			controller->showToast(ErrorText(type));

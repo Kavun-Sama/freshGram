@@ -9,6 +9,7 @@
 #include "data/data_peer.h"
 #include "data/data_photo.h"
 #include "data/data_session.h"
+#include "data/data_user.h"
 #include "lang/lang_keys.h"
 #include "lang_auto.h"
 #include "main/main_app_config.h"
@@ -41,19 +42,67 @@ private:
 
 };
 
-[[nodiscard]] QVector<MTPInputPrivacyRule> PrivacyRules(Audience audience) {
-	switch (audience) {
+[[nodiscard]] MTPVector<MTPInputUser> InputUsers(
+		const std::vector<not_null<UserData*>> &users) {
+	auto result = QVector<MTPInputUser>();
+	result.reserve(users.size());
+	for (const auto &user : users) {
+		result.push_back(user->inputUser());
+	}
+	return MTP_vector<MTPInputUser>(std::move(result));
+}
+
+[[nodiscard]] QVector<MTPInputPrivacyRule> PrivacyRules(const Draft &draft) {
+	auto result = QVector<MTPInputPrivacyRule>();
+	switch (draft.audience) {
 	case Audience::Everyone:
-		return { MTP_inputPrivacyValueAllowAll() };
+		result.push_back(MTP_inputPrivacyValueAllowAll());
+		break;
 	case Audience::CloseFriends:
 		return { MTP_inputPrivacyValueAllowCloseFriends() };
+	case Audience::Selected:
+		return { MTP_inputPrivacyValueAllowUsers(InputUsers(draft.users)) };
 	case Audience::Contacts:
+		result.push_back(MTP_inputPrivacyValueAllowContacts());
 		break;
 	}
-	return { MTP_inputPrivacyValueAllowContacts() };
+	if (!draft.users.empty()) {
+		result.push_back(
+			MTP_inputPrivacyValueDisallowUsers(InputUsers(draft.users)));
+	}
+	return result;
+}
+
+// The uploaded parts are of no use anymore, the file is uploaded again.
+[[nodiscard]] bool MediaFailed(const QString &type) {
+	return type.startsWith(u"FILE_"_q) || type.startsWith(u"MEDIA_"_q);
 }
 
 } // namespace
+
+QString ErrorText(const QString &type) {
+	if (type == u"STORIES_TOO_MUCH"_q) {
+		return tr::ayu_StoryLimit(tr::now);
+	} else if (type == u"PREMIUM_ACCOUNT_REQUIRED"_q) {
+		return tr::ayu_StoryErrorPremium(tr::now);
+	} else if (type == u"BOOSTS_REQUIRED"_q) {
+		return tr::ayu_StoryErrorBoosts(tr::now);
+	} else if (type == u"STORY_PERIOD_INVALID"_q) {
+		return tr::ayu_StoryErrorPeriod(tr::now);
+	} else if (type == u"CHAT_ADMIN_REQUIRED"_q
+		|| type == u"CHAT_WRITE_FORBIDDEN"_q) {
+		return tr::ayu_StoryErrorRights(tr::now);
+	} else if (MediaFailed(type)) {
+		return tr::ayu_StoryErrorMedia(tr::now);
+	}
+	return type;
+}
+
+struct Poster::Uploaded {
+	uint64 fileKey = 0;
+	MTPInputMedia media;
+	uint64 randomId = 0;
+};
 
 struct Poster::Active {
 	Draft draft;
@@ -174,11 +223,19 @@ void Poster::post(Draft &&draft, Callbacks &&callbacks) {
 	const auto type = draft.file.type;
 	const auto video = (type == Ui::PreparedFile::Type::Video);
 	const auto peer = draft.peer;
+	const auto reuse = _uploaded
+		&& draft.fileKey
+		&& (_uploaded->fileKey == draft.fileKey);
 	_active = std::make_unique<Active>(Active{
 		.draft = std::move(draft),
 		.callbacks = std::move(callbacks),
 		.video = video,
 	});
+	if (reuse) {
+		send(token, _uploaded->media);
+		return;
+	}
+	_uploaded = nullptr;
 	auto &file = _active->draft.file;
 	_prepareQueue->addTask(std::make_unique<PrepareTask>(
 		FileLoadTask::Args{
@@ -216,7 +273,8 @@ void Poster::prepared(
 		return;
 	}
 	if (_active->video) {
-		if (result->filemime != u"video/mp4"_q) {
+		// The re-encoded video is MP4, only a too large one is left as is.
+		if (!result->videoSource && (result->filemime != u"video/mp4"_q)) {
 			fail(token, tr::ayu_StoryVideoFormat(tr::now));
 			return;
 		}
@@ -240,6 +298,11 @@ void Poster::uploaded(uint64 token, MTPInputMedia media) {
 	if (!_active || (_token != token)) {
 		return;
 	}
+	_uploaded = std::make_unique<Uploaded>(Uploaded{
+		.fileKey = _active->draft.fileKey,
+		.media = media,
+		.randomId = base::RandomValue<uint64>(),
+	});
 	send(token, std::move(media));
 }
 
@@ -256,6 +319,16 @@ void Poster::send(uint64 token, MTPInputMedia media) {
 	if (draft.period > 0) {
 		flags |= Flag::f_period;
 	}
+	auto albums = QVector<MTPint>();
+	for (const auto id : draft.albums) {
+		albums.push_back(MTP_int(id));
+	}
+	if (!albums.isEmpty()) {
+		flags |= Flag::f_albums;
+	}
+	const auto randomId = _uploaded
+		? _uploaded->randomId
+		: base::RandomValue<uint64>();
 	auto entities = Api::EntitiesToMTP(
 		_session,
 		TextUtilities::ConvertTextTagsToEntities(draft.caption.tags),
@@ -273,24 +346,28 @@ void Poster::send(uint64 token, MTPInputMedia media) {
 		MTPVector<MTPMediaArea>(),
 		MTP_string(draft.caption.text),
 		entities,
-		MTP_vector<MTPInputPrivacyRule>(PrivacyRules(draft.audience)),
-		MTP_long(base::RandomValue<uint64>()),
+		MTP_vector<MTPInputPrivacyRule>(PrivacyRules(draft)),
+		MTP_long(randomId),
 		MTP_int(draft.period),
 		MTPInputPeer(),
 		MTPint(),
-		MTPVector<MTPint>(),
+		MTP_vector<MTPint>(std::move(albums)),
 		MTPInputDocument()
 	)).done([=](const MTPUpdates &result) {
 		if (_token != token || !_active) {
 			return;
 		}
 		_session->api().applyUpdates(result);
+		_uploaded = nullptr;
 		const auto done = std::move(_active->callbacks.done);
 		_active = nullptr;
 		if (done) {
 			done();
 		}
 	}).fail([=](const MTP::Error &error) {
+		if (MediaFailed(error.type())) {
+			_uploaded = nullptr;
+		}
 		fail(token, error.type());
 	}).send();
 }

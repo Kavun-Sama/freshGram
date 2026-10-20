@@ -312,6 +312,8 @@ set(ayugram_files
         ayu/features/stories/story_poster.h
         ayu/ui/boxes/story_compose_box.cpp
         ayu/ui/boxes/story_compose_box.h
+        ayu/ui/boxes/story_privacy_box.cpp
+        ayu/ui/boxes/story_privacy_box.h
         ayu/features/translator/ayu_translator.cpp
         ayu/features/translator/ayu_translator.h
         ayu/features/translator/ayu_translate_provider.cpp
