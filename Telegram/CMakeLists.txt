@@ -146,6 +146,8 @@ set(ayugram_files
         ayu/features/passcode_guard/lock_triggers.h
         ayu/features/passcode_guard/passcode_guard.cpp
         ayu/features/passcode_guard/passcode_guard.h
+        ayu/features/recognition/language_id.cpp
+        ayu/features/recognition/language_id.h
         ayu/features/recognition/local_transcribe.cpp
         ayu/features/recognition/local_transcribe.h
         ayu/features/recognition/recognition_audio.cpp
@@ -318,6 +320,8 @@ set(ayugram_files
         ayu/features/translator/compose_translate.h
         ayu/features/translator/local_translate_provider.cpp
         ayu/features/translator/local_translate_provider.h
+        ayu/features/translator/translation_markup.cpp
+        ayu/features/translator/translation_markup.h
         ayu/features/translator/html_parser.cpp
         ayu/features/translator/html_parser.h
         ayu/features/translator/implementations/google.cpp

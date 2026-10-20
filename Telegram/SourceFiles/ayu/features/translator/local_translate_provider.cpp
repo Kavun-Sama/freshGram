@@ -1,12 +1,12 @@
 // This is the source code of freshGram.
 #include "ayu/features/translator/local_translate_provider.h"
 
+#include "ayu/features/recognition/language_id.h"
 #include "ayu/features/recognition/recognition_models.h"
 #include "ayu/features/recognition/text_translation.h"
+#include "ayu/features/translator/translation_markup.h"
 #include "base/weak_ptr.h"
 #include "spellcheck/platform/platform_language.h"
-
-#include <QtCore/QRegularExpression>
 
 #include <map>
 
@@ -15,8 +15,8 @@ namespace {
 
 using namespace AyuRecognition;
 
-[[nodiscard]] bool IsKeptEntity(EntityType type) {
-	switch (type) {
+[[nodiscard]] MarkupRole RoleOf(int type) {
+	switch (EntityType(type)) {
 	case EntityType::Url:
 	case EntityType::Email:
 	case EntityType::Hashtag:
@@ -29,83 +29,72 @@ using namespace AyuRecognition;
 	case EntityType::BankCard:
 	case EntityType::Code:
 	case EntityType::Pre:
-		return true;
+	case EntityType::MediaTimestamp:
+	case EntityType::FormattedDate:
+		return MarkupRole::Keep;
+	case EntityType::CustomUrl:
+	case EntityType::Bold:
+	case EntityType::Semibold:
+	case EntityType::Italic:
+	case EntityType::Underline:
+	case EntityType::StrikeOut:
+	case EntityType::Blockquote:
+	case EntityType::Spoiler:
+	case EntityType::Subscript:
+	case EntityType::Superscript:
+	case EntityType::Marked:
+		return MarkupRole::Style;
+	case EntityType::Invalid:
+	case EntityType::Colorized:
+		break;
 	}
-	return false;
+	return MarkupRole::Drop;
 }
 
-[[nodiscard]] QString Placeholder(int index) {
-	return u"~%1~"_q.arg(index + 1);
-}
-
-struct Masked {
-	QString text;
-	std::vector<EntityInText> kept;
-};
-
-[[nodiscard]] Masked Mask(const TextWithEntities &source) {
-	auto kept = std::vector<EntityInText>();
+[[nodiscard]] MarkupText ToMarkup(const TextWithEntities &source) {
+	auto result = MarkupText{ .text = source.text };
+	result.spans.reserve(source.entities.size());
 	for (const auto &entity : source.entities) {
-		if (IsKeptEntity(entity.type())
-			&& entity.length() > 0
-			&& entity.offset() >= 0
-			&& entity.offset() + entity.length() <= source.text.size()) {
-			kept.push_back(entity);
-		}
+		result.spans.push_back({
+			.offset = entity.offset(),
+			.length = entity.length(),
+			.type = int(entity.type()),
+			.data = entity.data(),
+		});
 	}
-	ranges::sort(kept, ranges::less(), &EntityInText::offset);
-	auto result = Masked();
-	auto from = 0;
-	for (const auto &entity : kept) {
-		if (entity.offset() < from) {
-			continue;
-		}
-		result.text += source.text.mid(from, entity.offset() - from);
-		result.text += Placeholder(int(result.kept.size()));
-		result.kept.push_back(entity);
-		from = entity.offset() + entity.length();
-	}
-	result.text += source.text.mid(from);
 	return result;
 }
 
-[[nodiscard]] TextWithEntities Restore(
-		const QString &translated,
-		const QString &original,
-		const std::vector<EntityInText> &kept) {
-	static const auto pattern = QRegularExpression(u"~\\s*(\\d+)\\s*~"_q);
-	auto result = TextWithEntities();
-	auto used = std::vector<bool>(kept.size(), false);
-	const auto append = [&](int index) {
-		const auto &entity = kept[index];
+[[nodiscard]] TextWithEntities FromMarkup(const MarkupRestored &restored) {
+	auto result = TextWithEntities{ .text = restored.text.text };
+	for (const auto &span : restored.text.spans) {
 		result.entities.push_back(EntityInText(
-			entity.type(),
-			int(result.text.size()),
-			entity.length(),
-			entity.data()));
-		result.text += original.mid(entity.offset(), entity.length());
-		used[index] = true;
-	};
-	auto from = 0;
-	auto i = pattern.globalMatch(translated);
-	while (i.hasNext()) {
-		const auto match = i.next();
-		const auto index = match.captured(1).toInt() - 1;
-		if (index < 0 || index >= int(kept.size()) || used[index]) {
-			continue;
-		}
-		result.text += translated.mid(from, match.capturedStart() - from);
-		append(index);
-		from = match.capturedEnd();
-	}
-	result.text += translated.mid(from);
-	for (auto index = 0; index != int(kept.size()); ++index) {
-		if (!used[index]) {
-			result.text += ' ';
-			append(index);
-		}
+			EntityType(span.type),
+			span.offset,
+			span.length,
+			span.data));
 	}
 	return result;
+}
+
+// A link that lost its words keeps its address, so nothing is lost.
+void KeepLostLinks(
+		TextWithEntities &text,
+		const MarkupMasked &masked,
+		const MarkupRestored &restored) {
+	for (const auto index : restored.lost) {
+		const auto &style = masked.styles[index];
+		if (EntityType(style.type) != EntityType::CustomUrl
+			|| style.data.isEmpty()) {
+			continue;
+		}
+		text.text += ' ';
+		text.entities.push_back(EntityInText(
+			EntityType::Url,
+			int(text.text.size()),
+			int(style.data.size())));
+		text.text += style.data;
+	}
 }
 
 struct Direction {
@@ -159,6 +148,52 @@ struct Direction {
 	return result;
 }
 
+constexpr auto kSureProbability = 0.5f;
+constexpr auto kPossibleProbability = 0.1f;
+constexpr auto kGuessProbability = 0.3f;
+
+// The languages that can be handled: the sources of the models and the target.
+[[nodiscard]] QStringList Candidates(
+		const std::vector<Model> &installed,
+		const QString &target) {
+	auto result = QStringList{ target };
+	for (const auto &model : installed) {
+		const auto from = model.code.section('-', 0, 0);
+		if (!result.contains(from)) {
+			result.push_back(from);
+		}
+	}
+	return result;
+}
+
+[[nodiscard]] QString DetectLanguage(
+		const QString &text,
+		const QStringList &candidates) {
+	const auto guesses = GuessLanguages(text);
+	if (!guesses.empty()) {
+		const auto &top = guesses.front();
+		if (top.probability >= kSureProbability) {
+			return top.code;
+		}
+		for (const auto &guess : guesses) {
+			if (guess.probability >= kPossibleProbability
+				&& candidates.contains(guess.code)) {
+				return guess.code;
+			}
+		}
+		return (top.probability >= kGuessProbability)
+			? top.code
+			: QString();
+	}
+#ifndef TDESKTOP_DISABLE_SPELLCHECK
+	const auto detected = Platform::Language::Recognize(text);
+	if (detected.known()) {
+		return detected.twoLetterCode();
+	}
+#endif // !TDESKTOP_DISABLE_SPELLCHECK
+	return QString();
+}
+
 class Provider final
 	: public Ui::TranslateProvider
 	, public base::has_weak_ptr {
@@ -202,7 +237,7 @@ public:
 			std::vector<int> indices;
 		};
 		struct State {
-			std::vector<Masked> masked;
+			std::vector<MarkupMasked> masked;
 			std::vector<TextWithEntities> sources;
 			int remaining = 0;
 			Fn<void(int, Ui::TranslateProviderResult)> doneOne;
@@ -226,6 +261,7 @@ public:
 		};
 		const auto target = to.twoLetterCode();
 		const auto installed = InstalledTranslateModels();
+		const auto candidates = Candidates(installed, target);
 		auto groups = std::map<QString, Group>();
 		state->remaining = int(requests.size());
 		state->masked.resize(requests.size());
@@ -234,13 +270,7 @@ public:
 		for (auto i = 0; i != int(requests.size()); ++i) {
 			auto &source = state->sources[i];
 			source = std::move(requests[i].text);
-			auto from = QString();
-#ifndef TDESKTOP_DISABLE_SPELLCHECK
-			const auto detected = Platform::Language::Recognize(source.text);
-			if (detected.known()) {
-				from = detected.twoLetterCode();
-			}
-#endif // !TDESKTOP_DISABLE_SPELLCHECK
+			const auto from = DetectLanguage(source.text, candidates);
 			if (!from.isEmpty() && from == target) {
 				immediate.emplace_back(
 					i,
@@ -254,7 +284,7 @@ public:
 					fail(Ui::TranslateProviderError::LocalLanguagePackMissing));
 				continue;
 			}
-			state->masked[i] = Mask(source);
+			state->masked[i] = MaskMarkup(ToMarkup(source), RoleOf);
 			auto key = QString();
 			for (const auto &model : direction.chain) {
 				key += model.code + ';';
@@ -268,7 +298,10 @@ public:
 					});
 				}
 			}
-			group.job.texts.push_back(state->masked[i].text);
+			group.job.inputs.push_back({
+				.text = state->masked[i].text,
+				.spans = state->masked[i].spans,
+			});
 			group.indices.push_back(i);
 		}
 		for (auto &entry : immediate) {
@@ -291,17 +324,23 @@ public:
 					}
 					for (auto k = 0; k != int(indices.size()); ++k) {
 						const auto index = indices[k];
-						if (!result.ok || k >= result.texts.size()) {
+						if (!result.ok || k >= int(result.outputs.size())) {
 							finish(
 								index,
 								fail(Ui::TranslateProviderError::Unknown));
 							continue;
 						}
+						const auto &masked = state->masked[index];
+						const auto &output = result.outputs[k];
+						const auto restored = RestoreMarkup(
+							masked,
+							state->sources[index].text,
+							output.text,
+							output.spans);
+						auto text = FromMarkup(restored);
+						KeepLostLinks(text, masked, restored);
 						finish(index, Ui::TranslateProviderResult{
-							.text = Restore(
-								result.texts[k],
-								state->sources[index].text,
-								state->masked[index].kept),
+							.text = std::move(text),
 						});
 					}
 				});

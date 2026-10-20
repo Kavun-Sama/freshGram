@@ -263,6 +263,12 @@ void ComposeTranslator::request(
 				return;
 			}
 			strong->finish();
+			if (result.error == Ui::TranslateProviderError::LocalLanguagePackMissing
+				&& Ui::TranslateProviderIsLocal()) {
+				show->showToast(tr::ayu_TranslateLocalMissing(tr::now));
+				done(std::nullopt);
+				return;
+			}
 			if (result.error != Ui::TranslateProviderError::None
 				|| !result.text
 				|| result.text->text.trimmed().isEmpty()) {

@@ -14,6 +14,7 @@
 
 #include <QtCore/QDataStream>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QThread>
 
 #include <algorithm>
@@ -23,7 +24,9 @@
 namespace AyuRecognition {
 namespace {
 
-constexpr auto kMaxSentence = 500;
+constexpr auto kSoftSentence = 200;
+constexpr auto kMaxSentence = 300;
+constexpr auto kHardSentence = 450;
 
 [[nodiscard]] bool IsTerminator(QChar c) {
 	switch (c.unicode()) {
@@ -61,6 +64,19 @@ constexpr auto kMaxSentence = 500;
 	return false;
 }
 
+[[nodiscard]] bool IsClauseBreak(QChar c) {
+	switch (c.unicode()) {
+	case ',':
+	case ';':
+	case ':':
+	case 0x3001:
+	case 0xFF0C:
+	case 0xFF1B:
+		return true;
+	}
+	return false;
+}
+
 [[nodiscard]] bool IsLineBreak(QChar c) {
 	return (c == '\n')
 		|| (c == '\r')
@@ -68,10 +84,11 @@ constexpr auto kMaxSentence = 500;
 		|| (c == QChar::ParagraphSeparator);
 }
 
-[[nodiscard]] bool HasLetter(const QString &text) {
-	return std::any_of(text.begin(), text.end(), [](QChar c) {
+// A lone letter is not worth translating, the model makes things up.
+[[nodiscard]] bool HasLetters(const QString &text) {
+	return std::count_if(text.begin(), text.end(), [](QChar c) {
 		return c.isLetter();
-	});
+	}) >= 2;
 }
 
 } // namespace
@@ -104,7 +121,14 @@ std::vector<TextPart> SplitForTranslation(const QString &text) {
 				if (i >= size || text[i].isSpace() || IsWideTerminator(c)) {
 					break;
 				}
-			} else if (c.isSpace() && (i - from) >= kMaxSentence) {
+			} else if ((i - from) >= kHardSentence) {
+				if (i < size && c.isHighSurrogate() && text[i].isLowSurrogate()) {
+					++i;
+				}
+				break;
+			} else if ((i - from) >= kMaxSentence && c.isSpace()) {
+				break;
+			} else if ((i - from) >= kSoftSentence && IsClauseBreak(c)) {
 				break;
 			}
 		}
@@ -114,7 +138,7 @@ std::vector<TextPart> SplitForTranslation(const QString &text) {
 		}
 		i = till;
 		const auto sentence = text.mid(from, till - from);
-		result.push_back({ sentence, HasLetter(sentence) });
+		result.push_back({ sentence, HasLetters(sentence) });
 	}
 	return result;
 }
@@ -327,6 +351,13 @@ void ScheduleRelease() {
 		QString &error) {
 	const auto key = model.path + '|' + model.sha256;
 	const auto lock = std::lock_guard(CacheMutex);
+	if (!QFileInfo::exists(model.path)) {
+		Cache.erase(std::remove_if(begin(Cache), end(Cache), [&](auto &loaded) {
+			return loaded->key.startsWith(model.path + '|');
+		}), end(Cache));
+		error = u"The model is not downloaded."_q;
+		return nullptr;
+	}
 	for (auto i = begin(Cache); i != end(Cache); ++i) {
 		if ((*i)->key == key) {
 			auto result = *i;
@@ -395,39 +426,302 @@ void ScheduleRelease() {
 	return result;
 }
 
-[[nodiscard]] std::vector<std::string> Translate(
-		Loaded &loaded,
-		const std::vector<std::string> &sentences) {
-	auto result = sentences;
-	auto indices = std::vector<size_t>();
-	auto sources = std::vector<std::vector<std::string>>();
-	for (auto i = size_t(); i != sentences.size(); ++i) {
-		auto pieces = std::vector<std::string>();
-		if (loaded.source.Encode(sentences[i], &pieces).ok()
-			&& !pieces.empty()) {
-			pieces.push_back("</s>");
-			indices.push_back(i);
-			sources.push_back(std::move(pieces));
+// Where each UTF-16 index of a text starts in its UTF-8 form.
+[[nodiscard]] std::vector<int> ByteOffsets(const QString &text) {
+	auto result = std::vector<int>(text.size() + 1, 0);
+	auto bytes = 0;
+	for (auto i = 0; i < text.size();) {
+		result[i] = bytes;
+		const auto c = text[i];
+		if (c.isHighSurrogate()
+			&& (i + 1) < text.size()
+			&& text[i + 1].isLowSurrogate()) {
+			result[i + 1] = bytes;
+			bytes += 4;
+			i += 2;
+		} else {
+			const auto code = c.unicode();
+			bytes += (code < 0x80) ? 1 : (code < 0x800) ? 2 : 3;
+			++i;
 		}
 	}
+	result[text.size()] = bytes;
+	return result;
+}
+
+[[nodiscard]] int IndexAt(const std::vector<int> &offsets, int bytes) {
+	const auto i = std::lower_bound(begin(offsets), end(offsets), bytes);
+	return int(i - begin(offsets));
+}
+
+[[nodiscard]] bool IsWordChar(QChar c) {
+	return c.isLetterOrNumber() || c.isMark();
+}
+
+constexpr auto kMinConfidence = 0.3f;
+constexpr auto kClusterGap = 2;
+constexpr auto kBatch = size_t(16);
+
+struct PartSpan {
+	int index = 0;
+	int begin = 0;
+	int end = 0;
+	bool full = false;
+	bool lost = false;
+};
+
+struct Unit {
+	bool translate = false;
+	int start = 0;
+	QString text;
+	std::string current;
+	std::vector<PartSpan> spans;
+};
+
+struct TargetWord {
+	int first = 0;
+	int last = 0;
+	// The first and the last pieces that have letters or digits.
+	int from = -1;
+	int till = -1;
+};
+
+[[nodiscard]] bool HasWordChar(const std::string &utf8) {
+	const auto text = QString::fromStdString(utf8);
+	return std::any_of(text.begin(), text.end(), [](QChar c) {
+		return c.isLetterOrNumber();
+	});
+}
+
+void MapSpans(
+		Unit &unit,
+		const sentencepiece::ImmutableSentencePieceText &source,
+		const std::vector<std::vector<float>> &attention,
+		const sentencepiece::ImmutableSentencePieceText &target) {
+	const auto count = int(source.pieces_size());
+	const auto steps = std::min(
+		int(attention.size()),
+		int(target.pieces_size()));
+	auto aligned = std::vector<int>(steps, -1);
+	auto weight = std::vector<float>(steps, 0.f);
+	for (auto t = 0; t != steps; ++t) {
+		const auto &row = attention[t];
+		auto best = -1;
+		auto top = 0.f;
+		for (auto s = 0; s != int(row.size()); ++s) {
+			if (row[s] > top) {
+				top = row[s];
+				best = s;
+			}
+		}
+		if (best >= 0 && best < count) {
+			aligned[t] = best;
+			weight[t] = top;
+		}
+	}
+	auto words = std::vector<TargetWord>();
+	for (auto t = 0; t != steps; ++t) {
+		const auto piece = target.pieces(t);
+		if (piece.end() <= piece.begin()) {
+			continue;
+		}
+		const auto starts = piece.piece().rfind("\xE2\x96\x81", 0) == 0;
+		if (words.empty() || starts) {
+			words.push_back({ .first = t, .last = t });
+		} else {
+			words.back().last = t;
+		}
+		if (HasWordChar(piece.surface())) {
+			if (words.back().from < 0) {
+				words.back().from = t;
+			}
+			words.back().till = t;
+		}
+	}
+	const auto targetSize = int(target.text().size());
+	for (auto &span : unit.spans) {
+		if (span.lost) {
+			continue;
+		} else if (span.full) {
+			span.begin = 0;
+			span.end = targetSize;
+			continue;
+		}
+		auto inside = std::vector<bool>(count, false);
+		auto styled = false;
+		for (auto s = 0; s != count; ++s) {
+			const auto piece = source.pieces(s);
+			inside[s] = (int(piece.begin()) < span.end)
+				&& (int(piece.end()) > span.begin);
+			styled = styled || (inside[s] && HasWordChar(piece.surface()));
+		}
+		auto chosen = std::vector<int>();
+		auto current = std::vector<int>();
+		const auto flush = [&] {
+			if (current.size() > chosen.size()) {
+				chosen = current;
+			}
+			current.clear();
+		};
+		for (auto w = 0; w != int(words.size()); ++w) {
+			const auto &word = words[w];
+			const auto text = (word.from >= 0);
+			if (styled && !text) {
+				continue;
+			}
+			const auto first = text ? word.from : word.first;
+			const auto last = text ? word.till : word.last;
+			auto hits = 0;
+			auto total = 0;
+			for (auto t = first; t != last + 1; ++t) {
+				if (text && !HasWordChar(target.pieces(t).surface())) {
+					continue;
+				}
+				++total;
+				hits += (aligned[t] >= 0 && inside[aligned[t]]) ? 1 : 0;
+			}
+			if (hits * 2 <= total) {
+				continue;
+			}
+			if (!current.empty() && (w - current.back()) > kClusterGap) {
+				flush();
+			}
+			current.push_back(w);
+		}
+		flush();
+		auto sum = 0.f;
+		auto aligns = 0;
+		for (const auto w : chosen) {
+			for (auto t = words[w].first; t != words[w].last + 1; ++t) {
+				if (aligned[t] >= 0 && inside[aligned[t]]) {
+					sum += weight[t];
+					++aligns;
+				}
+			}
+		}
+		if (chosen.empty() || (sum / aligns) < kMinConfidence) {
+			span.lost = true;
+			continue;
+		}
+		const auto &front = words[chosen.front()];
+		const auto &back = words[chosen.back()];
+		span.begin = int(target.pieces(
+			(front.from >= 0) ? front.from : front.first).begin());
+		span.end = int(target.pieces(
+			(back.till >= 0) ? back.till : back.last).end());
+	}
+}
+
+[[nodiscard]] bool RunHop(
+		Loaded &loaded,
+		const std::vector<Unit*> &units,
+		const std::atomic<bool> &cancelled) {
+	auto indices = std::vector<size_t>();
+	auto sources = std::vector<std::vector<std::string>>();
+	auto encoded = std::vector<sentencepiece::ImmutableSentencePieceText>();
+	auto longest = size_t();
+	for (auto i = size_t(); i != units.size(); ++i) {
+		auto source = loaded.source.EncodeAsImmutableProto(units[i]->current);
+		if (!source.pieces_size()) {
+			continue;
+		}
+		auto tokens = std::vector<std::string>();
+		for (auto k = size_t(); k != source.pieces_size(); ++k) {
+			tokens.push_back(source.pieces(int(k)).piece());
+		}
+		tokens.push_back("</s>");
+		longest = std::max(longest, tokens.size());
+		indices.push_back(i);
+		sources.push_back(std::move(tokens));
+		encoded.push_back(std::move(source));
+	}
 	if (sources.empty()) {
-		return result;
+		return true;
 	}
 	auto options = ctranslate2::TranslationOptions();
 	options.beam_size = 4;
-	options.max_decoding_length = 512;
-	const auto translated = loaded.translator->translate_batch(
-		sources,
-		options,
-		16);
-	for (auto i = size_t(); i != indices.size(); ++i) {
-		auto text = std::string();
-		if (loaded.target.Decode(translated[i].output(), &text).ok()
-			&& !text.empty()) {
-			result[indices[i]] = std::move(text);
+	options.max_decoding_length = std::min<size_t>(512, longest * 3 + 16);
+	options.return_attention = true;
+	auto results = std::vector<ctranslate2::TranslationResult>();
+	results.reserve(sources.size());
+	for (auto from = size_t(); from < sources.size(); from += kBatch) {
+		if (cancelled.load()) {
+			return false;
+		}
+		const auto till = std::min(from + kBatch, sources.size());
+		const auto slice = std::vector<std::vector<std::string>>(
+			begin(sources) + from,
+			begin(sources) + till);
+		try {
+			auto part = loaded.translator->translate_batch(
+				slice,
+				options,
+				kBatch);
+			for (auto &result : part) {
+				results.push_back(std::move(result));
+			}
+		} catch (const std::exception &e) {
+			LOG(("Translation Error: %1").arg(QString::fromUtf8(e.what())));
+			for (const auto &tokens : slice) {
+				try {
+					auto one = loaded.translator->translate_batch(
+						{ tokens },
+						options);
+					results.push_back(std::move(one.front()));
+				} catch (const std::exception &) {
+					results.emplace_back();
+				}
+			}
 		}
 	}
-	return result;
+	const auto none = std::vector<std::vector<float>>();
+	for (auto k = size_t(); k != indices.size(); ++k) {
+		if (results[k].hypotheses.empty()) {
+			continue;
+		}
+		const auto &output = results[k].output();
+		if (output.empty() || output.size() > sources[k].size() * 4 + 16) {
+			continue;
+		}
+		const auto target = loaded.target.DecodePiecesAsImmutableProto(
+			output);
+		if (target.text().empty()) {
+			continue;
+		}
+		const auto &unit = units[indices[k]];
+		MapSpans(
+			*unit,
+			encoded[k],
+			results[k].attention.empty() ? none : results[k].attention[0],
+			target);
+		unit->current = target.text();
+	}
+	return true;
+}
+
+[[nodiscard]] TextSpan Finish(
+		const Unit &unit,
+		const PartSpan &span) {
+	if (!unit.translate) {
+		return { span.begin, span.end - span.begin };
+	}
+	const auto &text = unit.text;
+	const auto offsets = ByteOffsets(text);
+	auto begin = IndexAt(offsets, span.begin);
+	auto end = IndexAt(offsets, span.end);
+	while (begin > 0
+		&& begin < text.size()
+		&& IsWordChar(text[begin - 1])
+		&& IsWordChar(text[begin])) {
+		--begin;
+	}
+	while (end > 0
+		&& end < text.size()
+		&& IsWordChar(text[end - 1])
+		&& IsWordChar(text[end])) {
+		++end;
+	}
+	return { begin, std::max(end - begin, 0) };
 }
 
 [[nodiscard]] TranslationResult Run(
@@ -446,13 +740,53 @@ void ScheduleRelease() {
 		}
 		models.push_back(std::move(loaded));
 	}
-	auto parts = std::vector<std::vector<TextPart>>();
-	auto current = std::vector<std::string>();
-	for (const auto &text : job.texts) {
-		parts.push_back(SplitForTranslation(text));
-		for (const auto &part : parts.back()) {
-			if (part.translate) {
-				current.push_back(part.text.toStdString());
+	auto texts = std::vector<std::vector<Unit>>(job.inputs.size());
+	auto active = std::vector<Unit*>();
+	for (auto i = size_t(); i != job.inputs.size(); ++i) {
+		const auto &input = job.inputs[i];
+		auto start = 0;
+		for (auto &part : SplitForTranslation(input.text)) {
+			auto unit = Unit();
+			unit.translate = part.translate;
+			unit.start = start;
+			unit.text = part.text;
+			start += int(part.text.size());
+			texts[i].push_back(std::move(unit));
+		}
+		for (auto &unit : texts[i]) {
+			const auto from = unit.start;
+			const auto till = unit.start + int(unit.text.size());
+			const auto offsets = unit.translate
+				? ByteOffsets(unit.text)
+				: std::vector<int>();
+			for (auto k = 0; k != int(input.spans.size()); ++k) {
+				const auto &span = input.spans[k];
+				const auto spanFrom = std::max(span.offset, from);
+				const auto spanTill = std::min(
+					span.offset + span.length,
+					till);
+				if (span.offset < 0
+					|| span.length <= 0
+					|| span.offset + span.length > input.text.size()
+					|| spanTill <= spanFrom) {
+					continue;
+				}
+				auto part = PartSpan{ .index = k };
+				const auto localFrom = spanFrom - from;
+				const auto localTill = spanTill - from;
+				part.full = (localFrom == 0)
+					&& (localTill == unit.text.size());
+				part.begin = unit.translate ? offsets[localFrom] : localFrom;
+				part.end = unit.translate ? offsets[localTill] : localTill;
+				unit.spans.push_back(part);
+			}
+		}
+	}
+	for (auto &list : texts) {
+		for (auto &unit : list) {
+			if (unit.translate) {
+				unit.current = unit.text.toStdString();
+				active.push_back(&unit);
 			}
 		}
 	}
@@ -462,22 +796,49 @@ void ScheduleRelease() {
 				result.cancelled = true;
 				return result;
 			}
-			current = Translate(*loaded, current);
+			if (!RunHop(*loaded, active, cancelled)) {
+				result.cancelled = true;
+				return result;
+			}
 		}
 	} catch (const std::exception &e) {
 		LOG(("Translation Error: %1").arg(QString::fromUtf8(e.what())));
 		result.error = u"The translation failed."_q;
 		return result;
 	}
-	auto next = size_t();
-	for (const auto &list : parts) {
-		auto text = QString();
-		for (const auto &part : list) {
-			text += part.translate
-				? QString::fromStdString(current[next++])
-				: part.text;
+	for (auto &unit : active) {
+		unit->text = QString::fromStdString(unit->current);
+	}
+	for (auto i = size_t(); i != texts.size(); ++i) {
+		auto output = TranslationOutput();
+		auto from = std::vector<int>(job.inputs[i].spans.size(), -1);
+		auto till = std::vector<int>(job.inputs[i].spans.size(), -1);
+		for (const auto &unit : texts[i]) {
+			const auto base = int(output.text.size());
+			for (const auto &span : unit.spans) {
+				if (span.lost) {
+					continue;
+				}
+				const auto range = Finish(unit, span);
+				if (range.length <= 0) {
+					continue;
+				}
+				const auto a = base + range.offset;
+				const auto b = a + range.length;
+				from[span.index] = (from[span.index] < 0)
+					? a
+					: std::min(from[span.index], a);
+				till[span.index] = std::max(till[span.index], b);
+			}
+			output.text += unit.text;
 		}
-		result.texts.push_back(std::move(text));
+		output.spans.resize(from.size());
+		for (auto k = size_t(); k != from.size(); ++k) {
+			if (from[k] >= 0 && till[k] > from[k]) {
+				output.spans[k] = { from[k], till[k] - from[k] };
+			}
+		}
+		result.outputs.push_back(std::move(output));
 	}
 	result.ok = true;
 	return result;

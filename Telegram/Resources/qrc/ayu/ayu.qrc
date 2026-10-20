@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/gui">
+        <file alias="ayu/lid.176.ftz">../../ayu/lid.176.ftz</file>
         <file alias="art/ayu/alt/app.svg">../../art/ayu/alt/app.svg</file>
         <file alias="art/ayu/alt/app_icon.ico">../../art/ayu/alt/app_icon.ico</file>
         <file alias="art/ayu/bard/app.svg">../../art/ayu/bard/app.svg</file>

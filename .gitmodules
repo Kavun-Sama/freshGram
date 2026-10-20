@@ -109,3 +109,6 @@
 [submodule "Telegram/ThirdParty/sentencepiece"]
 	path = Telegram/ThirdParty/sentencepiece
 	url = https://github.com/google/sentencepiece
+[submodule "Telegram/ThirdParty/fastText"]
+	path = Telegram/ThirdParty/fastText
+	url = https://github.com/facebookresearch/fastText
