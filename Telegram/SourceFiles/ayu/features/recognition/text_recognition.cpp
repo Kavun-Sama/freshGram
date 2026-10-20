@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <initializer_list>
+#include <mutex>
 
 namespace AyuRecognition {
 namespace {
@@ -33,6 +34,9 @@ constexpr auto kNullDevice = "NUL";
 #else // Q_OS_WIN
 constexpr auto kNullDevice = "/dev/null";
 #endif // !Q_OS_WIN
+
+// WHY: Tesseract keeps some parameters, like debug_file, in globals.
+std::mutex EngineMutex;
 
 thread_local const QHash<QString, QString> *ExpectedHashes = nullptr;
 thread_local bool IntegrityFailed = false;
@@ -179,11 +183,16 @@ bool Cancelled(void *flag, int) {
 		const TextRequest &request,
 		const std::atomic<bool> &cancelled) {
 	auto result = TextResult();
+	const auto lock = std::lock_guard(EngineMutex);
+	if (cancelled.load()) {
+		result.cancelled = true;
+		return result;
+	}
 	ExpectedHashes = &request.hashes;
 	IntegrityFailed = false;
 	const auto &installed = request.installed;
 	if (installed.isEmpty()) {
-		result.error = u"No languages are downloaded."_q;
+		result.error = RecognitionError::NoLanguages;
 		return result;
 	}
 	const auto prepared = Prepare(request.image);
@@ -192,7 +201,16 @@ bool Cancelled(void *flag, int) {
 	const auto values = std::vector<std::string>{ kNullDevice };
 
 	auto languages = request.languages;
-	if (languages == kAutoOcrLanguages.utf16()) {
+	if (IsAutoOcr(languages)) {
+		auto candidates = QStringList();
+		for (const auto &code : OcrCodes(languages)) {
+			if (installed.contains(code)) {
+				candidates.push_back(code);
+			}
+		}
+		if (candidates.isEmpty()) {
+			candidates = installed;
+		}
 		auto script = QString();
 		auto osd = tesseract::TessBaseAPI();
 		if (osd.Init(
@@ -227,7 +245,7 @@ bool Cancelled(void *flag, int) {
 			}
 			osd.End();
 		}
-		languages = ChooseLanguages(script, installed);
+		languages = ChooseLanguages(script, candidates);
 	} else {
 		auto chosen = QStringList();
 		for (const auto &code : languages.split('+', Qt::SkipEmptyParts)) {
@@ -241,7 +259,7 @@ bool Cancelled(void *flag, int) {
 		result.cancelled = true;
 		return result;
 	} else if (languages.isEmpty()) {
-		result.error = u"No languages are downloaded."_q;
+		result.error = RecognitionError::NoLanguages;
 		return result;
 	}
 
@@ -259,8 +277,8 @@ bool Cancelled(void *flag, int) {
 			false,
 			&ReadFile) != 0) {
 		result.error = IntegrityFailed
-			? u"A language file failed the integrity check."_q
-			: u"Could not load the language data."_q;
+			? RecognitionError::Integrity
+			: RecognitionError::LoadFailed;
 		return result;
 	}
 	auto text = QString();
@@ -287,7 +305,7 @@ bool Cancelled(void *flag, int) {
 			api.End();
 			return result;
 		} else if (code != 0) {
-			result.error = u"The recognition failed."_q;
+			result.error = RecognitionError::Failed;
 			api.End();
 			return result;
 		}
@@ -332,7 +350,7 @@ std::shared_ptr<std::atomic<bool>> RecognizeTextAsync(
 #else // FRESHGRAM_LOCAL_OCR
 	crl::on_main([=] {
 		auto result = TextResult();
-		result.error = u"Not available in this build."_q;
+		result.error = RecognitionError::Unavailable;
 		done(result);
 	});
 #endif // !FRESHGRAM_LOCAL_OCR

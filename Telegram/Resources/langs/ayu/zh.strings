@@ -144,6 +144,7 @@
 "ayu_TextRecognitionSubtitle" = "文字识别";
 "ayu_OcrAuto" = "自动检测语言";
 "ayu_OcrAutoShort" = "自动";
+"ayu_OcrAutoWith" = "自动：{languages}";
 "ayu_RecognizeText" = "识别文字";
 "ayu_RecognizeButton" = "识别";
 "ayu_Recognizing" = "正在识别…";
@@ -156,6 +157,14 @@
 "ayu_TranscribeNoSpeech" = "未发现语音。";
 "ayu_TranscribeFailed" = "无法识别语音：{error}";
 "ayu_TranscribeTooBig" = "文件太大。";
+"ayu_RecognitionErrorUnavailable" = "此版本不可用。";
+"ayu_RecognitionErrorNoLanguages" = "尚未下载任何语言。";
+"ayu_RecognitionErrorCpu" = "不支持此处理器。";
+"ayu_RecognitionErrorIntegrity" = "模型文件已损坏，请重新下载。";
+"ayu_RecognitionErrorLoad" = "无法加载模型。";
+"ayu_RecognitionErrorDecode" = "无法读取音频。";
+"ayu_RecognitionErrorNoData" = "文件尚未加载。";
+"ayu_RecognitionErrorFailed" = "内部错误。";
 "ayu_MaterialIcons" = "Material 图标";
 "ayu_ReplyBackgroundOpacity" = "彩色回复背景";
 "ayu_ReactionBackgroundOpacity" = "彩色回应背景";

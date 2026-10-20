@@ -8931,6 +8931,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_TextRecognitionSubtitle" = "Text recognition";
 "ayu_OcrAuto" = "Automatic language detection";
 "ayu_OcrAutoShort" = "Automatic";
+"ayu_OcrAutoWith" = "Automatic: {languages}";
 "ayu_RecognizeText" = "Recognize text";
 "ayu_RecognizeButton" = "Recognize";
 "ayu_Recognizing" = "Recognizing…";
@@ -8943,6 +8944,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_TranscribeNoSpeech" = "No speech found.";
 "ayu_TranscribeFailed" = "Could not recognize the speech: {error}";
 "ayu_TranscribeTooBig" = "The file is too large.";
+"ayu_RecognitionErrorUnavailable" = "not available in this build.";
+"ayu_RecognitionErrorNoLanguages" = "no languages are downloaded.";
+"ayu_RecognitionErrorCpu" = "this processor is not supported.";
+"ayu_RecognitionErrorIntegrity" = "the model file is damaged, download it again.";
+"ayu_RecognitionErrorLoad" = "could not load the model.";
+"ayu_RecognitionErrorDecode" = "could not read the audio.";
+"ayu_RecognitionErrorNoData" = "the file is not loaded.";
+"ayu_RecognitionErrorFailed" = "internal error.";
 "ayu_MaterialIcons" = "Material Icons";
 "ayu_ReplyBackgroundOpacity" = "Colorful Reply Background";
 "ayu_ReactionBackgroundOpacity" = "Colorful Reaction Background";

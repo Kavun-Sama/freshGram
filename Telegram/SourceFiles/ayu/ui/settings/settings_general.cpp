@@ -243,12 +243,19 @@ void BuildTextRecognition(SectionBuilder &builder) {
 		.st = &st::settingsButtonNoIcon,
 		.label = settings->ocrLanguagesValue()
 			| rpl::map([](QString codes) {
-				if (codes.isEmpty()) {
-					return tr::ayu_RecognitionOff(tr::now);
-				} else if (codes == AyuRecognition::kAutoOcrLanguages.utf16()) {
-					return tr::ayu_OcrAutoShort(tr::now);
+				const auto languages = AyuRecognition::OcrCodes(
+					codes).join(u", "_q);
+				if (!AyuRecognition::IsAutoOcr(codes)) {
+					return languages.isEmpty()
+						? tr::ayu_RecognitionOff(tr::now)
+						: languages;
 				}
-				return codes.replace('+', u", "_q);
+				return languages.isEmpty()
+					? tr::ayu_OcrAutoShort(tr::now)
+					: tr::ayu_OcrAutoWith(
+						tr::now,
+						lt_languages,
+						languages);
 			}),
 		.onClick = [=] {
 			controller->show(Box<AyuUi::RecognitionModelsBox>(

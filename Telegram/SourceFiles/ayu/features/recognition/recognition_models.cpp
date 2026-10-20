@@ -5,6 +5,7 @@
 #include "ayu/data/ayu_vault.h"
 #include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
+#include "lang/lang_keys.h"
 #include "settings.h"
 #include "logs.h"
 #include "main/main_session.h"
@@ -37,6 +38,7 @@ std::vector<Model> ModelsList;
 bool ModelsLoadedFromCache = false;
 rpl::event_stream<> ModelsListChanged;
 rpl::event_stream<bool> ManifestFinishedStream;
+std::vector<Fn<void()>> ManifestWaiters;
 
 struct Stamp {
 	int64 size = 0;
@@ -211,20 +213,25 @@ void ApplyDownloaded(const Model &model) {
 	case ModelKind::Whisper:
 		settings.setWhisperModel(model.file);
 		break;
-	case ModelKind::TesseractAux:
-		settings.setOcrLanguages(kAutoOcrLanguages.utf16());
-		break;
+	case ModelKind::TesseractAux: {
+		const auto current = settings.ocrLanguages();
+		if (!IsAutoOcr(current)) {
+			auto parts = OcrCodes(current);
+			parts.push_front(kAutoOcrLanguages.utf16());
+			settings.setOcrLanguages(parts.join('+'));
+		}
+	} break;
 	case ModelKind::Translate:
 		break;
 	case ModelKind::Tesseract: {
 		const auto current = settings.ocrLanguages();
 		if (current == kAutoOcrLanguages.utf16()) {
-			break;
+			break; // All the downloaded languages are used anyway.
 		}
-		auto codes = current.split('+', Qt::SkipEmptyParts);
-		if (!codes.contains(model.code)) {
-			codes.push_back(model.code);
-			settings.setOcrLanguages(codes.join('+'));
+		auto parts = current.split('+', Qt::SkipEmptyParts);
+		if (!parts.contains(model.code)) {
+			parts.push_back(model.code);
+			settings.setOcrLanguages(parts.join('+'));
 		}
 	} break;
 	}
@@ -367,6 +374,9 @@ void ManifestLoader::finish() {
 		ActiveManifestLoader.reset();
 		LoadCachedManifest();
 		ManifestFinishedStream.fire(!ModelsList.empty());
+		for (const auto &callback : base::take(ManifestWaiters)) {
+			callback();
+		}
 	});
 }
 
@@ -428,6 +438,45 @@ void RefreshManifest(not_null<Main::Session*> session) {
 	ActiveManifestLoader = std::make_shared<ManifestLoader>(
 		base::make_weak(session));
 	ActiveManifestLoader->start();
+}
+
+bool ModelsKnown() {
+	LoadCachedManifest();
+	return !ModelsList.empty();
+}
+
+void LoadModelsList(not_null<Main::Session*> session, Fn<void()> done) {
+	if (ModelsKnown()) {
+		done();
+		return;
+	}
+	ManifestWaiters.push_back(std::move(done));
+	RefreshManifest(session);
+}
+
+QString RecognitionErrorText(RecognitionError error) {
+	switch (error) {
+	case RecognitionError::None:
+	case RecognitionError::Failed:
+		break;
+	case RecognitionError::Unavailable:
+		return tr::ayu_RecognitionErrorUnavailable(tr::now);
+	case RecognitionError::NoLanguages:
+		return tr::ayu_RecognitionErrorNoLanguages(tr::now);
+	case RecognitionError::UnsupportedCpu:
+		return tr::ayu_RecognitionErrorCpu(tr::now);
+	case RecognitionError::Integrity:
+		return tr::ayu_RecognitionErrorIntegrity(tr::now);
+	case RecognitionError::LoadFailed:
+		return tr::ayu_RecognitionErrorLoad(tr::now);
+	case RecognitionError::Decode:
+		return tr::ayu_RecognitionErrorDecode(tr::now);
+	case RecognitionError::TooLarge:
+		return tr::ayu_TranscribeTooBig(tr::now);
+	case RecognitionError::NoData:
+		return tr::ayu_RecognitionErrorNoData(tr::now);
+	}
+	return tr::ayu_RecognitionErrorFailed(tr::now);
 }
 
 MTP::DedicatedLoader::Location ModelLocation(const Model &model) {
@@ -513,24 +562,65 @@ std::vector<Model> InstalledTranslateModels() {
 	return result;
 }
 
-QString EnabledOcrLanguages() {
-	const auto &value = AyuSettings::getInstance().ocrLanguages();
-	if (value == kAutoOcrLanguages.utf16()) {
-		for (const auto &model : Models(ModelKind::TesseractAux)) {
-			if (ModelExists(model)) {
-				return value;
-			}
-		}
-		return QString();
-	}
-	const auto enabled = value.split('+', Qt::SkipEmptyParts);
+bool IsAutoOcr(const QString &value) {
+	return value.split('+', Qt::SkipEmptyParts).contains(
+		kAutoOcrLanguages.utf16());
+}
+
+QStringList OcrCodes(const QString &value) {
+	auto result = value.split('+', Qt::SkipEmptyParts);
+	result.removeAll(kAutoOcrLanguages.utf16());
+	return result;
+}
+
+QString DefaultOcrLanguages(const QStringList &installed) {
+	constexpr auto kMaxLanguages = 3;
+	const auto english = u"eng"_q;
+	const auto hasEnglish = installed.contains(english);
 	auto result = QStringList();
-	for (const auto &model : Models(ModelKind::Tesseract)) {
-		if (enabled.contains(model.code) && ModelExists(model)) {
-			result.push_back(model.code);
+	for (const auto &code : installed) {
+		if (code != english
+			&& result.size() < kMaxLanguages - (hasEnglish ? 1 : 0)) {
+			result.push_back(code);
 		}
+	}
+	if (hasEnglish) {
+		result.push_back(english);
 	}
 	return result.join('+');
+}
+
+QString EnabledOcrLanguages() {
+	const auto installed = InstalledOcrLanguages();
+	if (installed.isEmpty()) {
+		return QString();
+	}
+	const auto automatic = [&] {
+		for (const auto &model : Models(ModelKind::TesseractAux)) {
+			if (ModelExists(model)) {
+				return true;
+			}
+		}
+		return false;
+	}();
+	const auto &value = AyuSettings::getInstance().ocrLanguages();
+	auto chosen = QStringList();
+	for (const auto &code : OcrCodes(value)) {
+		if (installed.contains(code) && !chosen.contains(code)) {
+			chosen.push_back(code);
+		}
+	}
+	if (automatic && IsAutoOcr(value)) {
+		chosen.push_front(kAutoOcrLanguages.utf16());
+		return chosen.join('+');
+	} else if (!chosen.isEmpty()) {
+		return chosen.join('+');
+	}
+	// WHY: the setting can miss the downloaded data, for example when
+	// the models box was closed before the download finished.
+	return automatic
+		? kAutoOcrLanguages.utf16()
+		: DefaultOcrLanguages(installed);
 }
 
 ModelLoader::ModelLoader(

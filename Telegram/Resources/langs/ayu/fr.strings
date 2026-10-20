@@ -144,6 +144,7 @@
 "ayu_TextRecognitionSubtitle" = "Reconnaissance de texte";
 "ayu_OcrAuto" = "Détection automatique de la langue";
 "ayu_OcrAutoShort" = "Automatique";
+"ayu_OcrAutoWith" = "Automatique : {languages}";
 "ayu_RecognizeText" = "Reconnaître le texte";
 "ayu_RecognizeButton" = "Reconnaître";
 "ayu_Recognizing" = "Reconnaissance…";
@@ -156,6 +157,14 @@
 "ayu_TranscribeNoSpeech" = "Aucune parole trouvée.";
 "ayu_TranscribeFailed" = "Impossible de reconnaître la parole : {error}";
 "ayu_TranscribeTooBig" = "Le fichier est trop volumineux.";
+"ayu_RecognitionErrorUnavailable" = "non disponible dans cette version.";
+"ayu_RecognitionErrorNoLanguages" = "aucune langue n’est téléchargée.";
+"ayu_RecognitionErrorCpu" = "ce processeur n’est pas pris en charge.";
+"ayu_RecognitionErrorIntegrity" = "le fichier du modèle est endommagé, téléchargez-le à nouveau.";
+"ayu_RecognitionErrorLoad" = "impossible de charger le modèle.";
+"ayu_RecognitionErrorDecode" = "impossible de lire l’audio.";
+"ayu_RecognitionErrorNoData" = "le fichier n’est pas chargé.";
+"ayu_RecognitionErrorFailed" = "erreur interne.";
 "ayu_MaterialIcons" = "Icônes Material";
 "ayu_ReplyBackgroundOpacity" = "Arrière-plan coloré des réponses";
 "ayu_ReactionBackgroundOpacity" = "Arrière-plan coloré des réactions";

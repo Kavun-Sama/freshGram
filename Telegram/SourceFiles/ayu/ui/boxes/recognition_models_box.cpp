@@ -54,6 +54,7 @@ public:
 		ModelKind kind);
 
 	[[nodiscard]] Selection selection() const;
+	[[nodiscard]] bool changed() const;
 	[[nodiscard]] Fn<void(const QString &)> queryCallback() const;
 
 private:
@@ -78,10 +79,9 @@ private:
 	std::vector<Model> _models;
 	std::optional<Model> _aux;
 	int _lastSingleId = 0;
+	bool _changed = false;
 	rpl::event_stream<QStringView> _query;
 	rpl::event_stream<int> _selected;
-	rpl::event_stream<> _autoOn;
-	rpl::event_stream<> _languageOn;
 	Fn<void(const QString &)> _queryCallback;
 
 };
@@ -93,6 +93,10 @@ Inner::Inner(
 : RpWidget(parent)
 , _kind(kind) {
 	setupContent(session);
+}
+
+bool Inner::changed() const {
+	return _changed;
 }
 
 Fn<void(const QString &)> Inner::queryCallback() const {
@@ -134,15 +138,6 @@ Selection Inner::selection() const {
 	const auto enabled = [&](const Model &model) {
 		return ranges::contains(_enabledIds, model.id);
 	};
-	if (_aux && enabled(*_aux)) {
-		if (ModelExists(*_aux)) {
-			result.value = kAutoOcrLanguages.utf16();
-		} else {
-			result.value = savedValue();
-			result.pending.push_back(*_aux);
-		}
-		return result;
-	}
 	if (_kind == ModelKind::Whisper) {
 		const Model *chosen = nullptr;
 		const Model *pending = nullptr;
@@ -173,6 +168,14 @@ Selection Inner::selection() const {
 			result.pending.push_back(model);
 		}
 	}
+	if (_aux && enabled(*_aux)) {
+		// The data of the detection comes later, see ApplyDownloaded.
+		if (ModelExists(*_aux)) {
+			codes.push_front(kAutoOcrLanguages.utf16());
+		} else {
+			result.pending.push_back(*_aux);
+		}
+	}
 	result.value = codes.join('+');
 	return result;
 }
@@ -188,7 +191,6 @@ void Inner::addRow(
 		? tr::ayu_OcrAuto(tr::now)
 		: ModelTitle(model);
 	const auto single = (_kind == ModelKind::Whisper);
-	const auto languages = (_kind == ModelKind::Tesseract) && !automatic;
 	enabled = (enabled && ModelExists(model)) || (ModelDownload(id) != nullptr);
 	if (enabled) {
 		_enabledIds.push_back(id);
@@ -250,6 +252,10 @@ void Inner::addRow(
 
 	button->toggleOn(
 		rpl::single(enabled) | rpl::then(state->forced.events()));
+	button->clicks(
+	) | rpl::on_next([=] {
+		_changed = true;
+	}, button->lifetime());
 
 	const auto setEnabled = [=](bool value) {
 		if (value) {
@@ -279,10 +285,6 @@ void Inner::addRow(
 			if (single) {
 				_lastSingleId = id;
 				_selected.fire_copy(id);
-			} else if (automatic) {
-				_autoOn.fire({});
-			} else if (languages) {
-				_languageOn.fire({});
 			}
 			if (ModelExists(model)) {
 				state->state = ComputeState(model, true);
@@ -324,21 +326,6 @@ void Inner::addRow(
 			}
 		}, button->lifetime());
 	}
-	if (automatic) {
-		_languageOn.events(
-		) | rpl::on_next([=] {
-			if (button->toggled()) {
-				state->forced.fire(false);
-			}
-		}, button->lifetime());
-	} else if (languages) {
-		_autoOn.events(
-		) | rpl::on_next([=] {
-			if (button->toggled()) {
-				state->forced.fire(false);
-			}
-		}, button->lifetime());
-	}
 
 	const auto contextMenu = button->lifetime()
 		.make_state<base::unique_qptr<Ui::PopupMenu>>();
@@ -352,6 +339,7 @@ void Inner::addRow(
 		contextMenu->get()->addAction(
 			tr::ayu_ModelRemove(tr::now),
 			[=] {
+				_changed = true;
 				RemoveModel(model);
 				setEnabled(false);
 				state->state = ComputeState(model, false);
@@ -411,7 +399,7 @@ void Inner::rebuildRows(
 		addRow(
 			session,
 			model,
-			!autoChosen && selected.contains(keyOf(model)));
+			selected.contains(keyOf(model)));
 	}
 	_content->resizeToWidth(st::boxWidth);
 }
@@ -419,7 +407,8 @@ void Inner::rebuildRows(
 void Inner::setupContent(not_null<Main::Session*> session) {
 	_content = Ui::CreateChild<Ui::VerticalLayout>(this);
 
-	const auto selected = [&] {
+	// Called when the list of models is known, the first time.
+	const auto selected = [=] {
 		const auto &settings = AyuSettings::getInstance();
 		if (_kind == ModelKind::Translate) {
 			auto codes = QStringList();
@@ -428,10 +417,16 @@ void Inner::setupContent(not_null<Main::Session*> session) {
 			}
 			return codes;
 		}
-		return (_kind == ModelKind::Whisper)
-			? QStringList{ settings.whisperModel() }
-			: settings.ocrLanguages().split('+', Qt::SkipEmptyParts);
-	}();
+		if (_kind == ModelKind::Whisper) {
+			return QStringList{ settings.whisperModel() };
+		}
+		const auto &value = settings.ocrLanguages();
+		if (value == kAutoOcrLanguages.utf16()) {
+			// Just "auto" means all the downloaded languages.
+			return QStringList{ value } + InstalledOcrLanguages();
+		}
+		return value.split('+', Qt::SkipEmptyParts);
+	};
 
 	_loading = _content->add(
 		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
@@ -442,7 +437,7 @@ void Inner::setupContent(not_null<Main::Session*> session) {
 				st::defaultFlatLabel)),
 		st::boxRowPadding);
 	const auto rebuild = [=] {
-		rebuildRows(session, _builtIds.empty() ? selected : currentKeys());
+		rebuildRows(session, _builtIds.empty() ? selected() : currentKeys());
 	};
 	rebuild();
 	ModelsChanged(
@@ -505,8 +500,12 @@ void RecognitionModelsBox::prepare() {
 		? tr::ayu_ManageTranslateModels()
 		: tr::ayu_ManageOcrLanguages());
 
+	// WHY: the toggles look applied at once, so any way of closing saves.
 	const auto kind = _kind;
-	addButton(tr::lng_settings_save(), [=] {
+	boxClosing() | rpl::on_next([=] {
+		if (!inner->changed()) {
+			return;
+		}
 		const auto selection = inner->selection();
 		auto &settings = AyuSettings::getInstance();
 		if (kind == ModelKind::Whisper) {
@@ -517,9 +516,8 @@ void RecognitionModelsBox::prepare() {
 		for (const auto &model : selection.pending) {
 			WantModel(model);
 		}
-		closeBox();
-	});
-	addButton(tr::lng_close(), [=] { closeBox(); });
+	}, lifetime());
+	addButton(tr::lng_box_done(), [=] { closeBox(); });
 
 	setDimensionsToContent(st::boxWidth, inner);
 

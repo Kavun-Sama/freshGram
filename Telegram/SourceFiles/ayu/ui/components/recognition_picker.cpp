@@ -351,7 +351,7 @@ void RecognitionPicker::recognize() {
 			showText(tr::ayu_RecognizeFailed(
 				tr::now,
 				lt_error,
-				result.error), false);
+				AyuRecognition::RecognitionErrorText(result.error)), false);
 		} else if (result.text.isEmpty()) {
 			showText(tr::ayu_RecognizeNoText(tr::now), false);
 		} else {

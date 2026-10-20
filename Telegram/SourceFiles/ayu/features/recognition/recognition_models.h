@@ -16,6 +16,21 @@ class Session;
 
 namespace AyuRecognition {
 
+enum class RecognitionError {
+	None,
+	Unavailable, // Not compiled in this build.
+	NoLanguages,
+	UnsupportedCpu,
+	Integrity,
+	LoadFailed,
+	Decode,
+	TooLarge,
+	NoData,
+	Failed,
+};
+
+[[nodiscard]] QString RecognitionErrorText(RecognitionError error);
+
 enum class ModelKind {
 	Whisper,
 	Tesseract,
@@ -42,6 +57,13 @@ bool RemoveModel(const Model &model);
 [[nodiscard]] rpl::producer<> ModelsChanged();
 void RefreshManifest(not_null<Main::Session*> session);
 
+// The list of models is loaded, from the cache or from the channel.
+[[nodiscard]] bool ModelsKnown();
+
+// Loads the list of models from the channel if it is not known yet.
+// The callback is called in the main thread, whatever the result.
+void LoadModelsList(not_null<Main::Session*> session, Fn<void()> done);
+
 [[nodiscard]] MTP::DedicatedLoader::Location ModelLocation(
 	const Model &model);
 
@@ -54,12 +76,21 @@ void RefreshManifest(not_null<Main::Session*> session);
 
 [[nodiscard]] QHash<QString, QString> TesseractHashes();
 
-// The value of the setting meaning "choose the languages automatically".
+// The part of the setting meaning "choose the languages automatically".
+// The setting is "auto" (among all downloaded languages), "auto+rus+eng"
+// (among these ones) or just the languages, like "rus+eng".
 inline constexpr auto kAutoOcrLanguages = "auto"_cs;
 
-// Enabled and downloaded Tesseract languages joined with '+'. Returns
-// "auto" if the automatic detection is chosen and its data is downloaded.
+[[nodiscard]] bool IsAutoOcr(const QString &value);
+[[nodiscard]] QStringList OcrCodes(const QString &value);
+
+// The languages to recognize with, in the format of the setting, only
+// with the downloaded data. Falls back to the downloaded languages if
+// the setting has none of them, empty only if nothing is downloaded.
 [[nodiscard]] QString EnabledOcrLanguages();
+
+// Up to three of the languages, English is the last one.
+[[nodiscard]] QString DefaultOcrLanguages(const QStringList &installed);
 
 // All downloaded Tesseract languages.
 [[nodiscard]] QStringList InstalledOcrLanguages();

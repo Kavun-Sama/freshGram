@@ -108,6 +108,14 @@ crl::time Transcribes::trialsMaxLengthMs() const {
 void Transcribes::toggle(not_null<HistoryItem*> item) {
 	const auto id = item->fullId();
 	auto i = _map.find(id);
+	if (i != _map.end()
+		&& i->second.local
+		&& i->second.failed
+		&& !i->second.pending) {
+		// Try the local recognition again, the error could be temporary.
+		_map.erase(i);
+		i = _map.end();
+	}
 	if (i == _map.end()) {
 		load(item);
 		_session->data().requestItemResize(item);
@@ -209,9 +217,17 @@ void Transcribes::loadLocal(not_null<HistoryItem*> item) {
 			_map.erase(i);
 			Ui::Toast::Show(tr::ayu_TranscribeNoModel(tr::now));
 		} else {
+			using Error = AyuRecognition::RecognitionError;
 			entry.failed = true;
-			if (!transcript.error.isEmpty()) {
-				LOG(("Transcribe Error: %1").arg(transcript.error));
+			entry.toolong = (transcript.error == Error::TooLarge);
+			LOG(("Transcribe Error: %1 %2"
+				).arg(int(transcript.error)
+				).arg(transcript.details));
+			if (transcript.status == Status::Failed && !entry.toolong) {
+				Ui::Toast::Show(tr::ayu_TranscribeFailed(
+					tr::now,
+					lt_error,
+					AyuRecognition::RecognitionErrorText(transcript.error)));
 			}
 		}
 		if (const auto item = _session->data().message(id)) {

@@ -6352,7 +6352,18 @@ void OverlayWidget::startTextRecognition() {
 	}
 	image.setDevicePixelRatio(1.);
 	const auto languages = AyuRecognition::EnabledOcrLanguages();
-	if (languages.isEmpty()) {
+	if (languages.isEmpty() && !AyuRecognition::ModelsKnown()) {
+		// WHY: without the list of models no downloaded file is found.
+		const auto weak = base::make_weak(_widget);
+		AyuRecognition::LoadModelsList(_session, [=] {
+			if (weak && AyuRecognition::ModelsKnown()) {
+				startTextRecognition();
+			} else if (weak) {
+				Ui::Toast::Show(_body, tr::ayu_RecognizeNoLanguages(tr::now));
+			}
+		});
+		return;
+	} else if (languages.isEmpty()) {
 		Ui::Toast::Show(_body, tr::ayu_RecognizeNoLanguages(tr::now));
 		uiShow()->showBox(Box<AyuUi::RecognitionModelsBox>(
 			_session,

@@ -3,6 +3,7 @@
 
 #include "ayu/features/recognition/recognition_audio.h"
 #include "ayu/features/recognition/recognition_models.h"
+#include "base/call_delayed.h"
 
 #ifdef FRESHGRAM_LOCAL_RECOGNITION
 #include <whisper.h>
@@ -16,12 +17,43 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <numeric>
 
 namespace AyuRecognition {
 namespace {
 
 #ifdef FRESHGRAM_LOCAL_RECOGNITION
+
+constexpr auto kKeepModel = 60 * crl::time(1000);
+
+// The last loaded model, its loading takes seconds for the large ones.
+std::mutex ContextMutex;
+whisper_context *Context = nullptr;
+QString ContextKey;
+std::atomic<int> ContextUses = 0;
+
+void FreeContext() {
+	if (Context) {
+		whisper_free(Context);
+		Context = nullptr;
+	}
+	ContextKey = QString();
+}
+
+void ScheduleContextRelease() {
+	const auto uses = ContextUses.load();
+	base::call_delayed(kKeepModel, [=] {
+		crl::async([=] {
+			const auto lock = std::unique_lock(
+				ContextMutex,
+				std::try_to_lock);
+			if (lock.owns_lock() && ContextUses.load() == uses) {
+				FreeContext();
+			}
+		});
+	});
+}
 
 // The engine is built with AVX2 on x86, so check before running it.
 [[nodiscard]] bool ProcessorIsSupported() {
@@ -77,11 +109,11 @@ bool AbortCallback(void *userData) {
 		Fn<void(int)> progress) {
 	auto result = SpeechResult();
 	if (!ProcessorIsSupported()) {
-		result.error = u"This processor is not supported."_q;
+		result.error = RecognitionError::UnsupportedCpu;
 		return result;
 	}
 	if (!ModelFileIntact(request.modelPath, request.modelSha256)) {
-		result.error = u"The model failed the integrity check."_q;
+		result.error = RecognitionError::Integrity;
 		return result;
 	}
 	const auto audio = DecodeAudioFile(request.audioPath, cancelled);
@@ -89,7 +121,8 @@ bool AbortCallback(void *userData) {
 		result.cancelled = true;
 		return result;
 	} else if (audio.samples.empty()) {
-		result.error = audio.error;
+		result.error = RecognitionError::Decode;
+		result.details = audio.error;
 		return result;
 	}
 	const auto peak = std::accumulate(
@@ -104,16 +137,28 @@ bool AbortCallback(void *userData) {
 		return result;
 	}
 
-	auto contextParams = whisper_context_default_params();
-	contextParams.use_gpu = false;
-	const auto model = request.modelPath.toUtf8();
-	const auto context = whisper_init_from_file_with_params(
-		model.constData(),
-		contextParams);
-	if (!context) {
-		result.error = u"Could not load the model."_q;
+	const auto lock = std::lock_guard(ContextMutex);
+	++ContextUses;
+	if (cancelled.load()) {
+		result.cancelled = true;
 		return result;
 	}
+	const auto key = request.modelPath + '#' + request.modelSha256;
+	if (!Context || ContextKey != key) {
+		FreeContext();
+		auto contextParams = whisper_context_default_params();
+		contextParams.use_gpu = false;
+		const auto model = request.modelPath.toUtf8();
+		Context = whisper_init_from_file_with_params(
+			model.constData(),
+			contextParams);
+		if (!Context) {
+			result.error = RecognitionError::LoadFailed;
+			return result;
+		}
+		ContextKey = key;
+	}
+	const auto context = Context;
 
 	auto params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
 	const auto language = request.language.toUtf8();
@@ -144,7 +189,7 @@ bool AbortCallback(void *userData) {
 	if (cancelled.load()) {
 		result.cancelled = true;
 	} else if (code != 0) {
-		result.error = u"The recognition failed."_q;
+		result.error = RecognitionError::Failed;
 	} else {
 		const auto count = whisper_full_n_segments(context);
 		auto text = QString();
@@ -159,7 +204,10 @@ bool AbortCallback(void *userData) {
 		}
 		result.ok = true;
 	}
-	whisper_free(context);
+	if (code != 0) {
+		// WHY: the state after a failed or aborted run is not trusted.
+		FreeContext();
+	}
 	return result;
 }
 
@@ -184,13 +232,14 @@ std::shared_ptr<std::atomic<bool>> TranscribeAsync(
 	crl::async([=] {
 		const auto result = Transcribe(request, *cancelled, progress);
 		crl::on_main([=] {
+			ScheduleContextRelease();
 			done(result);
 		});
 	});
 #else // FRESHGRAM_LOCAL_RECOGNITION
 	crl::on_main([=] {
 		auto result = SpeechResult();
-		result.error = u"Not available in this build."_q;
+		result.error = RecognitionError::Unavailable;
 		done(std::move(result));
 	});
 #endif // !FRESHGRAM_LOCAL_RECOGNITION

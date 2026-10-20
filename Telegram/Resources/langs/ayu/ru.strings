@@ -144,6 +144,7 @@
 "ayu_TextRecognitionSubtitle" = "Распознавание текста";
 "ayu_OcrAuto" = "Автоопределение языка";
 "ayu_OcrAutoShort" = "Авто";
+"ayu_OcrAutoWith" = "Авто: {languages}";
 "ayu_RecognizeText" = "Распознать текст";
 "ayu_RecognizeButton" = "Распознать";
 "ayu_Recognizing" = "Распознавание…";
@@ -156,6 +157,14 @@
 "ayu_TranscribeNoSpeech" = "Речь не найдена.";
 "ayu_TranscribeFailed" = "Не удалось распознать речь: {error}";
 "ayu_TranscribeTooBig" = "Файл слишком большой.";
+"ayu_RecognitionErrorUnavailable" = "недоступно в этой сборке.";
+"ayu_RecognitionErrorNoLanguages" = "не скачан ни один язык.";
+"ayu_RecognitionErrorCpu" = "этот процессор не поддерживается.";
+"ayu_RecognitionErrorIntegrity" = "файл модели повреждён, скачайте его заново.";
+"ayu_RecognitionErrorLoad" = "не удалось загрузить модель.";
+"ayu_RecognitionErrorDecode" = "не удалось прочитать звук.";
+"ayu_RecognitionErrorNoData" = "файл не загружен.";
+"ayu_RecognitionErrorFailed" = "внутренняя ошибка.";
 "ayu_MaterialIcons" = "Значки Material";
 "ayu_ReplyBackgroundOpacity" = "Цветной фон ответов";
 "ayu_ReactionBackgroundOpacity" = "Цветной фон реакций";

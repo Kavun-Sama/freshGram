@@ -4,6 +4,8 @@
 // the usual transcribe button when the Whisper (local) provider is chosen.
 #pragma once
 
+#include "ayu/features/recognition/recognition_models.h"
+
 class HistoryItem;
 
 namespace AyuRecognition {
@@ -18,14 +20,15 @@ enum class LocalTranscribeStatus {
 struct LocalTranscript {
 	LocalTranscribeStatus status = LocalTranscribeStatus::Failed;
 	QString text; // Empty if there was no speech.
-	QString error;
+	RecognitionError error = RecognitionError::None;
+	QString details; // For the log.
 };
 
 // The Whisper (local) provider is chosen and the engine is available.
 [[nodiscard]] bool LocalTranscriptionEnabled();
 
 // Downloads the media if needed and recognizes the speech in a background
-// thread. The callback is called in the main thread unless the session
+// thread, one message at a time. The callback is called in the main thread unless the session
 // is gone, then it is not called at all.
 void TranscribeLocally(
 	not_null<HistoryItem*> item,
