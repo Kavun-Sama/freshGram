@@ -744,6 +744,7 @@ PRIVATE
     desktop-app::lib_webrtc
     desktop-app::lib_spellcheck
     desktop-app::lib_stripe
+    desktop-app::lib_translate
     desktop-app::external_kcoreaddons
     desktop-app::external_minizip
     desktop-app::external_webrtc
