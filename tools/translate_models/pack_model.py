@@ -5,6 +5,8 @@ Needs: pip install ctranslate2 sentencepiece huggingface_hub transformers torch
 Usage: pack_model.py ru-en en-ru ... [--out DIR]
 For a model with another name use one pair and --repo, for example
 pack_model.py ja-en --repo Helsinki-NLP/opus-mt-jap-en
+A model of several target languages needs a token, for example
+pack_model.py en-zh --prefix ">>cmn_Hans<<"
 """
 import argparse
 import hashlib
@@ -21,7 +23,7 @@ EXTRA_FILES = ("source.spm", "target.spm")
 SKIPPED = ("README.md",)
 
 
-def convert(pair, repo, directory):
+def convert(pair, repo, directory, prefix=None):
     subprocess.run([
         "ct2-transformers-converter",
         "--model", repo,
@@ -33,6 +35,9 @@ def convert(pair, repo, directory):
     for name in EXTRA_FILES:
         path = hf_hub_download(repo, name)
         shutil.copyfile(path, os.path.join(directory, name))
+    if prefix:
+        with open(os.path.join(directory, "prefix.txt"), "w", encoding="utf-8") as file:
+            file.write(prefix)
 
 
 def pack(directory, target):
@@ -65,9 +70,10 @@ def main():
     parser.add_argument("pairs", nargs="+", help="for example ru-en")
     parser.add_argument("--out", default=".")
     parser.add_argument("--repo", help="the model repository, for one pair")
+    parser.add_argument("--prefix", help="the target language token, for one pair")
     args = parser.parse_args()
-    if args.repo and len(args.pairs) != 1:
-        sys.exit("--repo works with one pair.")
+    if (args.repo or args.prefix) and len(args.pairs) != 1:
+        sys.exit("--repo and --prefix work with one pair.")
     results = []
     for pair in args.pairs:
         if "/" in pair or pair.startswith("."):
@@ -76,7 +82,7 @@ def main():
         target = os.path.join(args.out, f"{pair}.fgtm")
         with tempfile.TemporaryDirectory() as directory:
             model = os.path.join(directory, "model")
-            convert(pair, repo, model)
+            convert(pair, repo, model, args.prefix)
             names = pack(model, target)
         results.append({
             "file": os.path.basename(target),

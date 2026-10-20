@@ -34,9 +34,21 @@ constexpr auto kHardSentence = 450;
 	case '!':
 	case '?':
 	case 0x2026:
+	case 0x203C:
+	case 0x2047:
+	case 0x2048:
+	case 0x2049:
+	case 0x0589:
+	case 0x061F:
+	case 0x06D4:
+	case 0x0964:
+	case 0x0965:
+	case 0x1362:
 	case 0x3002:
 	case 0xFF01:
+	case 0xFF0E:
 	case 0xFF1F:
+	case 0xFF61:
 		return true;
 	}
 	return false;
@@ -45,7 +57,9 @@ constexpr auto kHardSentence = 450;
 [[nodiscard]] bool IsWideTerminator(QChar c) {
 	return (c.unicode() == 0x3002)
 		|| (c.unicode() == 0xFF01)
-		|| (c.unicode() == 0xFF1F);
+		|| (c.unicode() == 0xFF0E)
+		|| (c.unicode() == 0xFF1F)
+		|| (c.unicode() == 0xFF61);
 }
 
 [[nodiscard]] bool IsCloser(QChar c) {
@@ -174,6 +188,7 @@ using Sections = std::map<QString, Section>;
 		u"target_vocabulary.txt"_q,
 		u"source.spm"_q,
 		u"target.spm"_q,
+		u"prefix.txt"_q,
 	};
 	return names.contains(name);
 }
@@ -325,6 +340,8 @@ private:
 
 struct Loaded {
 	QString key;
+	// The target language token that some models need before a sentence.
+	std::string prefix;
 	std::unique_ptr<ctranslate2::Translator> translator;
 	sentencepiece::SentencePieceProcessor source;
 	sentencepiece::SentencePieceProcessor target;
@@ -391,8 +408,13 @@ void ScheduleRelease() {
 	}
 	auto reader = std::make_shared<ContainerReader>(
 		model.path.toStdString());
+	if (auto prefix = ReadSection(file, *sections, u"prefix.txt"_q)) {
+		result->prefix = QString::fromStdString(*prefix).trimmed().toStdString();
+	}
 	for (const auto &[name, section] : *sections) {
-		if (name == u"source.spm"_q || name == u"target.spm"_q) {
+		if (name == u"source.spm"_q
+			|| name == u"target.spm"_q
+			|| name == u"prefix.txt"_q) {
 			continue;
 		}
 		auto content = ReadSection(file, *sections, name);
@@ -493,8 +515,45 @@ struct TargetWord {
 	});
 }
 
+// Scripts that are written without spaces between sentences.
+[[nodiscard]] bool IsUnspaced(QChar c) {
+	const auto code = c.unicode();
+	return (code >= 0x2E80 && code <= 0x9FFF)
+		|| (code >= 0xAC00 && code <= 0xD7AF)
+		|| (code >= 0xF900 && code <= 0xFAFF)
+		|| (code >= 0xFF00 && code <= 0xFFEF);
+}
+
+// The model sometimes loops, then the sentence is better left as it is.
+[[nodiscard]] bool IsDegenerate(const std::vector<std::string> &tokens) {
+	const auto size = int(tokens.size());
+	for (auto n = 1; n <= 4; ++n) {
+		for (auto start = 0; start + n <= size; ++start) {
+			auto repeats = 1;
+			for (auto next = start + n; next + n <= size; next += n) {
+				if (!std::equal(
+						begin(tokens) + start,
+						begin(tokens) + start + n,
+						begin(tokens) + next)) {
+					break;
+				}
+				++repeats;
+			}
+			auto words = false;
+			for (auto k = start; k != start + n; ++k) {
+				words = words || HasWordChar(tokens[k]);
+			}
+			if (repeats >= ((n == 1) ? (words ? 4 : 2) : 3)) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 void MapSpans(
 		Unit &unit,
+		int shift,
 		const sentencepiece::ImmutableSentencePieceText &source,
 		const std::vector<std::vector<float>> &attention,
 		const sentencepiece::ImmutableSentencePieceText &target) {
@@ -514,8 +573,8 @@ void MapSpans(
 				best = s;
 			}
 		}
-		if (best >= 0 && best < count) {
-			aligned[t] = best;
+		if (best >= shift && (best - shift) < count) {
+			aligned[t] = best - shift;
 			weight[t] = top;
 		}
 	}
@@ -626,6 +685,9 @@ void MapSpans(
 			continue;
 		}
 		auto tokens = std::vector<std::string>();
+		if (!loaded.prefix.empty()) {
+			tokens.push_back(loaded.prefix);
+		}
 		for (auto k = size_t(); k != source.pieces_size(); ++k) {
 			tokens.push_back(source.pieces(int(k)).piece());
 		}
@@ -680,7 +742,9 @@ void MapSpans(
 			continue;
 		}
 		const auto &output = results[k].output();
-		if (output.empty() || output.size() > sources[k].size() * 4 + 16) {
+		if (output.empty()
+			|| output.size() > sources[k].size() * 4 + 16
+			|| IsDegenerate(output)) {
 			continue;
 		}
 		const auto target = loaded.target.DecodePiecesAsImmutableProto(
@@ -691,6 +755,7 @@ void MapSpans(
 		const auto &unit = units[indices[k]];
 		MapSpans(
 			*unit,
+			loaded.prefix.empty() ? 0 : 1,
 			encoded[k],
 			results[k].attention.empty() ? none : results[k].attention[0],
 			target);
@@ -813,7 +878,20 @@ void MapSpans(
 		auto output = TranslationOutput();
 		auto from = std::vector<int>(job.inputs[i].spans.size(), -1);
 		auto till = std::vector<int>(job.inputs[i].spans.size(), -1);
+		const Unit *previous = nullptr;
 		for (const auto &unit : texts[i]) {
+			if (previous
+				&& previous->translate
+				&& unit.translate
+				&& !output.text.isEmpty()
+				&& !unit.text.isEmpty()
+				&& !output.text.back().isSpace()
+				&& !unit.text.front().isSpace()
+				&& !IsUnspaced(output.text.back())
+				&& !IsUnspaced(unit.text.front())) {
+				output.text += ' ';
+			}
+			previous = &unit;
 			const auto base = int(output.text.size());
 			for (const auto &span : unit.spans) {
 				if (span.lost) {
