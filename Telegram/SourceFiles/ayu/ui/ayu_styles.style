@@ -160,8 +160,17 @@ historyStashBubbleTravel: 4px;
 deleteOwnRowPadding: margins(22px, 4px, 22px, 4px);
 deleteOwnNestedSkip: 36px;
 deleteOwnFieldWidth: 120px;
-storyPreviewHeight: 320px;
-storyRowPadding: margins(22px, 4px, 22px, 4px);
+storyPreviewHeight: 300px;
+storyPreviewPadding: margins(0px, 12px, 0px, 12px);
+storyPreviewRadius: 12px;
+storyPreviewShade: 96;
+storyProgressSize: 48px;
+storyProgressLine: 3px;
+storyAuthorUserpic: UserpicButton(defaultUserpicButton) {
+	size: size(30px, 30px);
+	photoSize: 30px;
+}
+storyAuthorUserpicLeft: 17px;
 
 historyTranslateIconOn: icon {{ "chat/input_translate", windowActiveTextFg }};
 

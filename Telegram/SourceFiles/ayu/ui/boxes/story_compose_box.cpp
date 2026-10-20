@@ -3,7 +3,14 @@
 
 #include "ayu/features/stories/story_poster.h"
 #include "ayu/ui/boxes/story_privacy_box.h"
+#include "base/event_filter.h"
 #include "base/random.h"
+#include "boxes/premium_preview_box.h"
+#include "boxes/send_gif_with_caption_box.h"
+#include "chat_helpers/message_field.h"
+#include "core/application.h"
+#include "core/core_settings.h"
+#include "core/file_utilities.h"
 #include "data/data_channel.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
@@ -16,25 +23,34 @@
 #include "lang_auto.h"
 #include "main/main_app_config.h"
 #include "main/main_session.h"
+#include "menu/menu_checked_action.h"
+#include "settings/settings_common.h"
 #include "storage/storage_media_prepare.h"
+#include "ui/chat/attach/attach_controls.h"
 #include "ui/chat/attach/attach_prepare.h"
+#include "ui/controls/userpic_button.h"
+#include "ui/image/image_prepare.h"
 #include "ui/layers/generic_box.h"
+#include "ui/painter.h"
+#include "ui/ui_utility.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/input_field.h"
-#include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
-#include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
 #include "styles/style_ayu_styles.h"
 #include "styles/style_boxes.h"
+#include "styles/style_chat_helpers.h"
 #include "styles/style_layers.h"
+#include "styles/style_menu_icons.h"
+#include "styles/style_settings.h"
 #include "styles/style_widgets.h"
 
 #include <QtGui/QPainter>
+#include <QtGui/QPainterPath>
 
 #include <array>
 
@@ -117,6 +133,21 @@ struct SavedChoice {
 	return result;
 }
 
+[[nodiscard]] QString AuthorName(not_null<PeerData*> peer) {
+	return peer->isSelf()
+		? tr::lng_stories_my_name(tr::now)
+		: peer->name();
+}
+
+[[nodiscard]] QString PeriodText(TimeId period) {
+	switch (period) {
+	case 6 * 3600: return tr::ayu_Story6h(tr::now);
+	case 12 * 3600: return tr::ayu_Story12h(tr::now);
+	case 48 * 3600: return tr::ayu_Story48h(tr::now);
+	}
+	return tr::ayu_Story24h(tr::now);
+}
+
 [[nodiscard]] Ui::PreparedFile CloneFile(const Ui::PreparedFile &file) {
 	auto result = Ui::PreparedFile(file.path);
 	result.displayName = file.displayName;
@@ -143,12 +174,92 @@ struct SavedChoice {
 			&& file.canEditVideo());
 }
 
+// WHY: like in the stories viewer, the media is fitted in 9:16
+// over its own blurred copy, which fills the rest.
+[[nodiscard]] QImage PrepareCard(const QImage &image, QSize size) {
+	const auto ratio = style::DevicePixelRatio();
+	auto result = QImage(size * ratio, QImage::Format_ARGB32_Premultiplied);
+	result.setDevicePixelRatio(ratio);
+	result.fill(st::boxDividerBg->c);
+	if (image.isNull() || size.isEmpty()) {
+		return result;
+	}
+	auto p = QPainter(&result);
+	auto hq = PainterHighQualityEnabler(p);
+	const auto small = image.scaled(
+		QSize(size.width() / 4, size.height() / 4).expandedTo({ 1, 1 }),
+		Qt::KeepAspectRatioByExpanding,
+		Qt::SmoothTransformation);
+	auto blurred = Images::BlurLargeImage(
+		small.convertToFormat(QImage::Format_ARGB32_Premultiplied),
+		8);
+	const auto cover = blurred.size().scaled(
+		size,
+		Qt::KeepAspectRatioByExpanding);
+	p.drawImage(
+		QRect(
+			(size.width() - cover.width()) / 2,
+			(size.height() - cover.height()) / 2,
+			cover.width(),
+			cover.height()),
+		blurred);
+	const auto shade = QColor(0, 0, 0, st::storyPreviewShade);
+	p.fillRect(QRect(QPoint(), size), shade);
+	const auto fitted = image.size().scaled(size, Qt::KeepAspectRatio);
+	p.drawImage(
+		QRect(
+			(size.width() - fitted.width()) / 2,
+			(size.height() - fitted.height()) / 2,
+			fitted.width(),
+			fitted.height()),
+		image);
+	return result;
+}
+
+void ShowAlbumsBox(
+		not_null<Window::SessionController*> controller,
+		const std::vector<Data::StoryAlbum> &list,
+		std::vector<int> chosen,
+		Fn<void(std::vector<int>)> done) {
+	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+		box->setTitle(tr::ayu_StoryAlbums());
+		const auto state = box->lifetime().make_state<std::vector<int>>(
+			chosen);
+		Ui::AddSkip(box->verticalLayout());
+		for (const auto &album : list) {
+			const auto id = album.id;
+			const auto checkbox = box->addRow(
+				object_ptr<Ui::Checkbox>(
+					box,
+					album.title,
+					ranges::contains(*state, id),
+					st::defaultBoxCheckbox),
+				st::boxRowPadding + QMargins(0, 0, 0, st::boxLittleSkip));
+			checkbox->checkedChanges(
+			) | rpl::on_next([=](bool checked) {
+				state->erase(ranges::remove(*state, id), end(*state));
+				if (checked) {
+					state->push_back(id);
+				}
+			}, checkbox->lifetime());
+		}
+		box->addButton(tr::lng_box_done(), [=] {
+			const auto callback = done;
+			auto result = *state;
+			box->closeBox();
+			callback(std::move(result));
+		});
+		box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+	}));
+}
+
 void FillStoryComposeBox(
 		not_null<Ui::GenericBox*> box,
 		not_null<Window::SessionController*> controller,
 		not_null<PeerData*> peer,
 		std::shared_ptr<Ui::PreparedFile> file) {
 	box->setTitle(tr::ayu_StoryNew());
+	box->setWidth(st::boxWideWidth);
 
 	struct State {
 		explicit State(not_null<PeerData*> peer)
@@ -160,54 +271,78 @@ void FillStoryComposeBox(
 		Ui::PreparedList list;
 		uint64 fileKey = base::RandomValue<uint64>();
 		rpl::variable<not_null<PeerData*>> author;
-		std::vector<not_null<UserData*>> excepted;
-		std::vector<not_null<UserData*>> selected;
-		std::vector<int> albums;
-		rpl::event_stream<> usersChanged;
+		rpl::variable<StoryAudienceChoice> audience;
+		rpl::variable<TimeId> period = kDefaultPeriod;
+		rpl::variable<bool> pinned = false;
+		rpl::variable<bool> protect = false;
+		rpl::variable<std::vector<int>> albums;
+		std::vector<Data::StoryAlbum> albumsList;
+		rpl::event_stream<> previewChanged;
+		std::optional<float64> progress;
+		QImage card;
 		base::unique_qptr<Ui::PopupMenu> menu;
+		base::unique_qptr<Ui::UserpicButton> authorUserpic;
 		bool busy = false;
 		bool posted = false;
 	};
 	const auto session = &peer->session();
+	const auto container = box->verticalLayout();
 	const auto state = box->lifetime().make_state<State>(peer);
 	state->list.files.push_back(std::move(*file));
 	const auto current = [=]() -> Ui::PreparedFile& {
 		return state->list.files.front();
 	};
+	const auto premium = session->premium();
 
 	const auto i = Saved().find(SavedKey(peer));
 	const auto saved = (i != end(Saved())) ? i->second : SavedChoice();
-	state->excepted = Users(session, saved.excepted);
-	state->selected = Users(session, saved.selected);
+	state->audience = StoryAudienceChoice{
+		.audience = saved.audience,
+		.excepted = Users(session, saved.excepted),
+		.selected = Users(session, saved.selected),
+	};
+	state->period = (premium && ranges::contains(kPeriods, saved.period))
+		? saved.period
+		: kDefaultPeriod;
+	state->pinned = saved.pinned;
+	state->protect = saved.protect;
 	state->albums = saved.albums;
 
+	// Author.
 	const auto authors = Authors(peer);
 	if (authors.size() > 1) {
-		const auto author = box->addRow(
-			object_ptr<Ui::LinkButton>(box, QString()),
-			st::storyRowPadding);
+		const auto button = Settings::AddButtonWithLabel(
+			container,
+			tr::ayu_StoryPostAs(),
+			state->author.value() | rpl::map(AuthorName),
+			st::settingsButton);
 		state->author.value(
-		) | rpl::on_next([=](not_null<PeerData*> value) {
-			author->setText(tr::ayu_StoryAuthor(
-				tr::now,
-				lt_name,
-				value->isSelf()
-					? tr::lng_stories_my_name(tr::now)
-					: value->name()));
-		}, author->lifetime());
-		author->setClickedCallback([=] {
-			state->menu = base::make_unique_q<Ui::PopupMenu>(
+		) | rpl::on_next([=](not_null<PeerData*> author) {
+			state->authorUserpic = base::make_unique_q<Ui::UserpicButton>(
+				button,
 				author,
+				st::storyAuthorUserpic);
+			const auto userpic = state->authorUserpic.get();
+			userpic->setAttribute(Qt::WA_TransparentForMouseEvents);
+			userpic->show();
+			button->sizeValue(
+			) | rpl::on_next([=](QSize size) {
+				userpic->move(
+					st::storyAuthorUserpicLeft,
+					(size.height() - userpic->height()) / 2);
+			}, userpic->lifetime());
+		}, button->lifetime());
+		button->setClickedCallback([=] {
+			state->menu = base::make_unique_q<Ui::PopupMenu>(
+				button,
 				st::popupMenuWithIcons);
 			for (const auto &item : authors) {
-				const auto text = item->isSelf()
-					? tr::lng_stories_my_name(tr::now)
-					: item->name();
-				state->menu->addAction(text, [=] {
+				const auto chosen = (state->author.current() == item);
+				const auto choose = [=] {
 					if (state->author.current() == item) {
 						return;
 					}
-					state->albums.clear();
+					state->albums = std::vector<int>();
 					state->author = item;
 					AyuStories::CheckCanPost(
 						session,
@@ -217,148 +352,217 @@ void FillStoryComposeBox(
 							controller->showToast(
 								AyuStories::ErrorText(type));
 						}));
-				});
+				};
+				Menu::AddCheckedAction(
+					state->menu.get(),
+					AuthorName(item),
+					choose,
+					nullptr,
+					chosen);
 			}
 			state->menu->popup(QCursor::pos());
 		});
+		Ui::AddDivider(container);
 	}
 
-	const auto preview = box->addRow(
-		object_ptr<Ui::FixedHeightWidget>(box, st::storyPreviewHeight),
-		st::storyRowPadding);
-	preview->paintRequest(
+	// Preview.
+	const auto previewHeight = st::storyPreviewHeight;
+	const auto previewWidth = previewHeight * 9 / 16;
+	const auto preview = container->add(
+		object_ptr<Ui::FixedHeightWidget>(container, previewHeight),
+		st::storyPreviewPadding);
+	const auto cardRect = [=] {
+		return QRect(
+			(preview->width() - previewWidth) / 2,
+			0,
+			previewWidth,
+			previewHeight);
+	};
+	const auto controls = Ui::CreateChild<Ui::AttachControlsWidget>(
+		preview,
+		Ui::AttachControls::Type::EditOnly);
+	preview->sizeValue(
+	) | rpl::on_next([=](QSize size) {
+		const auto card = cardRect();
+		controls->moveToLeft(
+			card.x() + card.width() - controls->width()
+				- st::sendBoxAlbumGroupSkipRight,
+			card.y() + st::sendBoxAlbumGroupSkipTop,
+			size.width());
+	}, controls->lifetime());
+	const auto refreshControls = [=] {
+		controls->setVisible(CanEdit(current()));
+	};
+	refreshControls();
+	state->previewChanged.events(
 	) | rpl::on_next([=] {
-		const auto &image = current().preview;
-		if (image.isNull()) {
-			return;
-		}
-		auto p = QPainter(preview);
-		const auto scaled = image.size().scaled(
-			preview->size(),
-			Qt::KeepAspectRatio);
-		p.drawImage(
-			QRect(
-				(preview->width() - scaled.width()) / 2,
-				(preview->height() - scaled.height()) / 2,
-				scaled.width(),
-				scaled.height()),
-			image);
+		state->card = QImage();
+		refreshControls();
+		preview->update();
 	}, preview->lifetime());
 
-	if (CanEdit(current())) {
-		const auto edit = box->addRow(
-			object_ptr<Ui::LinkButton>(box, tr::ayu_StoryEdit(tr::now)),
-			st::storyRowPadding);
-		edit->setClickedCallback([=] {
-			if (state->busy) {
-				return;
-			}
-			const auto done = [=](bool ok) {
-				if (ok) {
-					// The edited file is uploaded again.
-					state->fileKey = base::RandomValue<uint64>();
-					preview->update();
-				}
-			};
-			if (current().type == Ui::PreparedFile::Type::Photo) {
-				Editor::OpenWithPreparedFile(
-					box,
-					controller->uiShow(),
-					&current(),
-					st::sendMediaPreviewSize,
-					done,
-					0,
-					QSize(720, 1280),
-					false);
-			} else {
-				Editor::OpenWithPreparedVideoFile(
-					box,
-					controller->uiShow(),
-					&state->list,
-					0,
-					st::sendMediaPreviewSize,
-					done);
+	preview->paintRequest(
+	) | rpl::on_next([=] {
+		auto p = QPainter(preview);
+		auto hq = PainterHighQualityEnabler(p);
+		const auto card = cardRect();
+		if (state->card.isNull()) {
+			state->card = PrepareCard(current().preview, card.size());
+		}
+		auto path = QPainterPath();
+		const auto radius = st::storyPreviewRadius;
+		path.addRoundedRect(card, radius, radius);
+		p.setClipPath(path);
+		p.drawImage(card.topLeft(), state->card);
+		if (!state->progress) {
+			return;
+		}
+		p.fillRect(card, QColor(0, 0, 0, 110));
+		const auto size = st::storyProgressSize;
+		const auto line = st::storyProgressLine;
+		const auto arc = QRect(
+			card.x() + (card.width() - size) / 2,
+			card.y() + (card.height() - size) / 2,
+			size,
+			size).marginsRemoved({ line, line, line, line });
+		auto pen = QPen(QColor(255, 255, 255, 70));
+		pen.setWidth(line);
+		pen.setCapStyle(Qt::RoundCap);
+		p.setPen(pen);
+		p.drawEllipse(arc);
+		pen.setColor(QColor(255, 255, 255));
+		p.setPen(pen);
+		const auto value = std::clamp(*state->progress, 0., 1.);
+		p.drawArc(arc, 90 * 16, -int(std::max(value, 0.02) * 360 * 16));
+		p.setFont(st::semiboldFont);
+		const auto textTop = arc.y() + arc.height() + line * 3;
+		p.drawText(
+			QRect(
+				card.x(),
+				textTop,
+				card.width(),
+				st::semiboldFont->height),
+			QString::number(int(std::round(value * 100))) + '%',
+			style::al_top);
+	}, preview->lifetime());
+
+	const auto openEditor = [=] {
+		if (state->busy || !CanEdit(current())) {
+			return;
+		}
+		const auto done = crl::guard(box, [=](bool ok) {
+			if (ok) {
+				// The edited file is uploaded again.
+				state->fileKey = base::RandomValue<uint64>();
+				state->previewChanged.fire({});
 			}
 		});
-	}
-
-	const auto premium = session->premium();
-	const auto limit = session->appConfig().get<int>(
-		premium
-			? u"story_caption_length_limit_premium"_q
-			: u"story_caption_length_limit_default"_q,
-		premium ? 2048 : 200);
-	const auto caption = box->addRow(
-		object_ptr<Ui::InputField>(
-			box,
-			st::defaultInputField,
-			Ui::InputField::Mode::MultiLine,
-			tr::ayu_StoryCaption()),
-		st::storyRowPadding);
-	caption->setMaxLength(limit);
-	caption->setTextWithTags(saved.caption);
-
-	const auto audienceWrap = box->addRow(
-		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
-			box,
-			object_ptr<Ui::VerticalLayout>(box)),
-		style::margins());
-	const auto audienceInner = audienceWrap->entity();
-	const auto audience = std::make_shared<Ui::RadiobuttonGroup>(
-		int(saved.audience));
-	Ui::AddSubsectionTitle(audienceInner, tr::ayu_StoryAudience());
-	const auto addAudience = [&](Audience value, const QString &text) {
-		audienceInner->add(
-			object_ptr<Ui::Radiobutton>(
-				audienceInner,
-				audience,
-				int(value),
-				text,
-				st::defaultCheckbox),
-			st::storyRowPadding);
+		if (current().type == Ui::PreparedFile::Type::Photo) {
+			Editor::OpenWithPreparedFile(
+				box,
+				controller->uiShow(),
+				&current(),
+				st::sendMediaPreviewSize,
+				done,
+				0,
+				QSize(720, 1280),
+				false);
+		} else {
+			Editor::OpenWithPreparedVideoFile(
+				box,
+				controller->uiShow(),
+				&state->list,
+				0,
+				st::sendMediaPreviewSize,
+				done);
+		}
 	};
-	addAudience(Audience::Everyone, tr::ayu_StoryEveryone(tr::now));
-	addAudience(Audience::Contacts, tr::ayu_StoryContacts(tr::now));
-	addAudience(
-		Audience::CloseFriends,
-		tr::ayu_StoryCloseFriends(tr::now));
-	addAudience(Audience::Selected, tr::ayu_StorySelected(tr::now));
+	const auto replaceFile = [=] {
+		if (state->busy) {
+			return;
+		}
+		const auto callback = crl::guard(box, [=](
+				FileDialog::OpenResult &&result) {
+			const auto check = [](const Ui::PreparedList &list) {
+				if (list.files.size() != 1) {
+					return false;
+				}
+				const auto type = list.files.front().type;
+				return (type == Ui::PreparedFile::Type::Photo)
+					|| (type == Ui::PreparedFile::Type::Video);
+			};
+			auto list = Storage::PreparedFileFromFilesDialog(
+				std::move(result),
+				check,
+				[=](tr::phrase<> text) {
+					controller->showToast(text(tr::now));
+				},
+				st::sendMediaPreviewSize,
+				session->premium());
+			if (!list || state->busy) {
+				return;
+			}
+			state->list = std::move(*list);
+			state->fileKey = base::RandomValue<uint64>();
+			state->previewChanged.fire({});
+		});
+		FileDialog::GetOpenPath(
+			box.get(),
+			tr::ayu_StoryChoose(tr::now),
+			FileDialog::PhotoVideoFilesFilter(),
+			callback);
+	};
+	controls->editRequests() | rpl::on_next(openEditor, controls->lifetime());
+	preview->setCursor(style::cur_pointer);
+	base::install_event_filter(preview, [=](not_null<QEvent*> e) {
+		const auto type = e->type();
+		if (type == QEvent::ContextMenu) {
+			state->menu = base::make_unique_q<Ui::PopupMenu>(
+				preview,
+				st::popupMenuWithIcons);
+			if (CanEdit(current())) {
+				state->menu->addAction(
+					tr::ayu_StoryEdit(tr::now),
+					openEditor,
+					&st::menuIconDraw);
+			}
+			state->menu->addAction(
+				tr::ayu_StoryReplace(tr::now),
+				replaceFile,
+				&st::menuIconReplace);
+			state->menu->popup(QCursor::pos());
+			return base::EventFilterResult::Cancel;
+		} else if (type == QEvent::MouseButtonRelease) {
+			const auto mouse = static_cast<QMouseEvent*>(e.get());
+			if (mouse->button() == Qt::LeftButton
+				&& cardRect().contains(mouse->pos())) {
+				openEditor();
+				return base::EventFilterResult::Cancel;
+			}
+		}
+		return base::EventFilterResult::Continue;
+	});
 
-	const auto usersWrap = audienceInner->add(
-		object_ptr<Ui::SlideWrap<Ui::LinkButton>>(
-			audienceInner,
-			object_ptr<Ui::LinkButton>(audienceInner, QString()),
-			st::storyRowPadding));
-	const auto usersLink = usersWrap->entity();
-	rpl::combine(
-		audience->value(),
-		state->usersChanged.events_starting_with({})
-	) | rpl::on_next([=](int value, auto) {
-		const auto chosen = Audience(value);
-		usersWrap->toggle(
-			chosen != Audience::CloseFriends,
-			anim::type::instant);
-		const auto selected = (chosen == Audience::Selected);
-		const auto count = QString::number(selected
-			? state->selected.size()
-			: state->excepted.size());
-		usersLink->setText(selected
-			? tr::ayu_StoryChooseUsers(tr::now, lt_amount, count)
-			: tr::ayu_StoryExcept(tr::now, lt_amount, count));
-	}, usersLink->lifetime());
-	usersLink->setClickedCallback([=] {
-		const auto selected = (Audience(audience->current())
-			== Audience::Selected);
-		ShowStoryUsersBox(
+	Ui::AddDivider(container);
+	Ui::AddSkip(container);
+
+	// Settings.
+	const auto audienceWrap = container->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			container,
+			object_ptr<Ui::VerticalLayout>(container)));
+	const auto audienceButton = Settings::AddButtonWithLabel(
+		audienceWrap->entity(),
+		tr::ayu_StoryAudience(),
+		state->audience.value() | rpl::map(StoryAudienceText),
+		st::settingsButton,
+		{ &st::menuIconGroups });
+	audienceButton->setClickedCallback([=] {
+		ShowStoryAudienceBox(
 			controller,
-			selected
-				? tr::ayu_StorySelectedTitle()
-				: tr::ayu_StoryExceptTitle(),
-			selected ? state->selected : state->excepted,
-			crl::guard(box, [=](std::vector<not_null<UserData*>> users) {
-				(selected ? state->selected : state->excepted)
-					= std::move(users);
-				state->usersChanged.fire({});
+			state->audience.current(),
+			crl::guard(box, [=](StoryAudienceChoice choice) {
+				state->audience = std::move(choice);
 			}));
 	});
 	audienceWrap->toggleOn(state->author.value(
@@ -367,154 +571,183 @@ void FillStoryComposeBox(
 	}));
 	audienceWrap->finishAnimating();
 
-	// Only Premium may choose how long a story is visible.
-	const auto period = std::make_shared<Ui::RadiobuttonGroup>([&] {
-		const auto i = ranges::find(kPeriods, saved.period);
-		return (i != end(kPeriods))
-			? int(i - begin(kPeriods))
-			: int(ranges::find(kPeriods, kDefaultPeriod) - begin(kPeriods));
-	}());
-	if (premium) {
-		Ui::AddSubsectionTitle(
-			box->verticalLayout(),
-			tr::ayu_StoryDuration());
-		const auto periodTexts = std::array<QString, 4>{
-			tr::ayu_Story6h(tr::now),
-			tr::ayu_Story12h(tr::now),
-			tr::ayu_Story24h(tr::now),
-			tr::ayu_Story48h(tr::now),
-		};
-		for (auto i = 0; i != int(kPeriods.size()); ++i) {
-			box->addRow(
-				object_ptr<Ui::Radiobutton>(
-					box,
-					period,
-					i,
-					periodTexts[i],
-					st::defaultCheckbox),
-				st::storyRowPadding);
+	const auto periodButton = Settings::AddButtonWithLabel(
+		container,
+		tr::ayu_StoryDuration(),
+		state->period.value() | rpl::map(PeriodText),
+		st::settingsButton,
+		{ &st::menuIconTimer });
+	periodButton->setClickedCallback([=] {
+		// Only Premium may choose how long a story is visible.
+		if (!premium) {
+			ShowPremiumPreviewBox(controller, PremiumFeature::Stories);
+			return;
 		}
-	}
-	const auto pinned = box->addRow(
-		object_ptr<Ui::Checkbox>(
-			box,
-			tr::ayu_StoryKeep(tr::now),
-			saved.pinned,
-			st::defaultCheckbox),
-		st::storyRowPadding);
-	const auto protect = box->addRow(
-		object_ptr<Ui::Checkbox>(
-			box,
-			tr::ayu_StoryProtect(tr::now),
-			saved.protect,
-			st::defaultCheckbox),
-		st::storyRowPadding);
+		state->menu = base::make_unique_q<Ui::PopupMenu>(
+			periodButton,
+			st::popupMenuWithIcons);
+		for (const auto period : kPeriods) {
+			const auto chosen = (state->period.current() == period);
+			Menu::AddCheckedAction(
+				state->menu.get(),
+				PeriodText(period),
+				[=] { state->period = period; },
+				nullptr,
+				chosen);
+		}
+		state->menu->popup(QCursor::pos());
+	});
 
-	const auto albumsWrap = box->addRow(
+	const auto albumsWrap = container->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
-			box,
-			object_ptr<Ui::VerticalLayout>(box)),
-		style::margins());
-	const auto albumsInner = albumsWrap->entity();
+			container,
+			object_ptr<Ui::VerticalLayout>(container)));
+	const auto albumsButton = Settings::AddButtonWithLabel(
+		albumsWrap->entity(),
+		tr::ayu_StoryAlbums(),
+		state->albums.value(
+		) | rpl::map([](const std::vector<int> &albums) {
+			return albums.empty()
+				? tr::ayu_StoryAlbumsNone(tr::now)
+				: QString::number(albums.size());
+		}),
+		st::settingsButton,
+		{ &st::menuIconStoriesSavedSection });
 	albumsWrap->hide(anim::type::instant);
+	albumsButton->setClickedCallback([=] {
+		ShowAlbumsBox(
+			controller,
+			state->albumsList,
+			state->albums.current(),
+			crl::guard(box, [=](std::vector<int> albums) {
+				if (!albums.empty()) {
+					// WHY: the stories of the albums are on the profile.
+					state->pinned = true;
+				}
+				state->albums = std::move(albums);
+			}));
+	});
 	state->author.value(
 	) | rpl::map([=](not_null<PeerData*> author) {
 		return session->data().stories().albumsListValue(author->id);
 	}) | rpl::flatten_latest(
 	) | rpl::on_next([=](const std::vector<Data::StoryAlbum> &list) {
-		state->albums.erase(
-			ranges::remove_if(state->albums, [&](int id) {
+		state->albumsList = list;
+		auto albums = state->albums.current();
+		albums.erase(
+			ranges::remove_if(albums, [&](int id) {
 				return !ranges::contains(list, id, &Data::StoryAlbum::id);
 			}),
-			end(state->albums));
-		albumsInner->clear();
-		if (list.empty()) {
-			albumsWrap->hide(anim::type::instant);
-			return;
-		}
-		Ui::AddSubsectionTitle(albumsInner, tr::ayu_StoryAlbums());
-		for (const auto &album : list) {
-			const auto id = album.id;
-			const auto checkbox = albumsInner->add(
-				object_ptr<Ui::Checkbox>(
-					albumsInner,
-					album.title,
-					ranges::contains(state->albums, id),
-					st::defaultCheckbox),
-				st::storyRowPadding);
-			checkbox->checkedChanges(
-			) | rpl::on_next([=](bool checked) {
-				state->albums.erase(
-					ranges::remove(state->albums, id),
-					end(state->albums));
-				if (checked) {
-					state->albums.push_back(id);
-					// WHY: the stories of the albums are on the profile.
-					pinned->setChecked(true);
-				}
-			}, checkbox->lifetime());
-		}
-		albumsWrap->show(anim::type::instant);
+			end(albums));
+		state->albums = std::move(albums);
+		albumsWrap->toggle(!list.empty(), anim::type::instant);
 	}, albumsWrap->lifetime());
 
-	const auto status = box->addRow(
-		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
-			box,
-			object_ptr<Ui::FlatLabel>(box, QString(), st::boxLabel),
-			st::storyRowPadding),
-		style::margins());
-	status->hide(anim::type::instant);
-	const auto setStatus = [=](std::optional<float64> progress) {
-		if (!progress) {
-			status->hide(anim::type::instant);
-			return;
-		}
-		status->entity()->setText(tr::ayu_StoryUploading(
-			tr::now,
-			lt_percent,
-			QString::number(int(std::round(*progress * 100)))));
-		status->show(anim::type::instant);
+	Ui::AddSkip(container);
+	Ui::AddDivider(container);
+	Ui::AddSkip(container);
+
+	const auto addToggle = [&](
+			rpl::producer<QString> text,
+			const style::icon *icon,
+			not_null<rpl::variable<bool>*> value) {
+		const auto button = Settings::AddButtonWithIcon(
+			container,
+			std::move(text),
+			st::settingsButton,
+			{ icon });
+		button->toggleOn(value->value());
+		button->toggledChanges(
+		) | rpl::on_next([=](bool toggled) {
+			*value = toggled;
+		}, button->lifetime());
+	};
+	addToggle(tr::ayu_StoryKeep(), &st::menuIconPin, &state->pinned);
+	addToggle(tr::ayu_StoryProtect(), &st::menuIconLock, &state->protect);
+	Ui::AddSkip(container);
+
+	// Caption.
+	const auto limit = session->appConfig().get<int>(
+		premium
+			? u"story_caption_length_limit_premium"_q
+			: u"story_caption_length_limit_default"_q,
+		premium ? 2048 : 200);
+	const auto bottom = box->setPinnedToBottomContent(
+		object_ptr<Ui::VerticalLayout>(box));
+	const auto captionWrap = bottom->add(
+		object_ptr<Ui::RpWidget>(box),
+		st::boxRowPadding);
+	const auto caption = Ui::CreateChild<Ui::InputField>(
+		captionWrap,
+		st::defaultComposeFiles.caption,
+		Ui::InputField::Mode::MultiLine,
+		tr::ayu_StoryCaption());
+	Ui::ResizeFitChild(captionWrap, caption);
+	caption->setMaxLength(limit);
+	caption->setSubmitSettings(Core::App().settings().sendSubmitWay());
+	const auto allow = [](not_null<DocumentData*>) { return false; };
+	Ui::SetupCaptionFieldInBox(
+		box,
+		controller,
+		caption,
+		session->user(),
+		allow,
+		PremiumFeature::AnimatedEmoji);
+	InitMessageFieldHandlers(
+		controller,
+		caption,
+		Window::GifPauseReason::Layer,
+		allow);
+	caption->setTextWithTags(saved.caption);
+	box->setFocusCallback([=] {
+		caption->setFocusFast();
+	});
+
+	const auto setProgress = [=](std::optional<float64> progress) {
+		state->progress = progress;
+		preview->update();
 	};
 
 	const auto save = [=] {
-		auto &choice = Saved()[SavedKey(state->author.current())];
-		choice = SavedChoice{
+		const auto &audience = state->audience.current();
+		Saved()[SavedKey(state->author.current())] = SavedChoice{
 			.caption = state->posted
 				? TextWithTags()
 				: caption->getTextWithTags(),
-			.audience = Audience(audience->current()),
-			.excepted = UserIds(state->excepted),
-			.selected = UserIds(state->selected),
-			.period = kPeriods[period->current()],
-			.pinned = pinned->checked(),
-			.protect = protect->checked(),
-			.albums = state->albums,
+			.audience = audience.audience,
+			.excepted = UserIds(audience.excepted),
+			.selected = UserIds(audience.selected),
+			.period = state->period.current(),
+			.pinned = state->pinned.current(),
+			.protect = state->protect.current(),
+			.albums = state->albums.current(),
 		};
 	};
 	box->boxClosing() | rpl::on_next(save, box->lifetime());
 
-	box->addButton(tr::ayu_StoryPost(), [=] {
+	const auto post = [=] {
 		if (state->busy) {
 			return;
 		}
 		const auto author = state->author.current();
+		const auto &audience = state->audience.current();
 		const auto chosen = author->isSelf()
-			? Audience(audience->current())
+			? audience.audience
 			: Audience::Everyone;
-		if (chosen == Audience::Selected && state->selected.empty()) {
+		if (chosen == Audience::Selected && audience.selected.empty()) {
 			controller->showToast(tr::ayu_StoryNoUsers(tr::now));
 			return;
 		}
 		state->busy = true;
-		setStatus(0.);
+		setProgress(0.);
 		auto list = Ui::PreparedList();
 		list.files.push_back(CloneFile(current()));
 		Storage::ApplyModifications(list);
 		auto users = std::vector<not_null<UserData*>>();
 		if (chosen == Audience::Selected) {
-			users = state->selected;
+			users = audience.selected;
 		} else if (chosen != Audience::CloseFriends && author->isSelf()) {
-			users = state->excepted;
+			users = audience.excepted;
 		}
 		auto draft = AyuStories::Draft{
 			.peer = author,
@@ -523,16 +756,14 @@ void FillStoryComposeBox(
 			.caption = caption->getTextWithTags(),
 			.audience = chosen,
 			.users = std::move(users),
-			.albums = state->albums,
-			.period = premium
-				? kPeriods[period->current()]
-				: kDefaultPeriod,
-			.pinned = pinned->checked(),
-			.protect = protect->checked(),
+			.albums = state->albums.current(),
+			.period = premium ? state->period.current() : kDefaultPeriod,
+			.pinned = state->pinned.current(),
+			.protect = state->protect.current(),
 		};
 		state->poster.post(std::move(draft), {
 			.progress = crl::guard(box, [=](float64 value) {
-				setStatus(value);
+				setProgress(value);
 			}),
 			.done = crl::guard(box, [=] {
 				state->posted = true;
@@ -542,11 +773,13 @@ void FillStoryComposeBox(
 			.failed = crl::guard(box, [=](QString type) {
 				// The window stays, the next try sends the same media.
 				state->busy = false;
-				setStatus(std::nullopt);
+				setProgress(std::nullopt);
 				controller->showToast(AyuStories::ErrorText(type));
 			}),
 		});
-	});
+	};
+	caption->submits() | rpl::on_next(post, caption->lifetime());
+	box->addButton(tr::ayu_StoryPost(), post);
 	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
 }
 
