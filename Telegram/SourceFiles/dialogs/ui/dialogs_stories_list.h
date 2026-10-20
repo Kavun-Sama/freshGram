@@ -39,6 +39,7 @@ struct Element {
 	uint32 unreadCount : 15 = 0;
 	uint32 hasVideoStream : 1 = 0;
 	uint32 skipSmall : 1 = 0;
+	uint32 addButton : 1 = 0; // freshGram: a plus to post a story.
 
 	friend inline bool operator==(
 		const Element &a,
@@ -94,6 +95,7 @@ public:
 	}
 	void setShowTitle(bool shown);
 	[[nodiscard]] rpl::producer<uint64> clicks() const;
+	[[nodiscard]] rpl::producer<QList<QUrl>> fileDrops() const;
 	[[nodiscard]] rpl::producer<ShowMenuRequest> showMenuRequests() const;
 	[[nodiscard]] rpl::producer<bool> toggleExpandedRequests() const;
 	//[[nodiscard]] rpl::producer<> entered() const;
@@ -137,6 +139,8 @@ private:
 	void mouseMoveEvent(QMouseEvent *e) override;
 	void mouseReleaseEvent(QMouseEvent *e) override;
 	void contextMenuEvent(QContextMenuEvent *e) override;
+	void dragEnterEvent(QDragEnterEvent *e) override;
+	void dropEvent(QDropEvent *e) override;
 
 	void paint(
 		QPainter &p,
@@ -177,6 +181,7 @@ private:
 	Content _content;
 	Data _data;
 	rpl::event_stream<uint64> _clicks;
+	rpl::event_stream<QList<QUrl>> _fileDrops;
 	rpl::event_stream<ShowMenuRequest> _showMenuRequests;
 	rpl::event_stream<bool> _toggleExpandedRequests;
 	//rpl::event_stream<> _entered;

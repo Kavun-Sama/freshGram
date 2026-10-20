@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_dialogs.h"
 
 #include <QtWidgets/QApplication>
+#include <QtCore/QMimeData>
 #include <QtGui/QWindow>
 #include <QtGui/QPainter>
 
@@ -90,6 +91,7 @@ List::List(
 	}, lifetime());
 
 	setMouseTracking(true);
+	setAcceptDrops(true);
 	resize(0, _data.empty() ? 0 : st.full.height);
 }
 
@@ -129,6 +131,7 @@ void List::showContent(Content &&content) {
 			item.element.count = element.count;
 			item.element.unreadCount = element.unreadCount;
 			item.element.hasVideoStream = element.hasVideoStream;
+			item.element.addButton = element.addButton;
 		} else {
 			_data.items.emplace_back(Item{ .element = element });
 		}
@@ -184,6 +187,30 @@ void List::updateScrollMax() {
 
 rpl::producer<uint64> List::clicks() const {
 	return _clicks.events();
+}
+
+rpl::producer<QList<QUrl>> List::fileDrops() const {
+	return _fileDrops.events();
+}
+
+void List::dragEnterEvent(QDragEnterEvent *e) {
+	const auto data = e->mimeData();
+	const auto urls = data->hasUrls() ? data->urls() : QList<QUrl>();
+	if (urls.size() == 1 && urls.front().isLocalFile()) {
+		e->acceptProposedAction();
+	} else {
+		e->ignore();
+	}
+}
+
+void List::dropEvent(QDropEvent *e) {
+	const auto data = e->mimeData();
+	if (!data->hasUrls()) {
+		e->ignore();
+		return;
+	}
+	e->acceptProposedAction();
+	_fileDrops.fire(data->urls());
 }
 
 rpl::producer<ShowMenuRequest> List::showMenuRequests() const {
@@ -698,6 +725,37 @@ void List::paint(
 					userpic,
 					itemFull->element.thumbnail->image(size));
 			}
+		}
+
+		if (itemFull && itemFull->element.addButton && expandRatio > 0.) {
+			// freshGram: a plus in the corner to post a story.
+			p.setOpacity(expandRatio);
+			const auto size = photo * 0.36;
+			const auto stroke = std::max(photo * 0.05, 1.);
+			const auto badge = QRectF(
+				userpic.x() + userpic.width() - size * 0.85,
+				userpic.y() + userpic.height() - size * 0.85,
+				size,
+				size);
+			auto hq = PainterHighQualityEnabler(p);
+			p.setPen(Qt::NoPen);
+			p.setBrush(st::windowBg);
+			p.drawEllipse(badge.marginsAdded(
+				{ stroke, stroke, stroke, stroke }));
+			p.setBrush(st::activeButtonBg);
+			p.drawEllipse(badge);
+			auto pen = st::activeButtonFg->p;
+			pen.setWidthF(size * 0.12);
+			pen.setCapStyle(Qt::RoundCap);
+			p.setPen(pen);
+			const auto center = badge.center();
+			const auto half = size * 0.22;
+			p.drawLine(
+				QPointF(center.x() - half, center.y()),
+				QPointF(center.x() + half, center.y()));
+			p.drawLine(
+				QPointF(center.x(), center.y() - half),
+				QPointF(center.x(), center.y() + half));
 		}
 
 		if (const auto full = single.itemFull) {

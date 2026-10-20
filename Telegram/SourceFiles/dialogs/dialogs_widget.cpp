@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtWidgets/QTextEdit>
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/stories/story_entry.h"
 #include "ayu/utils/id_search.h"
 #include "ayu/data/messages_storage.h"
 #include "ayu/utils/telegram_helpers.h"
@@ -1892,7 +1893,15 @@ void Widget::setupStories() {
 
 	_stories->clicks(
 	) | rpl::on_next([=](uint64 id) {
+		if (AyuStories::HandleStoriesClick(controller(), id)) {
+			return;
+		}
 		controller()->openPeerStories(PeerId(int64(id)), currentSource());
+	}, lifetime());
+
+	_stories->fileDrops(
+	) | rpl::on_next([=](const QList<QUrl> &urls) {
+		AyuStories::StartPostingFromUrls(controller(), urls);
 	}, lifetime());
 
 	_stories->showMenuRequests(

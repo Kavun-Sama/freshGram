@@ -60,23 +60,42 @@ State::State(not_null<Data::Stories*> data, Data::StorySourcesList list)
 Content State::next() {
 	const auto &sources = _data->sources(_list);
 	auto result = Content{ .total = int(sources.size()) };
-	result.elements.reserve(sources.size());
+	result.elements.reserve(sources.size() + 1);
 	auto userpics = base::flat_map<
 		not_null<PeerData*>,
 		std::shared_ptr<Ui::DynamicImage>>();
-	userpics.reserve(sources.size());
-	for (const auto &info : sources) {
-		const auto source = _data->source(info.id);
-		Assert(source != nullptr);
-
+	userpics.reserve(sources.size() + 1);
+	const auto userpicFor = [&](not_null<PeerData*> peer) {
 		auto userpic = std::shared_ptr<Ui::DynamicImage>();
-		const auto peer = source->peer;
 		if (const auto i = _userpics.find(peer); i != end(_userpics)) {
 			userpic = i->second;
 		} else {
 			userpic = Ui::MakeUserpicThumbnail(peer, true);
 		}
 		userpics.emplace(peer, userpic);
+		return userpic;
+	};
+	// freshGram: my element with a plus, even without my stories.
+	const auto self = _data->session().user();
+	const auto canAdd = (_list == Data::StorySourcesList::NotHidden)
+		&& self->canPostStories();
+	if (canAdd
+		&& !sources.empty()
+		&& !ranges::contains(sources, self->id, &Data::StoriesSourceInfo::id)) {
+		result.elements.push_back({
+			.id = uint64(self->id.value),
+			.name = self->shortName(),
+			.thumbnail = userpicFor(self),
+			.skipSmall = 1U,
+			.addButton = 1U,
+		});
+	}
+	for (const auto &info : sources) {
+		const auto source = _data->source(info.id);
+		Assert(source != nullptr);
+
+		const auto peer = source->peer;
+		auto userpic = userpicFor(peer);
 		result.elements.push_back({
 			.id = uint64(peer->id.value),
 			.name = peer->shortName(),
@@ -85,6 +104,7 @@ Content State::next() {
 			.unreadCount = info.unreadCount,
 			.hasVideoStream = info.hasVideoStream ? 1U : 0U,
 			.skipSmall = peer->isSelf() ? 1U : 0U,
+			.addButton = (canAdd && peer->isSelf()) ? 1U : 0U,
 		});
 	}
 	_userpics = std::move(userpics);
