@@ -103,3 +103,9 @@
 [submodule "Telegram/ThirdParty/tesseract"]
 	path = Telegram/ThirdParty/tesseract
 	url = https://github.com/tesseract-ocr/tesseract
+[submodule "Telegram/ThirdParty/CTranslate2"]
+	path = Telegram/ThirdParty/CTranslate2
+	url = https://github.com/OpenNMT/CTranslate2
+[submodule "Telegram/ThirdParty/sentencepiece"]
+	path = Telegram/ThirdParty/sentencepiece
+	url = https://github.com/google/sentencepiece

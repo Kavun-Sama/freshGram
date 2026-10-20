@@ -32,6 +32,7 @@ include(cmake/lib_stripe.cmake)
 include(cmake/lib_tgcalls.cmake)
 include(cmake/lib_whisper.cmake)
 include(cmake/lib_tesseract.cmake)
+include(cmake/lib_translate_local.cmake)
 include(cmake/lib_prisma.cmake)
 include(cmake/lib_fido2.cmake)
 include(cmake/td_export.cmake)
@@ -75,6 +76,7 @@ PRIVATE
     tdesktop::lib_tgcalls
     tdesktop::lib_whisper
     tdesktop::lib_tesseract
+    tdesktop::lib_translate_local
     tdesktop::td_export
     tdesktop::td_iv
     tdesktop::td_lang
