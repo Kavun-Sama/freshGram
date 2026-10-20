@@ -13,6 +13,12 @@ if (NOT FRESHGRAM_DISABLE_RECOGNITION AND NOT FRESHGRAM_DISABLE_TRANSLATION)
         set(ct2_dir ${third_party_loc}/CTranslate2)
         set(spm_dir ${third_party_loc}/sentencepiece)
 
+        # CTranslate2 picks the kernels by the host processor, but an x86_64
+        # build on an arm64 Mac must get the x86_64 ones.
+        if (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+            set(CMAKE_SYSTEM_PROCESSOR x86_64)
+        endif()
+
         set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
         set(CMAKE_SKIP_INSTALL_RULES ON)
         set(CMAKE_POSITION_INDEPENDENT_CODE ON)

@@ -23,6 +23,8 @@
 #include "window/window_session_controller.h"
 #include "ayu/ui/settings/settings_chats.h"
 
+#include <vector>
+
 namespace Ayu {
 
 namespace {
@@ -71,7 +73,7 @@ bool WorthTranslating(const TextWithEntities &text) {
 		&& trimmed[1].isLetter()) {
 		return false;
 	}
-	auto masked = QList<bool>(plain.size(), false);
+	auto masked = std::vector<bool>(size_t(plain.size()), false);
 	for (const auto &entity : text.entities) {
 		if (!IsOpaqueEntity(entity.type())) {
 			continue;
