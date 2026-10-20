@@ -450,7 +450,7 @@ void ZeroTimes(Patches &patches, QFile &file, const BoxHeader &box) {
 		for (const auto offset : patches.frees) {
 			for (auto i = qint64(0); i != 4; ++i) {
 				if (offset + i >= position && offset + i < till) {
-					buffer[offset + i - position] = "free"[i];
+					buffer[int(offset + i - position)] = "free"[i];
 				}
 			}
 		}
