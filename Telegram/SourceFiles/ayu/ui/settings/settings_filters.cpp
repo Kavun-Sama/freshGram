@@ -89,6 +89,8 @@ void BuildFiltersSettings(SectionBuilder &builder) {
 		.title = tr::ayu_FiltersHideFromBlocked(),
 		.st = &st::settingsButtonNoIcon,
 		.toggled = rpl::single(settings->hideFromBlocked()),
+		// WHY: blocked users are hidden only while the filters are on.
+		.shown = settings->filtersEnabledValue(),
 	});
 	if (blockedButton) {
 		blockedButton->toggledValue(
