@@ -1,3 +1,18 @@
+7.5.9 beta (20.10.26)
+
+- Add offline translation with downloadable models.
+- Redesign the story posting window with a story preview and an emoji caption.
+- Add video editing, chosen audiences, albums and the author choice to stories.
+- Post a story from the plus on your avatar or by dropping a file on the list.
+- Add an avatar, the password eye toggle and background colors to the lock screen.
+- Add the Clear metadata option to the send files box.
+- Translate attachment captions with auto-translate.
+- Queue the local speech and text recognition one job at a time.
+- Show the blocked users filter only when the filters are enabled.
+- Fix false missing model errors in the local recognition.
+- Fix auto-translate leaking the original text.
+- Fix crashes on the system screen lock and on kept chats without messages.
+
 7.5.8 beta (19.10.26)
 
 - Add Argon2id passcode protection, wipe after failed attempts and lock triggers.
