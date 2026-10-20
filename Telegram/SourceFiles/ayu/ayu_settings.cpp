@@ -17,6 +17,7 @@
 #include "ayu/data/ayu_database.h"
 #include "ayu/data/kept_dialogs.h"
 #include "ayu/data/ayu_database_backup.h"
+#include "ayu/features/recognition/text_translation.h"
 #include "ayu/features/streamer_mode/streamer_mode.h"
 #include "ayu/ui/ayu_logo.h"
 #include "core/application.h"
@@ -638,10 +639,12 @@ void AyuSettings::validate() {
 	validateEnum(_showRepeatMessageInContextMenu, defaults._showRepeatMessageInContextMenu);
 	validateEnum(_showAddFilterInContextMenu, defaults._showAddFilterInContextMenu);
 
-	validateEnum(_translationProvider, defaults._translationProvider, 3);
+	validateEnum(_translationProvider, defaults._translationProvider, 4);
 	validateEnum(_transcriptionProvider, defaults._transcriptionProvider, 1);
-	if ((_translationProvider.current() == TranslationProvider::Native)
-		&& !Platform::IsTranslateProviderAvailable()) {
+	if (((_translationProvider.current() == TranslationProvider::Native)
+			&& !Platform::IsTranslateProviderAvailable())
+		|| ((_translationProvider.current() == TranslationProvider::Local)
+			&& !AyuRecognition::TextTranslationAvailable())) {
 		_translationProvider = defaults._translationProvider.current();
 		modified = true;
 	}
@@ -1580,8 +1583,10 @@ void AyuSettings::setTranscriptionProvider(TranscriptionProvider val) {
 }
 
 void AyuSettings::setTranslationProvider(TranslationProvider val) {
-	if ((val == TranslationProvider::Native)
-		&& !Platform::IsTranslateProviderAvailable()) {
+	if (((val == TranslationProvider::Native)
+			&& !Platform::IsTranslateProviderAvailable())
+		|| ((val == TranslationProvider::Local)
+			&& !AyuRecognition::TextTranslationAvailable())) {
 		val = TranslationProvider::Telegram;
 	}
 	if (_translationProvider.current() == val) return;

@@ -650,6 +650,9 @@
 "ayu_TranslateComposeTo" = "Traduci il testo digitato in";
 "ayu_AutoTranslateOutgoing" = "Traduci automaticamente all'invio";
 "ayu_AutoTranslateFailed" = "Traduzione non riuscita, il messaggio non è stato inviato.";
+"ayu_TranslateProviderLocal" = "Offline";
+"ayu_ManageTranslateModels" = "Lingue della traduzione offline";
+"ayu_TranslateLocalMissing" = "Questa coppia di lingue non è stata scaricata. Aggiungila nelle impostazioni della traduzione offline.";
 "ayu_TranslateComposeFailed" = "Traduzione non riuscita.";
 "ayu_TranslateComposeProgress" = "Traduzione…";
 "ayu_TranslateComposeDone" = "Traduzione completata.";

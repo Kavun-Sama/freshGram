@@ -629,6 +629,9 @@
 "ayu_TranslateComposeTo" = "将输入的文本翻译为";
 "ayu_AutoTranslateOutgoing" = "发送时自动翻译";
 "ayu_AutoTranslateFailed" = "翻译失败，消息未发送。";
+"ayu_TranslateProviderLocal" = "离线";
+"ayu_ManageTranslateModels" = "离线翻译语言";
+"ayu_TranslateLocalMissing" = "尚未下载此语言对。请在离线翻译设置中添加。";
 "ayu_TranslateComposeFailed" = "翻译失败。";
 "ayu_TranslateComposeProgress" = "正在翻译…";
 "ayu_TranslateComposeDone" = "翻译完成。";

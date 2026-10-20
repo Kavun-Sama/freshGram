@@ -9,8 +9,10 @@
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/data/ayu_database.h"
+#include "ayu/features/recognition/recognition_models.h"
 #include "ayu/features/recognition/speech_recognition.h"
 #include "ayu/features/recognition/text_recognition.h"
+#include "ayu/features/recognition/text_translation.h"
 #include "ayu/ui/boxes/recognition_models_box.h"
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
@@ -63,6 +65,11 @@ void BuildTranslator(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 					return QString("Linux");
 				}
 			}()));
+	}
+	if (AyuRecognition::TextTranslationAvailable()) {
+		availableOptions.push_back(std::pair(
+			TranslationProvider::Local,
+			tr::ayu_TranslateProviderLocal(tr::now)));
 	}
 	auto optionLabels = std::vector<QString>();
 	optionLabels.reserve(availableOptions.size());
@@ -119,6 +126,39 @@ void BuildTranslator(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	if (button) {
 		ayu.addBetaBadge(button);
 	}
+	if (!AyuRecognition::TextTranslationAvailable()) {
+		return;
+	}
+	const auto controller = builder.controller();
+	builder.addButton({
+		.id = u"ayu/translateModels"_q,
+		.altIds = { u"ayu/localTranslation"_q, u"ayu/offlineTranslation"_q },
+		.title = tr::ayu_ManageTranslateModels(),
+		.st = &st::settingsButtonNoIcon,
+		.label = rpl::single(rpl::empty)
+			| rpl::then(rpl::merge(
+				AyuRecognition::ModelsChanged(),
+				AyuRecognition::ModelDownloadFinished() | rpl::to_empty))
+			| rpl::map([] {
+				auto codes = QStringList();
+				for (const auto &model
+					: AyuRecognition::InstalledTranslateModels()) {
+					codes.push_back(model.code);
+				}
+				return codes.isEmpty()
+					? tr::ayu_RecognitionOff(tr::now)
+					: codes.join(u", "_q);
+			}),
+		.onClick = [=] {
+			controller->show(Box<AyuUi::RecognitionModelsBox>(
+				&controller->session(),
+				AyuRecognition::ModelKind::Translate));
+		},
+		.shown = settings->translationProviderValue()
+			| rpl::map([](TranslationProvider value) {
+				return value == TranslationProvider::Local;
+			}),
+	});
 }
 
 void BuildTranscription(SectionBuilder &builder, AyuSectionBuilder &ayu) {

@@ -9181,6 +9181,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_TranslateComposeTo" = "Translate typed text to";
 "ayu_AutoTranslateOutgoing" = "Translate automatically when sending";
 "ayu_AutoTranslateFailed" = "Translation failed, the message was not sent.";
+"ayu_TranslateProviderLocal" = "Offline";
+"ayu_ManageTranslateModels" = "Offline translation languages";
+"ayu_TranslateLocalMissing" = "This language pair is not downloaded. Add it in the offline translation settings.";
 "ayu_TranslateComposeFailed" = "Translation failed.";
 "ayu_TranslateComposeProgress" = "Translating...";
 "ayu_TranslateComposeDone" = "Translation completed.";

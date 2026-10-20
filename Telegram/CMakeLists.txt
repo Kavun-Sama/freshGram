@@ -155,6 +155,8 @@ set(ayugram_files
         ayu/features/recognition/speech_recognition.cpp
         ayu/features/recognition/text_recognition.cpp
         ayu/features/recognition/text_recognition.h
+        ayu/features/recognition/text_translation.cpp
+        ayu/features/recognition/text_translation.h
         ayu/features/recognition/speech_recognition.h
         ayu/ui/boxes/delete_own_messages_box.cpp
         ayu/ui/boxes/delete_own_messages_box.h
@@ -314,6 +316,8 @@ set(ayugram_files
         ayu/features/translator/ayu_translate_provider.h
         ayu/features/translator/compose_translate.cpp
         ayu/features/translator/compose_translate.h
+        ayu/features/translator/local_translate_provider.cpp
+        ayu/features/translator/local_translate_provider.h
         ayu/features/translator/html_parser.cpp
         ayu/features/translator/html_parser.h
         ayu/features/translator/implementations/google.cpp

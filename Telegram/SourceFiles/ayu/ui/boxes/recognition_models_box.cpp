@@ -111,6 +111,8 @@ QString Inner::savedValue() const {
 	const auto &settings = AyuSettings::getInstance();
 	return (_kind == ModelKind::Whisper)
 		? settings.whisperModel()
+		: (_kind == ModelKind::Translate)
+		? QString()
 		: settings.ocrLanguages();
 }
 
@@ -291,6 +293,8 @@ void Inner::addRow(
 		} else {
 			if (ModelDownload(id)) {
 				CancelModelDownload(id);
+			} else if (_kind == ModelKind::Translate && ModelExists(model)) {
+				RemoveModel(model);
 			}
 			state->loaderLifetime.destroy();
 			if (!v::is<Failed>(state->state.current())) {
@@ -417,6 +421,13 @@ void Inner::setupContent(not_null<Main::Session*> session) {
 
 	const auto selected = [&] {
 		const auto &settings = AyuSettings::getInstance();
+		if (_kind == ModelKind::Translate) {
+			auto codes = QStringList();
+			for (const auto &model : InstalledTranslateModels()) {
+				codes.push_back(model.code);
+			}
+			return codes;
+		}
 		return (_kind == ModelKind::Whisper)
 			? QStringList{ settings.whisperModel() }
 			: settings.ocrLanguages().split('+', Qt::SkipEmptyParts);
@@ -490,6 +501,8 @@ void RecognitionModelsBox::prepare() {
 
 	setTitle((_kind == ModelKind::Whisper)
 		? tr::ayu_ManageWhisperModels()
+		: (_kind == ModelKind::Translate)
+		? tr::ayu_ManageTranslateModels()
 		: tr::ayu_ManageOcrLanguages());
 
 	const auto kind = _kind;
@@ -498,7 +511,7 @@ void RecognitionModelsBox::prepare() {
 		auto &settings = AyuSettings::getInstance();
 		if (kind == ModelKind::Whisper) {
 			settings.setWhisperModel(selection.value);
-		} else {
+		} else if (kind == ModelKind::Tesseract) {
 			settings.setOcrLanguages(selection.value);
 		}
 		for (const auto &model : selection.pending) {

@@ -19,6 +19,7 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QRegularExpression>
 
 #include <map>
 #include <mutex>
@@ -89,6 +90,12 @@ rpl::event_stream<int> DownloadFinishedStream;
 		}
 	}
 	return true;
+}
+
+[[nodiscard]] bool IsTranslateCode(const QString &code) {
+	static const auto pattern = QRegularExpression(
+		u"^[a-z]{2,3}-[a-z]{2,3}$"_q);
+	return pattern.match(code).hasMatch();
 }
 
 [[nodiscard]] bool IsSafeFileName(const QString &name) {
@@ -206,6 +213,8 @@ void ApplyDownloaded(const Model &model) {
 		break;
 	case ModelKind::TesseractAux:
 		settings.setOcrLanguages(kAutoOcrLanguages.utf16());
+		break;
+	case ModelKind::Translate:
 		break;
 	case ModelKind::Tesseract: {
 		const auto current = settings.ocrLanguages();
@@ -371,10 +380,21 @@ QString TessdataPath() {
 	return ModelsPath() + u"/tessdata"_q;
 }
 
+QString TranslatePath() {
+	return ModelsPath() + u"/translate"_q;
+}
+
 QString ModelPath(const Model &model) {
-	return (model.kind == ModelKind::Whisper)
-		? (ModelsPath() + u"/whisper/"_q + model.file)
-		: (TessdataPath() + '/' + model.code + u".traineddata"_q);
+	switch (model.kind) {
+	case ModelKind::Whisper:
+		return ModelsPath() + u"/whisper/"_q + model.file;
+	case ModelKind::Translate:
+		return TranslatePath() + '/' + model.code + u".fgtm"_q;
+	case ModelKind::Tesseract:
+	case ModelKind::TesseractAux:
+		break;
+	}
+	return TessdataPath() + '/' + model.code + u".traineddata"_q;
 }
 
 bool ModelExists(const Model &model) {
@@ -478,6 +498,16 @@ QStringList InstalledOcrLanguages() {
 	for (const auto &model : Models(ModelKind::Tesseract)) {
 		if (ModelExists(model)) {
 			result.push_back(model.code);
+		}
+	}
+	return result;
+}
+
+std::vector<Model> InstalledTranslateModels() {
+	auto result = std::vector<Model>();
+	for (const auto &model : Models(ModelKind::Translate)) {
+		if (ModelExists(model)) {
+			result.push_back(model);
 		}
 	}
 	return result;

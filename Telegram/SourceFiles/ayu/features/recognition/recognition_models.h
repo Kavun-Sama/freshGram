@@ -20,6 +20,7 @@ enum class ModelKind {
 	Whisper,
 	Tesseract,
 	TesseractAux, // The data for the automatic language detection.
+	Translate, // An Opus-MT model of one direction, like "ru-en".
 };
 
 struct Model : Storage::CloudBlob::Blob {
@@ -32,6 +33,7 @@ struct Model : Storage::CloudBlob::Blob {
 
 [[nodiscard]] QString ModelsPath();
 [[nodiscard]] QString TessdataPath();
+[[nodiscard]] QString TranslatePath();
 [[nodiscard]] QString ModelPath(const Model &model);
 [[nodiscard]] bool ModelExists(const Model &model);
 bool RemoveModel(const Model &model);
@@ -61,6 +63,9 @@ inline constexpr auto kAutoOcrLanguages = "auto"_cs;
 
 // All downloaded Tesseract languages.
 [[nodiscard]] QStringList InstalledOcrLanguages();
+
+// Downloaded translation models by their direction code, like "ru-en".
+[[nodiscard]] std::vector<Model> InstalledTranslateModels();
 
 class ModelLoader : public Storage::CloudBlob::BlobLoader {
 public:

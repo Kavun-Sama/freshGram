@@ -642,6 +642,9 @@
 "ayu_TranslateComposeTo" = "Eingegebenen Text übersetzen in";
 "ayu_AutoTranslateOutgoing" = "Beim Senden automatisch übersetzen";
 "ayu_AutoTranslateFailed" = "Übersetzung fehlgeschlagen, die Nachricht wurde nicht gesendet.";
+"ayu_TranslateProviderLocal" = "Offline";
+"ayu_ManageTranslateModels" = "Sprachen der Offline-Übersetzung";
+"ayu_TranslateLocalMissing" = "Dieses Sprachpaar ist nicht heruntergeladen. Füge es in den Einstellungen der Offline-Übersetzung hinzu.";
 "ayu_TranslateComposeFailed" = "Übersetzung fehlgeschlagen.";
 "ayu_TranslateComposeProgress" = "Übersetze …";
 "ayu_TranslateComposeDone" = "Übersetzung abgeschlossen.";

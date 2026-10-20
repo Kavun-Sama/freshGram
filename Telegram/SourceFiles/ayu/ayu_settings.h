@@ -44,6 +44,7 @@ enum class TranslationProvider {
 	Google = 1,
 	Yandex = 2,
 	Native = 3,
+	Local = 4,
 };
 
 enum class TranscriptionProvider {
@@ -80,6 +81,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TranslationProvider, {
 	{TranslationProvider::Google, "google"},
 	{TranslationProvider::Yandex, "yandex"},
 	{TranslationProvider::Native, "native"},
+	{TranslationProvider::Local, "local"},
 })
 
 NLOHMANN_JSON_SERIALIZE_ENUM(TranscriptionProvider, {

@@ -24,6 +24,7 @@ namespace Ui {
 
 [[nodiscard]] QString TranslateProviderName();
 [[nodiscard]] QString TranslateProviderIdentity();
+[[nodiscard]] bool TranslateProviderIsLocal();
 
 [[nodiscard]] TranslateProviderRequest PrepareTranslateProviderRequest(
 	not_null<TranslateProvider*> provider,

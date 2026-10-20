@@ -31,6 +31,7 @@ BaseTranslator *translatorForProvider(TranslationProvider provider) {
 		return &GoogleTranslator::instance();
 	case TranslationProvider::Telegram:
 	case TranslationProvider::Native:
+	case TranslationProvider::Local:
 		return nullptr;
 	}
 	return nullptr;

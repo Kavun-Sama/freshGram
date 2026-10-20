@@ -68,10 +68,10 @@ if (NOT FRESHGRAM_DISABLE_RECOGNITION AND NOT FRESHGRAM_DISABLE_TRANSLATION)
 
     # The headers of sentencepiece bring their own small "absl", so they
     # must be visible only to the one source file that includes them.
-    set(freshgram_sentencepiece_includes
-        ${third_party_loc}/sentencepiece/src
-        ${third_party_loc}/sentencepiece/third_party
-        CACHE INTERNAL "")
+    set_source_files_properties(
+        ${src_loc}/ayu/features/recognition/text_translation.cpp
+        PROPERTIES INCLUDE_DIRECTORIES
+        "${third_party_loc}/sentencepiece/src;${third_party_loc}/sentencepiece/third_party")
     target_link_libraries(lib_translate_local INTERFACE ctranslate2 sentencepiece-static)
     target_compile_definitions(lib_translate_local INTERFACE FRESHGRAM_LOCAL_TRANSLATE)
 endif()

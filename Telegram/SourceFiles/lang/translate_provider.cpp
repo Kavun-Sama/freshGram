@@ -20,7 +20,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "platform/platform_translate_provider.h"
 
 #include "ayu/ayu_settings.h"
+#include "ayu/features/recognition/text_translation.h"
 #include "ayu/features/translator/ayu_translate_provider.h"
+#include "ayu/features/translator/local_translate_provider.h"
 
 
 namespace {
@@ -36,6 +38,10 @@ base::options::option<QString> OptionTranslateUrlTemplate({
 	const auto provider = AyuSettings::getInstance().translationProvider();
 	if ((provider == TranslationProvider::Native)
 		&& !Platform::IsTranslateProviderAvailable()) {
+		return TranslationProvider::Telegram;
+	}
+	if ((provider == TranslationProvider::Local)
+		&& !AyuRecognition::TextTranslationAvailable()) {
 		return TranslationProvider::Telegram;
 	}
 	return provider;
@@ -78,6 +84,8 @@ std::unique_ptr<TranslateProvider> CreateTranslateProvider(
 			return nullptr;
 		}
 		break;
+	case TranslationProvider::Local:
+		return Ayu::Translator::CreateLocalTranslateProvider();
 	case TranslationProvider::Telegram:
 		break;
 	}
@@ -88,6 +96,12 @@ QString TranslateProviderIdentity() {
 	return ProviderIdentity(
 		ResolveTranslateProvider(),
 		OptionTranslateUrlTemplate.value());
+}
+
+bool TranslateProviderIsLocal() {
+	const auto urlTemplate = OptionTranslateUrlTemplate.value();
+	return (urlTemplate.isEmpty() || !urlTemplate.contains(u"%q"_q))
+		&& (ResolveTranslateProvider() == TranslationProvider::Local);
 }
 
 QString TranslateProviderName() {
@@ -105,6 +119,8 @@ QString TranslateProviderName() {
 			return u"Telegram"_q;
 		}
 		return tr::ayu_SecretTranslateSystem(tr::now);
+	case TranslationProvider::Local:
+		return tr::ayu_TranslateProviderLocal(tr::now);
 	case TranslationProvider::Telegram:
 		return u"Telegram"_q;
 	}

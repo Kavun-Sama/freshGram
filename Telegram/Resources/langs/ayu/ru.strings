@@ -668,6 +668,9 @@
 "ayu_TranslateComposeTo" = "Переводить набранный текст на";
 "ayu_AutoTranslateOutgoing" = "Автоматически переводить при отправке";
 "ayu_AutoTranslateFailed" = "Не удалось перевести, сообщение не отправлено.";
+"ayu_TranslateProviderLocal" = "Офлайн";
+"ayu_ManageTranslateModels" = "Языки офлайн-перевода";
+"ayu_TranslateLocalMissing" = "Эта пара языков не скачана. Добавьте её в настройках офлайн-перевода.";
 "ayu_TranslateComposeFailed" = "Не удалось перевести.";
 "ayu_TranslateComposeProgress" = "Перевод…";
 "ayu_TranslateComposeDone" = "Перевод выполнен.";

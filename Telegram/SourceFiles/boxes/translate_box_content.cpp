@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/translate_box_content.h"
 
 #include "lang/lang_keys.h"
+#include "lang/translate_provider.h"
 #include "ui/boxes/choose_language_box.h"
 #include "ui/effects/loading_element.h"
 #include "ui/layers/generic_box.h"
@@ -213,7 +214,9 @@ void TranslateBoxContent(
 		using UiError = TranslateBoxContentError;
 		auto value = result.text.value_or(
 			tr::italic(((result.error == UiError::LocalLanguagePackMissing)
-				? tr::lng_translate_box_error_language_pack_not_installed
+				? (Ui::TranslateProviderIsLocal()
+					? tr::ayu_TranslateLocalMissing
+					: tr::lng_translate_box_error_language_pack_not_installed)
 				: tr::lng_translate_box_error)(tr::now)));
 		translated->entity()->setMarkedText(value, textContext);
 		translated->show(anim::type::instant);

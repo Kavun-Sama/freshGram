@@ -165,7 +165,8 @@ void ComposeTranslator::start(
 		show->showToast(tr::ayu_TranslateComposeEmpty(tr::now));
 		return;
 	}
-	if (!AyuSecret::IsSecretPeerId(peer->id)) {
+	if (!AyuSecret::IsSecretPeerId(peer->id)
+		|| Ui::TranslateProviderIsLocal()) {
 		request(
 			std::move(show),
 			peer,
