@@ -545,6 +545,8 @@
 "ayu_ShortcutStash" = "Nachricht ablegen oder zurückholen";
 "ayu_StashRestore" = "Abgelegte Nachricht zurückholen";
 "ayu_StashFilesLimit" = "Zu viele oder zu große Dateien zum Ablegen.";
+"ayu_ClearMetadata" = "Metadaten entfernen";
+"ayu_ClearMetadataFailed" = "Die Metadaten von {name} konnten nicht entfernt werden.";
 "ayu_StashHint" = "Drücke {shortcut}, um diesen Entwurf abzulegen.";
 "ayu_KeepDeletedDays" = "Gelöschte Nachrichten und Bearbeitungen behalten für";
 "ayu_DeleteSavedFiles" = "Dateien mit gespeicherten Nachrichten löschen";

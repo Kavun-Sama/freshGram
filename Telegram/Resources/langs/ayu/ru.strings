@@ -562,6 +562,8 @@
 "ayu_ShortcutStash" = "Спрятать или вернуть сообщение";
 "ayu_StashRestore" = "Вернуть спрятанное сообщение";
 "ayu_StashFilesLimit" = "Слишком много или слишком большие файлы, чтобы их спрятать.";
+"ayu_ClearMetadata" = "Удалить метаданные";
+"ayu_ClearMetadataFailed" = "Не удалось удалить метаданные у {name}.";
 "ayu_StashHint" = "Нажмите {shortcut}, чтобы спрятать этот черновик.";
 "ayu_KeepDeletedDays" = "Хранить удалённые сообщения и правки";
 "ayu_DeleteSavedFiles" = "Удалять файлы вместе с сохранёнными сообщениями";

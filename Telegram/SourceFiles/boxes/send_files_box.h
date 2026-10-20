@@ -273,6 +273,10 @@ private:
 		int position,
 		Api::SendOptions options,
 		bool ctrlShiftEnter);
+	[[nodiscard]] bool hasClearableMetadata() const;
+	[[nodiscard]] bool clearMetadata(
+		Api::SendOptions options,
+		bool ctrlShiftEnter);
 	void stash();
 	[[nodiscard]] Fn<void(Api::SendOptions)> sendCallback();
 	void captionResized();
@@ -349,6 +353,8 @@ private:
 	std::unique_ptr<Ayu::ComposeTranslator> _translator;
 	bool _captionsTranslated = false;
 	bool _translating = false;
+	bool _clearingMetadata = false;
+	bool _metadataCleared = false;
 
 	const object_ptr<Ui::InputField> _caption;
 	std::unique_ptr<ChatHelpers::FieldAutocomplete> _autocomplete;
@@ -362,6 +368,7 @@ private:
 
 	object_ptr<Ui::Checkbox> _groupFiles = { nullptr };
 	object_ptr<Ui::Checkbox> _sendImagesAsPhotos = { nullptr };
+	object_ptr<Ui::Checkbox> _clearMetadata = { nullptr };
 	object_ptr<Ui::Checkbox> _wayRemember = { nullptr };
 	object_ptr<Ui::FlatLabel> _hintLabel = { nullptr };
 	rpl::variable<Ui::SendFilesWay> _sendWay = Ui::SendFilesWay();

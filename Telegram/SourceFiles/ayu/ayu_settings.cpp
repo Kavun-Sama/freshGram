@@ -1393,6 +1393,12 @@ void AyuSettings::setLockScreenSubmitText(QString val) {
 	save();
 }
 
+void AyuSettings::setSendClearMetadata(bool val) {
+	if (_sendClearMetadata.current() == val) return;
+	_sendClearMetadata = val;
+	save();
+}
+
 void AyuSettings::setLockScreenAccent(uint32 val) {
 	if (_lockScreenAccent.current() == val) return;
 	_lockScreenAccent = val;
@@ -1888,6 +1894,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"lockScreenTitle", s._lockScreenTitle.current()},
 		{"lockScreenSubmitText", s._lockScreenSubmitText.current()},
 		{"lockScreenAccent", s._lockScreenAccent.current()},
+		{"sendClearMetadata", s._sendClearMetadata.current()},
 		{"lockOnSystemLock", s._lockOnSystemLock.current()},
 		{"lockOnMinimize", s._lockOnMinimize.current()},
 		{"hideFromCapture", s._hideFromCapture.current()},
@@ -2073,6 +2080,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._lockScreenTitle = j.value("lockScreenTitle", defaults._lockScreenTitle.current());
 	s._lockScreenSubmitText = j.value("lockScreenSubmitText", defaults._lockScreenSubmitText.current());
 	s._lockScreenAccent = j.value("lockScreenAccent", defaults._lockScreenAccent.current());
+	s._sendClearMetadata = j.value("sendClearMetadata", defaults._sendClearMetadata.current());
 	s._lockOnSystemLock = j.value("lockOnSystemLock", defaults._lockOnSystemLock.current());
 	s._lockOnMinimize = j.value("lockOnMinimize", defaults._lockOnMinimize.current());
 	s._hideFromCapture = j.value("hideFromCapture", defaults._hideFromCapture.current());

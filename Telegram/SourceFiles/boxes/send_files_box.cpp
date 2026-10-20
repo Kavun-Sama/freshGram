@@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ayu/ayu_settings.h"
 #include "ayu/features/translator/compose_translate.h"
+#include "ayu/utils/strip_metadata.h"
 #include "base/unixtime.h"
 #include "ayu/utils/telegram_helpers.h"
 #include <QApplication>
@@ -1991,6 +1992,14 @@ void SendFilesBox::setupSendWayControls() {
 		_st.files.checkbox,
 		_st.files.check);
 
+	const auto clearFirst = AyuSettings::getInstance().sendClearMetadata();
+	_clearMetadata.create(
+		this,
+		tr::ayu_ClearMetadata(tr::now),
+		clearFirst,
+		_st.files.checkbox,
+		_st.files.check);
+
 	_sendWay.changes(
 	) | rpl::on_next([=](SendFilesWay value) {
 		_groupFiles->setChecked(value.groupFiles());
@@ -2038,11 +2047,13 @@ void SendFilesBox::setupSendWayControls() {
 	_wayRemember->hide();
 	rpl::combine(
 		_groupFiles->checkedValue(),
-		_sendImagesAsPhotos->checkedValue()
-	) | rpl::on_next([=](bool groupFiles, bool asDocuments) {
+		_sendImagesAsPhotos->checkedValue(),
+		_clearMetadata->checkedValue()
+	) | rpl::on_next([=](bool groupFiles, bool asDocuments, bool clear) {
 		_wayRemember->setVisible(
 			(groupFiles != groupFilesFirst)
-				|| ((!asDocuments) != asPhotosFirst));
+				|| ((!asDocuments) != asPhotosFirst)
+				|| (clear != clearFirst));
 		captionResized();
 	}, lifetime());
 
@@ -2081,6 +2092,7 @@ void SendFilesBox::updateSendWayControls() {
 	_sendImagesAsPhotos->setText((_list.files.size() > 1)
 		? tr::lng_send_as_documents(tr::now)
 		: tr::lng_send_as_documents_one(tr::now));
+	_clearMetadata->setVisible(hasClearableMetadata());
 
 	_hintLabel->setVisible(
 		_show->session().settings().photoEditorHintShown()
@@ -2489,9 +2501,10 @@ void SendFilesBox::updateBoxSize() {
 		footerHeight += st::boxPhotoCaptionSkip + _caption->height();
 	}
 	footerHeight += _replyHeaderHeight.current();
-	const auto pairs = std::array<std::pair<RpWidget*, int>, 4>{ {
+	const auto pairs = std::array<std::pair<RpWidget*, int>, 5>{ {
 		{ _groupFiles.data(), st::boxPhotoCompressedSkip },
 		{ _sendImagesAsPhotos.data(), st::boxPhotoCompressedSkip },
+		{ _clearMetadata.data(), st::boxPhotoCompressedSkip },
 		{ _wayRemember.data(), st::boxPhotoCompressedSkip },
 		{ _hintLabel.data(), st::editMediaLabelMargins.top() },
 	} };
@@ -2561,10 +2574,11 @@ void SendFilesBox::updateControlsGeometry() {
 			_aiButton->raise();
 		}
 	}
-	const auto pairs = std::array<std::pair<RpWidget*, int>, 4>{ {
+	const auto pairs = std::array<std::pair<RpWidget*, int>, 5>{ {
 		{ _hintLabel.data(), st::editMediaLabelMargins.top() },
 		{ _groupFiles.data(), st::boxPhotoCompressedSkip },
 		{ _sendImagesAsPhotos.data(), st::boxPhotoCompressedSkip },
+		{ _clearMetadata.data(), st::boxPhotoCompressedSkip },
 		{ _wayRemember.data(), st::boxPhotoCompressedSkip },
 	} };
 	for (const auto &pair : ranges::views::reverse(pairs)) {
@@ -2636,6 +2650,10 @@ void SendFilesBox::saveSendWaySettings(bool rememberAll) {
 		Core::App().settings().setSendFilesWay(way);
 		Core::App().saveSettingsDelayed();
 	}
+	if (rememberAll && !_clearMetadata->isHidden()) {
+		AyuSettings::getInstance().setSendClearMetadata(
+			_clearMetadata->checked());
+	}
 }
 
 bool SendFilesBox::validateLength(const QString &text) const {
@@ -2648,6 +2666,144 @@ bool SendFilesBox::validateLength(const QString &text) const {
 	_show->showBox(
 		Box(CaptionLimitReachedBox, session, remove, &_st.premium));
 	return false;
+}
+
+namespace {
+
+[[nodiscard]] AyuMetadata::MediaKind MetadataKindOf(
+		const Ui::PreparedFile &file) {
+	if (file.animationJob || !file.information) {
+		return AyuMetadata::MediaKind::None;
+	}
+	const auto image = std::get_if<Ui::PreparedFileInformation::Image>(
+		&file.information->media);
+	if (image && image->modifications) {
+		return AyuMetadata::MediaKind::None;
+	}
+	return AyuMetadata::KindOf(
+		file.path.isEmpty() ? file.displayName : file.path,
+		file.information->filemime);
+}
+
+struct CleanedFile {
+	int index = 0;
+	bool ok = true;
+	QByteArray bytes;
+	QString path;
+};
+
+} // namespace
+
+bool SendFilesBox::hasClearableMetadata() const {
+	return ranges::any_of(_list.files, [](const Ui::PreparedFile &file) {
+		return MetadataKindOf(file) != AyuMetadata::MediaKind::None;
+	});
+}
+
+bool SendFilesBox::clearMetadata(
+		Api::SendOptions options,
+		bool ctrlShiftEnter) {
+	if (_metadataCleared) {
+		_metadataCleared = false;
+		return false;
+	} else if (!_confirmedCallback
+		|| _clearMetadata->isHidden()
+		|| !_clearMetadata->checked()) {
+		return false;
+	}
+	struct Job {
+		int index = 0;
+		AyuMetadata::MediaKind kind = AyuMetadata::MediaKind::None;
+		QString path;
+		QByteArray content;
+		QString target;
+		QString name;
+	};
+	auto jobs = std::vector<Job>();
+	for (auto i = 0; i != int(_list.files.size()); ++i) {
+		const auto &file = _list.files[i];
+		const auto kind = MetadataKindOf(file);
+		if (kind == AyuMetadata::MediaKind::None
+			|| (kind == AyuMetadata::MediaKind::Video
+				&& file.path.startsWith(QDir::tempPath() + u"/tdclean/"_q))) {
+			continue;
+		}
+		jobs.push_back({
+			.index = i,
+			.kind = kind,
+			.path = file.path,
+			.content = file.content,
+			.target = (kind == AyuMetadata::MediaKind::Video)
+				? AyuMetadata::NewTempVideoPath(
+					QFileInfo(file.path).suffix().toLower())
+				: QString(),
+			.name = file.displayName,
+		});
+	}
+	if (jobs.empty()) {
+		return false;
+	}
+	_clearingMetadata = true;
+	const auto weak = base::make_weak(this);
+	crl::async([=, jobs = std::move(jobs)] {
+		auto results = std::vector<CleanedFile>();
+		for (const auto &job : jobs) {
+			auto result = CleanedFile{ .index = job.index };
+			if (job.kind == AyuMetadata::MediaKind::Video) {
+				result.ok = !job.target.isEmpty()
+					&& AyuMetadata::StripVideo(job.path, job.target);
+				result.path = job.target;
+			} else {
+				auto bytes = job.content;
+				if (bytes.isEmpty()) {
+					auto file = QFile(job.path);
+					if (file.open(QIODevice::ReadOnly)) {
+						bytes = file.readAll();
+					}
+				}
+				const auto stripped = bytes.isEmpty()
+					? std::nullopt
+					: AyuMetadata::StripImage(bytes);
+				result.ok = stripped.has_value();
+				if (result.ok) {
+					result.bytes = *stripped;
+				}
+			}
+			results.push_back(std::move(result));
+		}
+		crl::on_main(weak, [=, results = std::move(results)]() mutable {
+			_clearingMetadata = false;
+			for (const auto &result : results) {
+				if (result.index >= int(_list.files.size())) {
+					continue;
+				}
+				auto &file = _list.files[result.index];
+				if (!result.ok) {
+					showToast(tr::ayu_ClearMetadataFailed(
+						tr::now,
+						lt_name,
+						file.displayName));
+					return;
+				}
+				if (!result.path.isEmpty()) {
+					file.path = result.path;
+					file.content = QByteArray();
+				} else {
+					file.path = QString();
+					file.content = result.bytes;
+					const auto image = std::get_if<
+						Ui::PreparedFileInformation::Image>(
+							&file.information->media);
+					if (image) {
+						image->bytes = result.bytes;
+					}
+				}
+			}
+			_metadataCleared = true;
+			send(options, ctrlShiftEnter);
+		});
+	});
+	return true;
 }
 
 bool SendFilesBox::translateCaptions(
@@ -2734,7 +2890,10 @@ void SendFilesBox::translateCaptionAt(
 void SendFilesBox::send(
 		Api::SendOptions options,
 		bool ctrlShiftEnter) {
-	if (_translating || translateCaptions(options, ctrlShiftEnter)) {
+	if (_translating
+		|| _clearingMetadata
+		|| translateCaptions(options, ctrlShiftEnter)
+		|| clearMetadata(options, ctrlShiftEnter)) {
 		return;
 	}
 	const auto sumSize = ranges::accumulate(

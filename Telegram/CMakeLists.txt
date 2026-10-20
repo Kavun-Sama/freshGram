@@ -198,6 +198,8 @@ set(ayugram_files
         ayu/utils/caps_lock.h
         ayu/utils/passcode_strength.cpp
         ayu/utils/passcode_strength.h
+        ayu/utils/strip_metadata.cpp
+        ayu/utils/strip_metadata.h
         ayu/utils/windows_utils.cpp
         ayu/utils/windows_utils.h
         ayu/ui/status_marquee.cpp

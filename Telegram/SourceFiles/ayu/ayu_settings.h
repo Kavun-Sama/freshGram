@@ -399,6 +399,7 @@ public:
 	[[nodiscard]] QString lockScreenTitle() const { return _lockScreenTitle.current(); }
 	[[nodiscard]] QString lockScreenSubmitText() const { return _lockScreenSubmitText.current(); }
 	[[nodiscard]] uint32 lockScreenAccent() const { return _lockScreenAccent.current(); }
+	[[nodiscard]] bool sendClearMetadata() const { return _sendClearMetadata.current(); }
 	[[nodiscard]] static QString sanitizeLockScreenText(QString text);
 	[[nodiscard]] static QString sanitizeLockScreenLine(QString text, int maxLength);
 	[[nodiscard]] bool lockOnSystemLock() const { return _lockOnSystemLock.current(); }
@@ -577,6 +578,7 @@ public:
 	void setLockScreenTitle(QString val);
 	void setLockScreenSubmitText(QString val);
 	void setLockScreenAccent(uint32 val);
+	void setSendClearMetadata(bool val);
 	void setLockOnSystemLock(bool val);
 	void setLockOnMinimize(int val);
 	void setHideFromCapture(int val);
@@ -781,6 +783,7 @@ public:
 	[[nodiscard]] rpl::producer<QString> lockScreenTitleValue() const { return _lockScreenTitle.value(); }
 	[[nodiscard]] rpl::producer<QString> lockScreenSubmitTextValue() const { return _lockScreenSubmitText.value(); }
 	[[nodiscard]] rpl::producer<uint32> lockScreenAccentValue() const { return _lockScreenAccent.value(); }
+	[[nodiscard]] rpl::producer<bool> sendClearMetadataValue() const { return _sendClearMetadata.value(); }
 	[[nodiscard]] rpl::producer<bool> lockOnSystemLockValue() const { return _lockOnSystemLock.value(); }
 	[[nodiscard]] rpl::producer<int> lockOnMinimizeValue() const { return _lockOnMinimize.value(); }
 	[[nodiscard]] rpl::producer<int> hideFromCaptureValue() const { return _hideFromCapture.value(); }
@@ -974,6 +977,7 @@ private:
 	rpl::variable<QString> _lockScreenTitle;
 	rpl::variable<QString> _lockScreenSubmitText;
 	rpl::variable<uint32> _lockScreenAccent = uint32(0);
+	rpl::variable<bool> _sendClearMetadata = false;
 	rpl::variable<bool> _lockOnSystemLock = false;
 	rpl::variable<int> _lockOnMinimize = -1;
 	rpl::variable<int> _hideFromCapture = 0;

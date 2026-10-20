@@ -553,6 +553,8 @@
 "ayu_ShortcutStash" = "Metti da parte o ripristina il messaggio";
 "ayu_StashRestore" = "Ripristina il messaggio messo da parte";
 "ayu_StashFilesLimit" = "Troppi file o file troppo grandi da mettere da parte.";
+"ayu_ClearMetadata" = "Rimuovi i metadati";
+"ayu_ClearMetadataFailed" = "Impossibile rimuovere i metadati di {name}.";
 "ayu_StashHint" = "Premi {shortcut} per mettere da parte questa bozza.";
 "ayu_KeepDeletedDays" = "Conserva messaggi eliminati e modifiche per";
 "ayu_DeleteSavedFiles" = "Elimina i file con i messaggi salvati";
