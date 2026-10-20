@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Packs an Opus-MT model into one file for the local translation.
+"""Packs Opus-MT models into one file each for the local translation.
 
 Needs: pip install ctranslate2 sentencepiece huggingface_hub transformers torch
-Usage: pack_model.py ru-en [--out DIR]
+Usage: pack_model.py ru-en en-ru ... [--out DIR]
+For a model with another name use one pair and --repo, for example
+pack_model.py ja-en --repo Helsinki-NLP/opus-mt-jap-en
 """
 import argparse
 import hashlib
@@ -19,17 +21,17 @@ EXTRA_FILES = ("source.spm", "target.spm")
 SKIPPED = ("README.md",)
 
 
-def convert(pair, directory):
+def convert(pair, repo, directory):
     subprocess.run([
         "ct2-transformers-converter",
-        "--model", f"Helsinki-NLP/opus-mt-{pair}",
+        "--model", repo,
         "--output_dir", directory,
         "--quantization", "int8",
         "--force",
     ], check=True)
     from huggingface_hub import hf_hub_download
     for name in EXTRA_FILES:
-        path = hf_hub_download(f"Helsinki-NLP/opus-mt-{pair}", name)
+        path = hf_hub_download(repo, name)
         shutil.copyfile(path, os.path.join(directory, name))
 
 
@@ -60,24 +62,30 @@ def sha256(path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("pair", help="for example ru-en")
+    parser.add_argument("pairs", nargs="+", help="for example ru-en")
     parser.add_argument("--out", default=".")
+    parser.add_argument("--repo", help="the model repository, for one pair")
     args = parser.parse_args()
-    if "/" in args.pair or args.pair.startswith("."):
-        sys.exit("Bad pair.")
-    target = os.path.join(args.out, f"{args.pair}.fgtm")
-    with tempfile.TemporaryDirectory() as directory:
-        model = os.path.join(directory, "model")
-        convert(args.pair, model)
-        names = pack(model, target)
-    print(json.dumps({
-        "kind": "translate",
-        "file": os.path.basename(target),
-        "code": args.pair,
-        "size": os.path.getsize(target),
-        "sha256": sha256(target),
-        "files": names,
-    }, indent=2))
+    if args.repo and len(args.pairs) != 1:
+        sys.exit("--repo works with one pair.")
+    results = []
+    for pair in args.pairs:
+        if "/" in pair or pair.startswith("."):
+            sys.exit("Bad pair.")
+        repo = args.repo or f"Helsinki-NLP/opus-mt-{pair}"
+        target = os.path.join(args.out, f"{pair}.fgtm")
+        with tempfile.TemporaryDirectory() as directory:
+            model = os.path.join(directory, "model")
+            convert(pair, repo, model)
+            names = pack(model, target)
+        results.append({
+            "file": os.path.basename(target),
+            "code": pair,
+            "size": os.path.getsize(target),
+            "sha256": sha256(target),
+            "files": names,
+        })
+    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":
