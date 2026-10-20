@@ -743,6 +743,10 @@
 "ayu_PasscodeLockText" = "Testo sulla schermata di blocco";
 "ayu_PasscodeLockTextPlaceholder" = "Ad esempio, come contattarti se il dispositivo viene ritrovato";
 "ayu_PasscodeLockShowLogout" = "Mostra «Esci»";
+"ayu_PasscodeLockShowEye" = "Pulsante per mostrare la password";
+"ayu_PasscodeLockColor" = "Colore di sfondo";
+"ayu_PasscodeLockColorSecond" = "Secondo colore del gradiente";
+"ayu_PasscodeLockColorDefault" = "Predefinito";
 "ayu_PasscodeLockPreview" = "Anteprima";
 "ayu_PasscodeLockAppearanceAbout" = "L’immagine e il testo sono visibili prima di inserire il codice, quindi sono salvati senza cifratura. Non inserire nulla di privato.";
 "ayu_PasscodeLockImageFailed" = "Questa immagine non può essere usata. Scegli un file JPEG, PNG o WebP fino a 30 MB.";

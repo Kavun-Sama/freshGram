@@ -24,6 +24,7 @@
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/widgets/color_editor.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/fields/password_input.h"
 #include "ui/widgets/labels.h"
@@ -95,6 +96,33 @@ void LockTextBox(not_null<Ui::GenericBox*> box) {
 	field->submits() | rpl::on_next(save, field->lifetime());
 	box->addButton(tr::lng_settings_save(), save);
 	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+}
+
+void LockColorBox(
+		not_null<Ui::GenericBox*> box,
+		tr::phrase<> title,
+		uint32 current,
+		Fn<void(uint32)> set) {
+	box->setTitle(title());
+	const auto editor = box->addRow(object_ptr<ColorEditor>(
+		box,
+		ColorEditor::Mode::HSL,
+		current ? QColor::fromRgba(current) : st::activeButtonBg->c));
+	const auto save = [=] {
+		set(editor->color().rgba());
+		box->closeBox();
+	};
+	editor->submitRequests() | rpl::on_next(save, editor->lifetime());
+	box->setFocusCallback([=] {
+		editor->setInnerFocus();
+	});
+	box->addButton(tr::lng_settings_save(), save);
+	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+	box->addLeftButton(tr::ayu_PasscodeLockColorDefault(), [=] {
+		set(0);
+		box->closeBox();
+	});
+	box->setWidth(editor->width());
 }
 
 void LockPreviewBox(
@@ -497,6 +525,22 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 		return settings.lockScreenStyleValue(
 		) | rpl::map(rpl::mappers::_1 == 0);
 	};
+	const auto gradientShown = [&] {
+		return rpl::combine(
+			settings.lockScreenStyleValue(),
+			settings.lockScreenBackgroundValue(),
+			[](int style, int background) {
+				return (style == 0) && (background == 0);
+			});
+	};
+	const auto colorShown = [&] {
+		return rpl::combine(
+			settings.lockScreenStyleValue(),
+			settings.lockScreenBackgroundValue(),
+			[](int style, int background) {
+				return (style == 0) && (background <= 1);
+			});
+	};
 	const auto imageShown = [&] {
 		return rpl::combine(
 			settings.lockScreenStyleValue(),
@@ -540,6 +584,43 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 			}
 		},
 		cardStyle());
+	const auto colorLabel = [](uint32 color) {
+		return color
+			? QColor::fromRgba(color).name().toUpper()
+			: tr::ayu_PasscodeLockColorDefault(tr::now);
+	};
+	builder.addButton({
+		.id = u"passcode/lock-color1"_q,
+		.title = tr::ayu_PasscodeLockColor(),
+		.icon = { &st::menuIconPalette },
+		.label = settings.lockScreenColor1Value() | rpl::map(colorLabel),
+		.onClick = [=] {
+			controller->show(Box(
+				LockColorBox,
+				tr::ayu_PasscodeLockColor,
+				AyuSettings::getInstance().lockScreenColor1(),
+				[](uint32 color) {
+					AyuSettings::getInstance().setLockScreenColor1(color);
+				}));
+		},
+		.shown = colorShown(),
+	});
+	builder.addButton({
+		.id = u"passcode/lock-color2"_q,
+		.title = tr::ayu_PasscodeLockColorSecond(),
+		.icon = { &st::menuIconPalette },
+		.label = settings.lockScreenColor2Value() | rpl::map(colorLabel),
+		.onClick = [=] {
+			controller->show(Box(
+				LockColorBox,
+				tr::ayu_PasscodeLockColorSecond,
+				AyuSettings::getInstance().lockScreenColor2(),
+				[](uint32 color) {
+					AyuSettings::getInstance().setLockScreenColor2(color);
+				}));
+		},
+		.shown = gradientShown(),
+	});
 	builder.addButton({
 		.id = u"passcode/lock-image"_q,
 		.title = tr::ayu_PasscodeLockChangeImage(),
@@ -610,6 +691,14 @@ void AddPasscodeSecuritySettings(SectionBuilder &builder) {
 		settings.lockScreenShowLogout(),
 		[](bool value) {
 			AyuSettings::getInstance().setLockScreenShowLogout(value);
+		});
+	addToggle(
+		u"passcode/lock-eye"_q,
+		tr::ayu_PasscodeLockShowEye,
+		&st::menuIconShowInChat,
+		settings.lockScreenShowEye(),
+		[](bool value) {
+			AyuSettings::getInstance().setLockScreenShowEye(value);
 		});
 	builder.addButton({
 		.id = u"passcode/lock-preview"_q,

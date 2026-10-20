@@ -722,6 +722,10 @@
 "ayu_PasscodeLockText" = "锁屏文字";
 "ayu_PasscodeLockTextPlaceholder" = "例如：设备被找到时如何联系你";
 "ayu_PasscodeLockShowLogout" = "显示“退出登录”";
+"ayu_PasscodeLockShowEye" = "显示密码按钮";
+"ayu_PasscodeLockColor" = "背景颜色";
+"ayu_PasscodeLockColorSecond" = "渐变第二颜色";
+"ayu_PasscodeLockColorDefault" = "默认";
 "ayu_PasscodeLockPreview" = "预览";
 "ayu_PasscodeLockAppearanceAbout" = "图片和文字在输入密码前可见，因此以未加密方式保存。请勿填写任何隐私信息。";
 "ayu_PasscodeLockImageFailed" = "无法使用此图片。请选择 30 MB 以内的 JPEG、PNG 或 WebP 文件。";

@@ -761,6 +761,10 @@
 "ayu_PasscodeLockText" = "Текст на экране блокировки";
 "ayu_PasscodeLockTextPlaceholder" = "Например, как с вами связаться, если устройство найдут";
 "ayu_PasscodeLockShowLogout" = "Кнопка «Выйти»";
+"ayu_PasscodeLockShowEye" = "Кнопка показа пароля";
+"ayu_PasscodeLockColor" = "Цвет фона";
+"ayu_PasscodeLockColorSecond" = "Второй цвет градиента";
+"ayu_PasscodeLockColorDefault" = "По умолчанию";
 "ayu_PasscodeLockPreview" = "Предпросмотр";
 "ayu_PasscodeLockAppearanceAbout" = "Изображение и текст видны до ввода код-пароля, поэтому хранятся незашифрованными. Не указывайте там ничего личного.";
 "ayu_PasscodeLockImageFailed" = "Это изображение не подходит. Выберите файл JPEG, PNG или WebP до 30 МБ.";

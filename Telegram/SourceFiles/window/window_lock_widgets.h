@@ -155,6 +155,8 @@ private:
 	bool _clockShown = false;
 	bool _dateShown = false;
 	bool _imageShown = false;
+	bool _eyeShown = true;
+	std::optional<QColor> _backdropText;
 	bool _telegramStyle = false;
 	bool _logoutShown = true;
 	bool _textShown = false;

@@ -9529,6 +9529,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_PasscodeLockText" = "Text on the lock screen";
 "ayu_PasscodeLockTextPlaceholder" = "For example, how to reach you if the device is found";
 "ayu_PasscodeLockShowLogout" = "Show “Log out”";
+"ayu_PasscodeLockShowEye" = "Show the password button";
+"ayu_PasscodeLockColor" = "Background color";
+"ayu_PasscodeLockColorSecond" = "Second gradient color";
+"ayu_PasscodeLockColorDefault" = "Default";
 "ayu_PasscodeLockPreview" = "Preview";
 "ayu_PasscodeLockAppearanceAbout" = "The image and the text are visible before the passcode is entered, so they are stored unencrypted. Do not put anything private there.";
 "ayu_PasscodeLockImageFailed" = "This image cannot be used. Choose a JPEG, PNG or WebP file up to 30 MB.";

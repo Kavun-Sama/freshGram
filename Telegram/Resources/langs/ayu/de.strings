@@ -735,6 +735,10 @@
 "ayu_PasscodeLockText" = "Text auf dem Sperrbildschirm";
 "ayu_PasscodeLockTextPlaceholder" = "Zum Beispiel, wie man dich erreicht, wenn das Gerät gefunden wird";
 "ayu_PasscodeLockShowLogout" = "„Abmelden“ anzeigen";
+"ayu_PasscodeLockShowEye" = "Schaltfläche zum Anzeigen des Passworts";
+"ayu_PasscodeLockColor" = "Hintergrundfarbe";
+"ayu_PasscodeLockColorSecond" = "Zweite Farbe des Verlaufs";
+"ayu_PasscodeLockColorDefault" = "Standard";
 "ayu_PasscodeLockPreview" = "Vorschau";
 "ayu_PasscodeLockAppearanceAbout" = "Bild und Text sind vor der Eingabe des Codes sichtbar und werden daher unverschlüsselt gespeichert. Gib dort nichts Privates an.";
 "ayu_PasscodeLockImageFailed" = "Dieses Bild kann nicht verwendet werden. Wähle eine JPEG-, PNG- oder WebP-Datei bis 30 MB.";

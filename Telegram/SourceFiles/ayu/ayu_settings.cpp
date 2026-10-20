@@ -1281,6 +1281,24 @@ void AyuSettings::setLockScreenShowLogout(bool val) {
 	save();
 }
 
+void AyuSettings::setLockScreenShowEye(bool val) {
+	if (_lockScreenShowEye.current() == val) return;
+	_lockScreenShowEye = val;
+	save();
+}
+
+void AyuSettings::setLockScreenColor1(uint32 val) {
+	if (_lockScreenColor1.current() == val) return;
+	_lockScreenColor1 = val;
+	save();
+}
+
+void AyuSettings::setLockScreenColor2(uint32 val) {
+	if (_lockScreenColor2.current() == val) return;
+	_lockScreenColor2 = val;
+	save();
+}
+
 void AyuSettings::setLockOnSystemLock(bool val) {
 	if (_lockOnSystemLock.current() == val) return;
 	_lockOnSystemLock = val;
@@ -1755,6 +1773,9 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"lockScreenShowDate", s._lockScreenShowDate.current()},
 		{"lockScreenText", s._lockScreenText.current()},
 		{"lockScreenShowLogout", s._lockScreenShowLogout.current()},
+		{"lockScreenShowEye", s._lockScreenShowEye.current()},
+		{"lockScreenColor1", s._lockScreenColor1.current()},
+		{"lockScreenColor2", s._lockScreenColor2.current()},
 		{"lockOnSystemLock", s._lockOnSystemLock.current()},
 		{"lockOnMinimize", s._lockOnMinimize.current()},
 		{"hideFromCapture", s._hideFromCapture.current()},
@@ -1925,6 +1946,9 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._lockScreenShowDate = j.value("lockScreenShowDate", defaults._lockScreenShowDate.current());
 	s._lockScreenText = j.value("lockScreenText", defaults._lockScreenText.current());
 	s._lockScreenShowLogout = j.value("lockScreenShowLogout", defaults._lockScreenShowLogout.current());
+	s._lockScreenShowEye = j.value("lockScreenShowEye", defaults._lockScreenShowEye.current());
+	s._lockScreenColor1 = j.value("lockScreenColor1", defaults._lockScreenColor1.current());
+	s._lockScreenColor2 = j.value("lockScreenColor2", defaults._lockScreenColor2.current());
 	s._lockOnSystemLock = j.value("lockOnSystemLock", defaults._lockOnSystemLock.current());
 	s._lockOnMinimize = j.value("lockOnMinimize", defaults._lockOnMinimize.current());
 	s._hideFromCapture = j.value("hideFromCapture", defaults._hideFromCapture.current());

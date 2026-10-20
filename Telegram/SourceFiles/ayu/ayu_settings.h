@@ -384,6 +384,9 @@ public:
 	[[nodiscard]] bool lockScreenShowDate() const { return _lockScreenShowDate.current(); }
 	[[nodiscard]] QString lockScreenText() const { return _lockScreenText.current(); }
 	[[nodiscard]] bool lockScreenShowLogout() const { return _lockScreenShowLogout.current(); }
+	[[nodiscard]] bool lockScreenShowEye() const { return _lockScreenShowEye.current(); }
+	[[nodiscard]] uint32 lockScreenColor1() const { return _lockScreenColor1.current(); }
+	[[nodiscard]] uint32 lockScreenColor2() const { return _lockScreenColor2.current(); }
 	[[nodiscard]] static QString sanitizeLockScreenText(QString text);
 	[[nodiscard]] bool lockOnSystemLock() const { return _lockOnSystemLock.current(); }
 	[[nodiscard]] int lockOnMinimize() const { return _lockOnMinimize.current(); }
@@ -546,6 +549,9 @@ public:
 	void setLockScreenShowDate(bool val);
 	void setLockScreenText(QString val);
 	void setLockScreenShowLogout(bool val);
+	void setLockScreenShowEye(bool val);
+	void setLockScreenColor1(uint32 val);
+	void setLockScreenColor2(uint32 val);
 	void setLockOnSystemLock(bool val);
 	void setLockOnMinimize(int val);
 	void setHideFromCapture(int val);
@@ -735,6 +741,9 @@ public:
 	[[nodiscard]] rpl::producer<bool> lockScreenShowDateValue() const { return _lockScreenShowDate.value(); }
 	[[nodiscard]] rpl::producer<QString> lockScreenTextValue() const { return _lockScreenText.value(); }
 	[[nodiscard]] rpl::producer<bool> lockScreenShowLogoutValue() const { return _lockScreenShowLogout.value(); }
+	[[nodiscard]] rpl::producer<bool> lockScreenShowEyeValue() const { return _lockScreenShowEye.value(); }
+	[[nodiscard]] rpl::producer<uint32> lockScreenColor1Value() const { return _lockScreenColor1.value(); }
+	[[nodiscard]] rpl::producer<uint32> lockScreenColor2Value() const { return _lockScreenColor2.value(); }
 	[[nodiscard]] rpl::producer<bool> lockOnSystemLockValue() const { return _lockOnSystemLock.value(); }
 	[[nodiscard]] rpl::producer<int> lockOnMinimizeValue() const { return _lockOnMinimize.value(); }
 	[[nodiscard]] rpl::producer<int> hideFromCaptureValue() const { return _hideFromCapture.value(); }
@@ -913,6 +922,9 @@ private:
 	rpl::variable<bool> _lockScreenShowDate = true;
 	rpl::variable<QString> _lockScreenText;
 	rpl::variable<bool> _lockScreenShowLogout = true;
+	rpl::variable<bool> _lockScreenShowEye = true;
+	rpl::variable<uint32> _lockScreenColor1 = uint32(0);
+	rpl::variable<uint32> _lockScreenColor2 = uint32(0);
 	rpl::variable<bool> _lockOnSystemLock = false;
 	rpl::variable<int> _lockOnMinimize = -1;
 	rpl::variable<int> _hideFromCapture = 0;

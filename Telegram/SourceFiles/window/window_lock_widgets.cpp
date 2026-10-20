@@ -287,7 +287,10 @@ void PasscodeLockWidget::setupSettings() {
 		settings.lockScreenDimValue() | rpl::to_empty,
 		settings.lockScreenShowDateValue() | rpl::to_empty,
 		settings.lockScreenTextValue() | rpl::to_empty,
-		settings.lockScreenShowLogoutValue() | rpl::to_empty
+		settings.lockScreenShowLogoutValue() | rpl::to_empty,
+		settings.lockScreenShowEyeValue() | rpl::to_empty,
+		settings.lockScreenColor1Value() | rpl::to_empty,
+		settings.lockScreenColor2Value() | rpl::to_empty
 	) | rpl::on_next([=] {
 		applySettings();
 	}, lifetime());
@@ -300,6 +303,11 @@ void PasscodeLockWidget::applySettings() {
 	const auto &settings = AyuSettings::getInstance();
 	_telegramStyle = (settings.lockScreenStyle() == 1);
 	_logoutShown = settings.lockScreenShowLogout();
+	_eyeShown = settings.lockScreenShowEye();
+	if (!_eyeShown) {
+		_passcode->setEchoMode(QLineEdit::Password);
+		_eye->setIconOverride(nullptr, nullptr);
+	}
 	const auto text = settings.lockScreenText();
 	_text->setText(text);
 	_textShown = !text.isEmpty();
@@ -310,6 +318,7 @@ void PasscodeLockWidget::applySettings() {
 
 void PasscodeLockWidget::restoreChildrenVisibility() {
 	_logout->setVisible(_logoutShown);
+	_eye->setVisible(_eyeShown);
 	_text->setVisible(_textShown);
 }
 
@@ -371,9 +380,12 @@ void PasscodeLockWidget::setupSystemUnlock() {
 	}
 	button->showOn(_systemUnlockAllowed.value(
 	) | rpl::map(rpl::mappers::_1 != SystemUnlockType::None));
-	_passcode->sizeValue() | rpl::on_next([=](QSize size) {
+	rpl::combine(
+		_passcode->sizeValue(),
+		AyuSettings::getInstance().lockScreenShowEyeValue()
+	) | rpl::on_next([=](QSize size, bool eye) {
 		button->moveToRight(
-			st::passcodeEye.width,
+			eye ? st::passcodeEye.width : 0,
 			size.height() - button->height());
 	}, button->lifetime());
 	button->setClickedCallback([=] {
@@ -556,9 +568,17 @@ void PasscodeLockWidget::paintContent(QPainter &p) {
 	}
 }
 
+[[nodiscard]] static QColor TextOver(const QColor &background) {
+	const auto luma = 0.299 * background.redF()
+		+ 0.587 * background.greenF()
+		+ 0.114 * background.blueF();
+	return (luma < 0.55) ? QColor(255, 255, 255) : QColor(20, 20, 20);
+}
+
 void PasscodeLockWidget::paintBackground(QPainter &p) {
 	LockWidget::paintContent(p);
 	_imageShown = false;
+	_backdropText = std::nullopt;
 	if (_telegramStyle) {
 		return;
 	}
@@ -575,10 +595,35 @@ void PasscodeLockWidget::paintBackground(QPainter &p) {
 			_imageShown = true;
 			return;
 		}
-	} else if (type == 1) {
+	}
+	const auto first = settings.lockScreenColor1();
+	const auto second = settings.lockScreenColor2();
+	if (type == 1) {
+		if (first) {
+			const auto color = QColor::fromRgba(first);
+			p.fillRect(rect(), color);
+			_backdropText = TextOver(color);
+		}
 		return;
 	}
 	auto hq = PainterHighQualityEnabler(p);
+	if (type == 0 && (first || second)) {
+		const auto top = first
+			? QColor::fromRgba(first)
+			: st::activeButtonBg->c;
+		const auto bottom = second
+			? QColor::fromRgba(second)
+			: st::windowBg->c;
+		auto gradient = QLinearGradient(0, 0, 0, height());
+		gradient.setColorAt(0., top);
+		gradient.setColorAt(1., bottom);
+		p.fillRect(rect(), gradient);
+		_backdropText = TextOver(QColor::fromRgbF(
+			(top.redF() + bottom.redF()) / 2,
+			(top.greenF() + bottom.greenF()) / 2,
+			(top.blueF() + bottom.blueF()) / 2));
+		return;
+	}
 	auto tint = st::activeButtonBg->c;
 	tint.setAlpha(40);
 	auto clear = tint;
@@ -608,11 +653,19 @@ void PasscodeLockWidget::paintCardContent(QPainter &p) {
 	auto hq = PainterHighQualityEnabler(p);
 	const auto full = QRect(0, 0, width(), 0);
 	if (_clockShown) {
-		p.setPen(_imageShown ? QColor(255, 255, 255) : st::windowFg->c);
+		p.setPen(_backdropText
+			? *_backdropText
+			: _imageShown
+			? QColor(255, 255, 255)
+			: st::windowFg->c);
 		paintCentered(p, st::passcodeClockFont, full.translated(0, _clockTop), _clock);
 	}
 	if (_dateShown) {
-		p.setPen(_imageShown
+		auto subtle = _backdropText.value_or(QColor());
+		subtle.setAlpha(210);
+		p.setPen(_backdropText
+			? subtle
+			: _imageShown
 			? QColor(255, 255, 255, 210)
 			: st::windowSubTextFg->c);
 		paintCentered(p, st::passcodeDateFont, full.translated(0, _dateTop), _date);

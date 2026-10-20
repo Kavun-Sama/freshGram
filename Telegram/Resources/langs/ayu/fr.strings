@@ -743,6 +743,10 @@
 "ayu_PasscodeLockText" = "Texte sur l’écran de verrouillage";
 "ayu_PasscodeLockTextPlaceholder" = "Par exemple, comment vous joindre si l’appareil est retrouvé";
 "ayu_PasscodeLockShowLogout" = "Afficher « Se déconnecter »";
+"ayu_PasscodeLockShowEye" = "Bouton d’affichage du mot de passe";
+"ayu_PasscodeLockColor" = "Couleur de fond";
+"ayu_PasscodeLockColorSecond" = "Seconde couleur du dégradé";
+"ayu_PasscodeLockColorDefault" = "Par défaut";
 "ayu_PasscodeLockPreview" = "Aperçu";
 "ayu_PasscodeLockAppearanceAbout" = "L’image et le texte sont visibles avant la saisie du code, ils sont donc stockés sans chiffrement. N’y mettez rien de privé.";
 "ayu_PasscodeLockImageFailed" = "Cette image ne peut pas être utilisée. Choisissez un fichier JPEG, PNG ou WebP de 30 Mo maximum.";
