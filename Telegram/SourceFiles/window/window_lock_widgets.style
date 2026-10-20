@@ -38,6 +38,7 @@ passcodeSystemUnlockLater: FlatLabel(defaultFlatLabel) {
 passcodeSystemUnlockSkip: 12px;
 passcodeInputWithButtons: InputField(passcodeInput) {
 	textMargins: margins(1px, 27px, 68px, 6px);
+	textBg: transparent;
 }
 passcodeEye: IconButton(passcodeSystemUnlock) {
 	icon: icon{{ "menu/show_in_chat", lightButtonFg }};
