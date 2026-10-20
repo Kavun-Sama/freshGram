@@ -39,12 +39,15 @@ def main():
     parser.add_argument("manifest")
     parser.add_argument("items", nargs="+", help="file.fgtm:POST")
     parser.add_argument("--out", help="where to write, by default next to the input")
+    parser.add_argument("--first-id", type=int, help="the first id for new models")
     args = parser.parse_args()
 
     with open(args.manifest, encoding="utf-8") as file:
         data = json.load(file)
     models = data.setdefault("models", [])
-    next_id = max([m.get("id", 0) for m in models] + [0]) + 1
+    next_id = args.first_id or (max([m.get("id", 0) for m in models] + [0]) + 1)
+    if any(m.get("id") == next_id for m in models):
+        sys.exit(f"The id {next_id} is already taken.")
     known = {(m.get("kind"), m.get("code")): m for m in models}
 
     for item in args.items:
